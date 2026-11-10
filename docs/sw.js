@@ -1,8 +1,8 @@
 // Service worker de Medidas: deja instalar la app y abrirla sin cobertura.
 // Sus archivos: primero la red y, sin conexión, la copia guardada. Supabase no se toca.
 // Al actualizarse solo borra sus cachés (medidas-*): en la misma web hay otras apps con las suyas.
-const CACHE = 'medidas-v7';
-const APP = ['./', './index.html', './styles.css', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './js/app.js', './js/almacen.js', './js/boceto.js', './js/campos.js', './js/config.js', './js/imagen.js', './js/modelo.js', './js/nube.js', './js/plano-editor.js', './js/plano-geo.js', './js/plano-vista.js', './js/sincro.js', './js/unidades.js', './js/util.js', './js/pantallas/adjuntos.js', './js/pantallas/ajustes.js', './js/pantallas/ficha.js', './js/pantallas/inicio.js', './js/pantallas/trabajo.js'];
+const CACHE = 'medidas-v8';
+const APP = ['./', './index.html', './styles.css', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './js/app.js', './js/almacen.js', './js/boceto.js', './js/campos.js', './js/config.js', './js/imagen.js', './js/modelo.js', './js/modulos.js', './js/nube.js', './js/plano-editor.js', './js/plano-geo.js', './js/plano-vista.js', './js/sincro.js', './js/unidades.js', './js/util.js', './js/pantallas/adjuntos.js', './js/pantallas/ajustes.js', './js/pantallas/ficha.js', './js/pantallas/inicio.js', './js/pantallas/trabajo.js'];
 const LIB = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.js';
 const LIBS = /^https:\/\/cdn\.jsdelivr\.net\//;
 

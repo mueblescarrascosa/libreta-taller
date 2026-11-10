@@ -3,6 +3,9 @@
 import { aEscala, comprobar, planoPorDefecto, letras } from './plano-geo.js';
 import { camposDeElemento, paredNueva, nombreElemento, USOS, textoAzulejo } from './modelo.js';
 import { verMedida } from './unidades.js';
+import { nombreModulo, esColumna } from './modulos.js';
+
+const FONDO_MODULO = 600;
 
 const ETIQUETA_CORTA = {
   humos: 'Humos', desague: 'Desagüe', agua: 'Agua', gas: 'Gas', enchufe: 'E', enchufe_hmo: 'E H/MO', enchufe_horno: 'E horno',
@@ -42,7 +45,7 @@ export function geometriaPlanta(d, { margen = 10 } = {}) {
   const n = pts.length, m = plano.cerrada ? n : n - 1;
   // Sin plano dibujado, cada pared de la planta es la de la ficha en ese orden, con su letra.
   const nombres = d.plano ? letras(m) : (d.paredes || []).map(p => p.letra);
-  const geo = { paredes: [], elementos: [], sinSituar: [], fuera: [], aEscala: escala, cierre: comprobar(plano, margen).cierre };
+  const geo = { paredes: [], elementos: [], modulos: [], sinSituar: [], fuera: [], aEscala: escala, cierre: comprobar(plano, margen).cierre };
   for (let i = 0; i < m; i++) {
     const a = pts[i], b = pts[(i + 1) % n], letra = nombres[i];
     const pared = (d.paredes || []).find(p => p.letra === letra) || { largo: null, elementos: [] };
@@ -64,6 +67,17 @@ export function geometriaPlanta(d, { margen = 10 } = {}) {
       }
       geo.elementos.push(r);
     });
+    // Bajos y columnas, seguidos desde la izquierda, con 60 de fondo hacia dentro. Se para en el primero sin ancho.
+    if (k !== null) {
+      let s = 0;
+      for (const mo of pared.bajos || []) {
+        if (!hay(mo.ancho)) break;
+        const pa = en(s), pb = en(s + mo.ancho), f = FONDO_MODULO * k;
+        geo.modulos.push({ tipo: mo.tipo, nombre: nombreModulo(mo), ancho: mo.ancho, columna: esColumna(mo), pared: letra, dentro,
+          rect: [pa, pb, { x: pb.x + dentro.x * f, y: pb.y + dentro.y * f }, { x: pa.x + dentro.x * f, y: pa.y + dentro.y * f }] });
+        s += mo.ancho;
+      }
+    }
   }
   // Paredes de la ficha que el plano no tiene: se avisan y sus elementos van a «sin situar».
   (d.paredes || []).filter(p => !nombres.includes(p.letra)).forEach(p => {
@@ -89,7 +103,7 @@ export function aplicarPlano(datos, plano) {
 // Dibujo SVG de la planta. Solo en el navegador.
 export function svgPlanta(geo) {
   const NS = 'http://www.w3.org/2000/svg', el = (t, a, txt) => { const e = document.createElementNS(NS, t); Object.entries(a).forEach(([k, v]) => e.setAttribute(k, v)); if (txt !== undefined) e.textContent = txt; return e; };
-  const todos = geo.paredes.flatMap(p => [p.a, p.b]).concat(geo.elementos.flatMap(e => e.rect || (e.punto ? [e.punto] : [e.a, e.b])));
+  const todos = geo.paredes.flatMap(p => [p.a, p.b]).concat(geo.elementos.flatMap(e => e.rect || (e.punto ? [e.punto] : [e.a, e.b])), geo.modulos.flatMap(m => m.rect));
   const xs = todos.map(p => p.x), ys = todos.map(p => p.y);
   const x0 = Math.min(...xs), y0 = Math.min(...ys), w = Math.max(...xs) - x0 || 1, h = Math.max(...ys) - y0 || 1, s = Math.max(w, h) / 120, pad = s * 14;
   const svg = el('svg', { viewBox: `${x0 - pad} ${y0 - pad} ${w + 2 * pad} ${h + 2 * pad}`, class: 'planta', role: 'img', 'aria-label': 'Planta de la habitación', 'data-acc': 'planta' });
@@ -100,6 +114,11 @@ export function svgPlanta(geo) {
     const mx = (p.a.x + p.b.x) / 2 + fuera.x * s * 6, my = (p.a.y + p.b.y) / 2 + fuera.y * s * 6;
     texto(mx, my, p.letra + (hay(p.largo) ? ' · ' + verMedida(p.largo, 'm') + ' m' : ''), { 'font-weight': 700, 'data-pared': p.letra });
     if (p.azulejo) texto(mx + fuera.x * s * 5, my + fuera.y * s * 5, p.azulejo, { 'font-size': s * 3, fill: '#0f766e' });
+  });
+  geo.modulos.forEach(m => {
+    svg.append(el('polygon', { points: m.rect.map(p => p.x + ',' + p.y).join(' '), fill: m.columna ? '#e7d8c9' : '#f5ede4', stroke: '#92400e', 'stroke-width': s * 0.5, 'data-modulo': m.tipo }));
+    const c = { x: (m.rect[0].x + m.rect[2].x) / 2, y: (m.rect[0].y + m.rect[2].y) / 2 };
+    texto(c.x, c.y, m.nombre + ' ' + verMedida(m.ancho, 'cm'), { 'font-size': s * 2.8, fill: '#78350f' });
   });
   geo.elementos.forEach(e => {
     const col = colorDe(e.tipo), d = e.dentro;

@@ -106,3 +106,8 @@ button.mini { min-height: 36px; padding: 4px 10px; font-size: 14px; }
 .items { display: grid; gap: 4px; }
 .item { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: center; padding: 2px 0; border-bottom: 1px solid #f1f5f9; }
 .item span { overflow-wrap: anywhere; }
+.modulos { display: grid; gap: 4px; }
+.modulo { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: center; border: 1px solid var(--borde); border-radius: 8px; padding: 4px 6px; background: #fffbf5; }
+.modulo.abierto { grid-template-columns: minmax(0, 1fr); padding: 8px; }
+.modulo .cab span { display: flex; gap: 4px; }
+.cuadre { color: #92400e; font-weight: 600; min-height: 1em; }

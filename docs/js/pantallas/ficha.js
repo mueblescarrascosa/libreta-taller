@@ -4,6 +4,8 @@ import { unidadDe } from '../unidades.js';
 import { avisos, camposDeElemento, elementoNuevo, paredNueva, puertaNueva, normalizarFicha, resumenPuerta, limpiarDatos, tieneInformacion,
   TIPOS_ELEMENTO, NOMBRE_ELEMENTO, RAPIDAS_PUERTA, USOS, nombreElemento } from '../modelo.js';
 import { campoMedida, campoEntero } from '../campos.js';
+import { verMedida } from '../unidades.js';
+import { TIPOS_MODULO, NOMBRE_MODULO, moduloNuevo, nombreModulo, cuadreBajos, cuadreAltos, cuadreCuerpos, textoCuadre, lineaNueva, nombreLineal, nombreInterior, acabadosNuevos } from '../modulos.js';
 import { seccionAdjuntos } from './adjuntos.js';
 import { huella } from '../sincro.js';
 import { geometriaPlanta, svgPlanta, aplicarPlano } from '../plano-vista.js';
@@ -51,6 +53,7 @@ export async function pintarFicha(App, id) {
 
   const general = h('div', { class: 'avisos', 'data-avisos': '*' });
   let pintarPlanta = null;
+  const refrescos = [];
   function refrescarAvisos() {
     const porCampo = {};
     avisos(ficha, unidad, { margen: AJ.margen }).forEach(a => { (porCampo[a.campo] = porCampo[a.campo] || []).push(a.texto); });
@@ -58,6 +61,7 @@ export async function pintarFicha(App, id) {
     zonas.forEach(z => { z.textContent = (porCampo[z.dataset.avisos] || []).join(' · '); });
     general.textContent = Object.keys(porCampo).filter(k => !conZona.has(k)).map(k => porCampo[k].join(' · ')).join(' · ');
     if (pintarPlanta) pintarPlanta();
+    refrescos.forEach(f => f());
   }
   const confirmarQuitar = que => confirm('¿Quitar ' + que + '?');
   const medida = (obj, k, etiqueta, extra) => campoMedida(Object.assign({ etiqueta, acc: k, valor: obj[k], mal: obj.mal && obj.mal[k], unidad, aviso: k,
@@ -208,6 +212,7 @@ export async function pintarFicha(App, id) {
       h('div', { class: 'avisos', 'data-avisos': 'pared.' + p.id }),
       pilares,
       h('div', { class: 'campo' }, zonaAzulejo),
+      tipos === TIPOS_ELEMENTO.cocina ? muebles(p) : null,
       zonaEl,
       h('label', { class: 'et' }, 'Añadir'),
       h('div', { class: 'chips' }, tipos.map(t => h('button', { type: 'button', 'data-acc': 'anadir-elemento', 'data-v': t, onclick: () => { p.elementos.push(elementoNuevo(t, d.ref_ultima)); cambio(); repintar(); } }, NOMBRE_ELEMENTO[t]))));
@@ -230,9 +235,99 @@ export async function pintarFicha(App, id) {
     } }, '+ Añadir enchufe')];
   }
 
+  // ── Listas de izquierda a derecha (módulos de una fila, cuerpos de armario): una abierta, las demás resumidas ──
+  function listaOrdenada({ lista, atributo, abierto, alAbrir, editor, resumen, repintar }) {
+    return lista.map((m, i) => {
+      const subir = h('button', { type: 'button', class: 'mini', 'data-acc': 'subir-modulo', 'aria-label': 'Mover a la izquierda', disabled: i === 0, onclick: () => { [lista[i - 1], lista[i]] = [lista[i], lista[i - 1]]; cambio(); repintar(); } }, '←');
+      const quitar = h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-modulo', 'aria-label': 'Quitar', onclick: () => { if (confirmarQuitar(resumen(m).toLowerCase())) { lista.splice(i, 1); cambio(); repintar(); } } }, '✕');
+      if (m.id === abierto()) return h('div', { class: 'modulo abierto', [atributo]: m.tipo || '' }, h('div', { class: 'cab' }, h('b', {}, resumen(m)), h('span', {}, subir, quitar)), editor(m));
+      return h('div', { class: 'modulo', [atributo]: m.tipo || '' },
+        h('button', { type: 'button', class: 'resumen', onclick: () => { alAbrir(m.id); repintar(); } }, resumen(m) + (m.ancho ? ' · ' + verMedida(m.ancho, 'cm') : '')), subir, quitar);
+    });
+  }
+
+  // Módulos de una pared: bajos y altos, de izquierda a derecha, en cm, con el cuadre contra el largo.
+  function muebles(p) {
+    if (!p.bajos) p.bajos = [];
+    if (!p.altos) p.altos = [];
+    const caja = h('div', { class: 'campo' });
+    const abiertos = { bajos: null, altos: null };
+    function fila(nombre, titulo) {
+      const zona = h('div', { class: 'modulos' }), cuadre = h('small', { class: 'cuadre', 'data-acc': 'cuadre-' + nombre });
+      // Arriba solo se cuadra si hay altos: las columnas solas no son una fila de altos.
+      const pintarCuadre = () => { cuadre.textContent = nombre === 'altos' && !p.altos.length ? '' : textoCuadre(nombre === 'bajos' ? cuadreBajos(p) : cuadreAltos(p), 'cm'); };
+      const repintar = () => {
+        zona.replaceChildren(...listaOrdenada({ lista: p[nombre], atributo: 'data-modulo', abierto: () => abiertos[nombre], alAbrir: idm => { abiertos[nombre] = idm; }, repintar,
+          resumen: nombreModulo,
+          editor: m => [m.tipo === 'otro' ? h('input', { 'data-acc': 'nombre-modulo', placeholder: '¿Qué módulo?', value: m.nombre, oninput: ev => { m.nombre = ev.target.value; cambio(); } }) : null,
+            campoMedida({ etiqueta: 'Ancho', acc: 'ancho', valor: m.ancho, mal: m.mal && m.mal.ancho, unidad: 'cm', rapidos: AJ.modulo_anchos, alCambiar: (v, t) => { anotarMedida(m, 'ancho', v, t); cambio(); pintarCuadre(); } })] }));
+        pintarCuadre(); refrescarAvisos();
+      };
+      refrescos.push(pintarCuadre);
+      repintar();
+      return h('div', { 'data-fila': nombre }, h('label', { class: 'et' }, titulo), zona, cuadre,
+        h('div', { class: 'chips' }, TIPOS_MODULO[nombre].map(t => h('button', { type: 'button', 'data-acc': 'anadir-modulo', 'data-v': t, onclick: () => {
+          const m = moduloNuevo(t); p[nombre].push(m); abiertos[nombre] = m.id; cambio(); repintar();
+        } }, NOMBRE_MODULO[t]))));
+    }
+    caja.append(h('label', { class: 'et' }, 'Muebles, de izquierda a derecha'), fila('bajos', 'Bajos y columnas'), fila('altos', 'Altos'));
+    return caja;
+  }
+
+  // Cuerpos de armario, de izquierda a derecha, con su ancho y su interior.
+  function cuerpos() {
+    if (!d.cuerpos) d.cuerpos = [];
+    const zona = h('div', { class: 'modulos' }), cuadre = h('small', { class: 'cuadre', 'data-acc': 'cuadre-cuerpos' });
+    let abierto = null;
+    const pintarCuadre = () => { cuadre.textContent = textoCuadre(cuadreCuerpos(d), 'cm'); };
+    const interiores = AJ.interiores.concat([['otro', 'Otro']]);
+    const repintar = () => {
+      zona.replaceChildren(...listaOrdenada({ lista: d.cuerpos, atributo: 'data-cuerpo', abierto: () => abierto, alAbrir: idc => { abierto = idc; }, repintar,
+        resumen: c => 'Cuerpo ' + (d.cuerpos.indexOf(c) + 1) + (c.interior ? ' · ' + (c.interior === 'otro' ? c.nombre || 'otro' : nombreInterior(c.interior, AJ).toLowerCase()) : ''),
+        editor: c => [campoMedida({ etiqueta: 'Ancho', acc: 'ancho', valor: c.ancho, mal: c.mal && c.mal.ancho, unidad: 'cm', rapidos: AJ.modulo_anchos, alCambiar: (v, t) => { anotarMedida(c, 'ancho', v, t); cambio(); pintarCuadre(); } }),
+          h('label', { class: 'et' }, 'Interior'),
+          h('div', { class: 'chips' }, interiores.map(([v, t]) => h('button', { type: 'button', 'data-acc': 'interior', 'data-v': v, class: c.interior === v ? 'on' : '', onclick: () => { c.interior = c.interior === v ? null : v; cambio(); repintar(); } }, t))),
+          c.interior === 'otro' ? h('input', { 'data-acc': 'nombre-cuerpo', placeholder: '¿Qué interior?', value: c.nombre || '', oninput: ev => { c.nombre = ev.target.value; cambio(); } }) : null] }));
+      pintarCuadre(); refrescarAvisos();
+    };
+    refrescos.push(pintarCuadre);
+    repintar();
+    return [h('h2', {}, 'Cuerpos, de izquierda a derecha'), zona, cuadre,
+      h('button', { type: 'button', class: 'ancho', 'data-acc': 'anadir-cuerpo', onclick: () => { const c = { id: nuevoId(), ancho: null, interior: null, nombre: '' }; d.cuerpos.push(c); abierto = c.id; cambio(); repintar(); } }, '+ Añadir cuerpo')];
+  }
+
+  const texto = (obj, k, acc, ph) => h('input', { 'data-acc': acc, placeholder: ph, value: obj[k] || '', oninput: ev => { obj[k] = ev.target.value; cambio(); } });
+
+  // Acabados de cocina: modelo y color (o por separado altos y bajos si es bitono), encimera y lineales.
+  function acabados() {
+    if (!d.acabados) d.acabados = acabadosNuevos();
+    const ac = d.acabados, caja = h('div', { class: 'tarjeta' }), zonaLin = h('div', { class: 'lista' });
+    const pintarLineales = () => zonaLin.replaceChildren(...ac.lineales.map(l => h('div', { class: 'libre', 'data-lineal': l.tipo },
+      l.tipo === 'otro' ? texto(l, 'nombre', 'lineal-nombre', '¿Qué lineal?') : h('span', {}, nombreLineal(l, AJ)),
+      texto(l, 'modelo', 'lineal-modelo', 'Modelo o color'),
+      h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-lineal', onclick: () => { if (confirmarQuitar(nombreLineal(l, AJ).toLowerCase())) { ac.lineales.splice(ac.lineales.indexOf(l), 1); cambio(); pintarLineales(); } } }, '✕'))));
+    const pintar = () => {
+      caja.replaceChildren(h('b', {}, 'Acabados'),
+        h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Bitono (altos y bajos distintos)'),
+          segmentado({ acc: 'bitono', opciones: SI_NO, valor: ac.bitono, permitirVacio: true, alCambiar: v => { ac.bitono = v; cambio(); pintar(); } })),
+        ...(ac.bitono
+          ? [h('label', { class: 'et' }, 'Altos'), h('div', { class: 'dos' }, texto(ac, 'modelo_altos', 'acab-modelo_altos', 'Modelo'), texto(ac, 'color_altos', 'acab-color_altos', 'Color')),
+            h('label', { class: 'et' }, 'Bajos'), h('div', { class: 'dos' }, texto(ac, 'modelo_bajos', 'acab-modelo_bajos', 'Modelo'), texto(ac, 'color_bajos', 'acab-color_bajos', 'Color'))]
+          : [h('label', { class: 'et' }, 'Muebles'), h('div', { class: 'dos' }, texto(ac, 'modelo', 'acab-modelo', 'Modelo'), texto(ac, 'color', 'acab-color', 'Color'))]),
+        h('label', { class: 'et' }, 'Encimera'),
+        h('div', { class: 'dos' }, texto(ac.encimera, 'material', 'encimera-material', 'Material o modelo'), texto(ac.encimera, 'color', 'encimera-color', 'Color')),
+        campoMedida({ etiqueta: 'Grueso', acc: 'encimera-grueso', valor: ac.encimera.grueso, unidad: 'mm', alCambiar: v => { ac.encimera.grueso = v; cambio(); } }),
+        h('label', { class: 'et' }, 'Lineales'), zonaLin,
+        h('div', { class: 'chips' }, AJ.lineales.concat([['otro', 'Otro']]).map(([v, t]) => h('button', { type: 'button', 'data-acc': 'anadir-lineal', 'data-v': v, onclick: () => { ac.lineales.push(lineaNueva(v)); cambio(); pintarLineales(); } }, t))));
+      pintarLineales();
+    };
+    pintar();
+    return caja;
+  }
+
   function propios() {
-    if (ficha.tipo === 'puerta') return puertas();
-    if (ficha.tipo === 'cocina') return paredes(TIPOS_ELEMENTO.cocina);
+    if (ficha.tipo === 'puerta') return [h('div', { class: 'tarjeta' }, h('b', {}, 'Para todas las puertas'), h('div', { class: 'dos' }, texto(d, 'modelo', 'puertas-modelo', 'Modelo'), texto(d, 'color', 'puertas-color', 'Color'))), ...puertas()];
+    if (ficha.tipo === 'cocina') return [acabados(), ...paredes(TIPOS_ELEMENTO.cocina)];
     if (ficha.tipo === 'armario') {
       const r = [h('div', { class: 'tarjeta' },
         h('label', { class: 'et' }, 'Ancho del hueco'),
@@ -247,6 +342,7 @@ export async function pintarFicha(App, id) {
         h('div', { class: 'dos' }, medida(d, 'rodapie_alto', 'Alto de rodapié'), medida(d, 'rodapie_grosor', 'Grosor de rodapié')),
         ficha.subtipo === 'corredera' ? campoEntero({ etiqueta: 'Número de hojas', acc: 'hojas', valor: d.hojas, alCambiar: v => { d.hojas = v; cambio(); } }) : null,
         ficha.subtipo === 'abatible' ? campoEntero({ etiqueta: 'Número de puertas', acc: 'puertas', valor: d.puertas, alCambiar: v => { d.puertas = v; cambio(); } }) : null)];
+      r.push(...cuerpos());
       r.push(...enchufes());
       if (ficha.subtipo === 'vestidor') r.push(...paredes(TIPOS_ELEMENTO.vestidor));
       return r;

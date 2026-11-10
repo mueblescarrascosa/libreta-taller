@@ -1,5 +1,6 @@
 // Modelo de datos: fichas, elementos, avisos y búsqueda. Sin pantallas ni red.
 import { verMedida } from './unidades.js';
+import { avisosModulos, acabadosNuevos } from './modulos.js';
 
 const MAXIMO = 20000;
 const id = () => crypto.randomUUID();
@@ -135,10 +136,10 @@ export function resumenPuerta(p, unidad) {
 
 function datosDe(tipo, subtipo) {
   const c = { libres: [], notas: [], ref_ultima: 'izq' };
-  if (tipo === 'puerta') return Object.assign(c, { puertas: [puertaNueva(null)] });
-  if (tipo === 'cocina') return Object.assign(c, { alto_techo: null, paredes: [paredNueva([])] });
+  if (tipo === 'puerta') return Object.assign(c, { modelo: '', color: '', puertas: [puertaNueva(null)] });
+  if (tipo === 'cocina') return Object.assign(c, { alto_techo: null, acabados: acabadosNuevos(), paredes: [paredNueva([])] });
   if (tipo === 'armario') {
-    Object.assign(c, { ancho_arriba: null, ancho_medio: null, ancho_abajo: null, alto_izq: null, alto_der: null, fondo: null, rodapie_alto: null, rodapie_grosor: null, enchufes: [] });
+    Object.assign(c, { ancho_arriba: null, ancho_medio: null, ancho_abajo: null, alto_izq: null, alto_der: null, fondo: null, rodapie_alto: null, rodapie_grosor: null, enchufes: [], cuerpos: [] });
     if (subtipo === 'corredera') c.hojas = null;
     if (subtipo === 'abatible') c.puertas = null;
     if (subtipo === 'vestidor') Object.assign(c, { alto_techo: null, paredes: [paredNueva([])] });
@@ -158,7 +159,7 @@ export function paredNueva(paredes) {
   const usadas = new Set(paredes.map(p => p.letra));
   let n = 0, letra;
   do { letra = n < 26 ? String.fromCharCode(65 + n) : 'P' + (n + 1); n++; } while (usadas.has(letra));
-  return { id: id(), letra, largo: null, alto: null, elementos: [] };
+  return { id: id(), letra, largo: null, alto: null, elementos: [], bajos: [], altos: [] };
 }
 
 const hay = v => v !== null && v !== undefined;
@@ -219,6 +220,7 @@ export function avisos(ficha, unidad, { margen = AJUSTES_FABRICA.margen } = {}) 
     });
   }
   avisosParedes(l, d.paredes, unidad);
+  l.push(...avisosModulos(ficha, 'cm'));
   d.libres.forEach(m => revisarMaximo(l, 'libre.' + m.id, m.nombre || 'Medida', m.mm, unidad));
   return l;
 }
