@@ -109,8 +109,10 @@ const CAMPOS_PUERTA = ['ancho', 'alto', 'tabique', 'mano', 'condena', 'vidriera'
 
 // En un mismo piso el tabique suele repetirse: la puerta nueva lo copia de la anterior.
 export function puertaNueva(anterior) {
-  return { id: id(), nombre: '', ancho: null, alto: null, tabique: anterior ? anterior.tabique ?? null : null, mano: null, condena: null, vidriera: null };
+  return { id: id(), nombre: '', tipo: null, ancho: null, alto: null, tabique: anterior ? anterior.tabique ?? null : null, mano: null, condena: null, vidriera: null };
 }
+// Tipo de puerta: la abatible de una hoja es la normal y no se repite en los resúmenes.
+export const TIPOS_PUERTA = [['abatible', 'Abatible'], ['corredera', 'Corredera'], ['doble', 'Doble'], ['fija', 'Fija']];
 
 // Las fichas de puerta antiguas tenían una sola puerta con los datos sueltos: pasan a la lista.
 export function normalizarFicha(f) {
@@ -128,6 +130,7 @@ export function resumenPuerta(p, unidad) {
   else if (hay(p.ancho)) t.push('ancho ' + v(p.ancho) + ' ' + unidad);
   else if (hay(p.alto)) t.push('alto ' + v(p.alto) + ' ' + unidad);
   if (hay(p.tabique)) t.push('tabique ' + v(p.tabique));
+  if (p.tipo && p.tipo !== 'abatible') t.push(p.tipo === 'corredera' ? 'corredera' : p.tipo === 'doble' ? 'doble' : 'fija');
   if (p.mano) t.push(p.mano === 'izq' ? 'izquierda' : 'derecha');
   if (p.condena) t.push('condena');
   if (p.vidriera) t.push('vidriera');
@@ -214,6 +217,10 @@ export function avisos(ficha, unidad, { margen = AJUSTES_FABRICA.margen } = {}) 
     revisarMaximo(l, 'rodapie_grosor', 'Grosor de rodapié', d.rodapie_grosor, unidad);
     revisarDiferencia(l, 'anchos', 'Los anchos', [d.ancho_arriba, d.ancho_medio, d.ancho_abajo], unidad, margen);
     revisarDiferencia(l, 'altos', 'Los altos', [d.alto_izq, d.alto_der], unidad, margen);
+    revisarMaximo(l, 'diagonales', 'Diagonal', d.diag_1, unidad);
+    revisarMaximo(l, 'diagonales', 'Diagonal', d.diag_2, unidad);
+    if (hay(d.diag_1) && hay(d.diag_2) && Math.abs(d.diag_1 - d.diag_2) > margen)
+      l.push({ campo: 'diagonales', texto: 'Las diagonales difieren ' + verMedida(Math.abs(d.diag_1 - d.diag_2), unidad) + ' ' + unidad + ': el hueco no está a escuadra' });
     (d.enchufes || []).forEach(e => {
       revisarMaximo(l, 'enchufe.' + e.id, 'Enchufe', e.distancia, unidad);
       revisarMaximo(l, 'enchufe.' + e.id, 'Enchufe (altura)', e.altura, unidad);

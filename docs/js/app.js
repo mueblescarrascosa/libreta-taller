@@ -1,5 +1,5 @@
 // Arranque, rutas y servicios compartidos por las pantallas.
-import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
+import { SUPABASE_URL, SUPABASE_KEY, TRABAJO_DATOS } from './config.js';
 import { abrirAlmacen } from './almacen.js';
 import { crearNube } from './nube.js';
 import { crearSincro } from './sincro.js';
@@ -9,7 +9,10 @@ import { pintarInicio } from './pantallas/inicio.js';
 import { pintarTrabajo } from './pantallas/trabajo.js';
 import { pintarFicha, descartarVacio } from './pantallas/ficha.js';
 import { pintarAjustes } from './pantallas/ajustes.js';
-import { pintarResumen } from './pantallas/resumen.js';
+import { pintarResumen, pintarResumenTrabajo } from './pantallas/resumen.js';
+import { pintarPapelera } from './pantallas/papelera.js';
+import { fotosParaLimpiar } from './trabajos.js';
+import { vigilarVersion, pintarAvisoVersion } from './version.js';
 
 const raiz = document.getElementById('app');
 const RETARDO_SINCRO = 1500;
@@ -20,6 +23,8 @@ const App = {
   refrescar: null, // repinta la pantalla si llegan cambios de la nube
 
   alSalir: null, // al dejar la ficha: descarta lo vacío
+  // Teléfono y estado del trabajo (columna med_trabajos.datos). En pruebas se enciende con localStorage.
+  trabajoDatos: TRABAJO_DATOS || (() => { try { return localStorage.getItem('medidas-trabajo-datos') === '1'; } catch { return false; } })(),
   _ajustes: mezclarAjustes(null), _filaAjustes: null,
 
   // Ajustes compartidos entre dispositivos (tabla med_ajustes, una fila por cuenta con id = uid).
@@ -129,10 +134,28 @@ async function ruta() {
   if (seccion === 'ficha') return pintarFicha(App, id);
   if (seccion === 'ajustes') return pintarAjustes(App);
   if (seccion === 'resumen') return pintarResumen(App, id);
+  if (seccion === 'resumen-trabajo') return pintarResumenTrabajo(App, id);
+  if (seccion === 'papelera') return pintarPapelera(App);
   return pintarInicio(App);
 }
 
+// Que el navegador no borre los datos de la app si el móvil se queda sin espacio (lo pendiente de subir se perdería).
+function pedirAlmacenFijo() {
+  const s = navigator.storage;
+  if (!s || !s.persist) return;
+  Promise.resolve(s.persisted ? s.persisted() : false).then(ya => ya || s.persist()).catch(() => {});
+}
+
+// Fotos que ya están en la nube y no hacen falta en el móvil: fichas sin tocar en 60 días o cosas borradas.
+async function limpiarFotos() {
+  try {
+    const [adjuntos, fichas, cola, blobs] = await Promise.all([App.almacen.todos('adjuntos'), App.almacen.todos('fichas'), App.almacen.claves('cola'), App.almacen.claves('blobs')]);
+    for (const id of fotosParaLimpiar({ adjuntos, fichas, cola: new Set(cola), blobs })) await App.almacen.quitar('blobs', id);
+  } catch (e) { console.error(e); }
+}
+
 async function arrancar() {
+  pedirAlmacenFijo();
   App.almacen = await abrirAlmacen();
   App.email = (await App.almacen.getMeta('email')) || '';
   // La cuenta se recuerda aquí para poder abrir la app sin cobertura aunque el token haya caducado.
@@ -158,7 +181,15 @@ async function arrancar() {
   if (App.uid) for (const f of vivos(await App.almacen.todos('fichas'))) await descartarVacio(App, f);
   await ruta();
   if (App.uid) App.sincro.sincronizar();
-  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+  limpiarFotos();
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+    vigilarVersion(navigator.serviceWorker, pintarAvisoVersion);
+    // Al volver a la app después de un rato, mira si hay versión nueva.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {});
+    });
+  }
 }
 
 arrancar();

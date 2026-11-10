@@ -2,10 +2,11 @@
 import { h, segmentado, tituloFicha, vivos } from '../util.js';
 import { unidadDe } from '../unidades.js';
 import { avisos, camposDeElemento, elementoNuevo, paredNueva, puertaNueva, normalizarFicha, resumenPuerta, limpiarDatos, tieneInformacion,
-  TIPOS_ELEMENTO, NOMBRE_ELEMENTO, RAPIDAS_PUERTA, USOS, nombreElemento } from '../modelo.js';
+  TIPOS_ELEMENTO, NOMBRE_ELEMENTO, RAPIDAS_PUERTA, USOS, nombreElemento, TIPOS_PUERTA } from '../modelo.js';
+import { duplicarFicha } from '../trabajos.js';
 import { campoMedida, campoEntero } from '../campos.js';
 import { verMedida } from '../unidades.js';
-import { TIPOS_MODULO, NOMBRE_MODULO, moduloNuevo, nombreModulo, cuadreBajos, cuadreAltos, cuadreCuerpos, textoCuadre, lineaNueva, nombreLineal, nombreInterior, acabadosNuevos } from '../modulos.js';
+import { TIPOS_MODULO, NOMBRE_MODULO, moduloNuevo, nombreModulo, cuadreBajos, cuadreAltos, cuadreCuerpos, textoCuadre, lineaNueva, nombreLineal, nombreInterior, acabadosNuevos, ELECTRO, datosElectro, electroNuevo } from '../modulos.js';
 import { seccionAdjuntos } from './adjuntos.js';
 import { huella } from '../sincro.js';
 import { geometriaPlanta, svgPlanta, aplicarPlano } from '../plano-vista.js';
@@ -41,7 +42,8 @@ export async function pintarFicha(App, id) {
   const ficha = normalizarFicha(leida);
   const trabajo = ficha.trabajo_id ? await App.almacen.leer('trabajos', ficha.trabajo_id) : null;
   const AJ = App.ajustes(), unidad = unidadDe(trabajo, AJ), d = ficha.datos;
-  const usosDe = t => (t === 'toma' ? AJ.usos_toma : t === 'enchufe' ? AJ.usos_enchufe : []);
+  // En el vestidor los usos de enchufe son de cocina (placa, campana...): no se ofrecen.
+  const usosDe = t => (t === 'toma' ? AJ.usos_toma : t === 'enchufe' && ficha.subtipo !== 'vestidor' ? AJ.usos_enchufe : []);
   const main = App.marco('ficha', tituloFicha(ficha), trabajo ? '#/trabajo/' + trabajo.id : '#/sueltas');
 
   let espera = null;
@@ -86,7 +88,9 @@ export async function pintarFicha(App, id) {
         medida(p, 'ancho', 'Ancho', { rapidos: AJ.puerta_anchos, aviso: null }),
         medida(p, 'alto', 'Alto', { rapidos: AJ.puerta_altos, aviso: null }),
         medida(p, 'tabique', 'Grosor de tabique', { rapidos: AJ.puerta_tabiques, aviso: null }),
-        h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Abre a'),
+        h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Tipo'),
+          segmentado({ acc: 'tipo-puerta', opciones: TIPOS_PUERTA, valor: p.tipo || null, permitirVacio: true, alCambiar: v => { p.tipo = v; cambio(); } })),
+        h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Abre a (mirando desde el pasillo)'),
           segmentado({ acc: 'mano', opciones: [['izq', 'Izquierda'], ['der', 'Derecha']], valor: p.mano, permitirVacio: true, alCambiar: v => { p.mano = v; cambio(); } })),
         h('div', { class: 'dos' }, siNo(p, 'condena', 'Condena'), siNo(p, 'vidriera', 'Vidriera')),
         h('div', { class: 'avisos', 'data-avisos': 'puerta.' + p.id }));
@@ -132,7 +136,7 @@ export async function pintarFicha(App, id) {
         h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-elemento', onclick: () => { if (confirmarQuitar(nombreElemento(e).toLowerCase())) { lista.splice(lista.indexOf(e), 1); cambio(); repintar(); } } }, 'Quitar')),
       usosDe(e.tipo).length ? h('div', { class: 'chips usos' }, segmentadoChips(e)) : null,
       e.tipo === 'otro' || e.tipo === 'zona' ? h('input', { 'data-acc': 'nombre-elemento', placeholder: e.tipo === 'zona' ? '¿Qué zona? (campana, fregadero…)' : '¿Qué es?', value: e.nombre, oninput: ev => { e.nombre = ev.target.value; cambio(); } }) : null,
-      h('div', { class: 'dos' }, medida(e, 'distancia', 'Distancia', refExtra), c.altura ? medida(e, 'altura', 'Altura del suelo', { aviso: null }) : null),
+      h('div', { class: 'dos' }, medida(e, 'distancia', 'Distancia', refExtra), c.altura ? medida(e, 'altura', e.tipo === 'ventana' ? 'Alféizar (altura del suelo)' : 'Altura del suelo', { aviso: null }) : null),
       c.ancho || c.alto || c.fondo ? h('div', { class: 'dos' },
         c.ancho ? medida(e, 'ancho', 'Ancho', { aviso: null }) : null,
         c.alto && !(e.tipo === 'zona' && e.techo) ? medida(e, 'alto', 'Alto', { aviso: null }) : null,
@@ -328,9 +332,51 @@ export async function pintarFicha(App, id) {
     return caja;
   }
 
+  // Electrodomésticos: tipo, ancho (cm) y modelo.
+  function electro() {
+    if (!d.electro) d.electro = [];
+    const zona = h('div', { class: 'lista' });
+    const repintar = () => zona.replaceChildren(...d.electro.map(e => {
+      const [, nombre, tipos] = datosElectro(e.clave);
+      return h('div', { class: 'elemento', 'data-electro': e.clave },
+        h('div', { class: 'cab' }, e.clave === 'otro' ? texto(e, 'nombre', 'electro-nombre', '¿Qué es?') : h('b', {}, nombre),
+          h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-electro', onclick: () => { if (confirmarQuitar((e.clave === 'otro' ? e.nombre || 'el electrodoméstico' : nombre).toLowerCase())) { d.electro.splice(d.electro.indexOf(e), 1); cambio(); repintar(); } } }, 'Quitar')),
+        tipos.length ? h('div', { class: 'campo' }, segmentado({ acc: 'electro-tipo', opciones: tipos, valor: e.tipo, permitirVacio: true, alCambiar: v => { e.tipo = v; cambio(); } })) : null,
+        h('div', { class: 'dos' },
+          campoMedida({ etiqueta: 'Ancho', acc: 'ancho', valor: e.ancho, mal: e.mal && e.mal.ancho, unidad: 'cm', alCambiar: (v, t) => { anotarMedida(e, 'ancho', v, t); cambio(); } }),
+          h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Modelo'), texto(e, 'modelo', 'electro-modelo', 'Marca y modelo'))));
+    }));
+    repintar();
+    return h('div', { class: 'tarjeta' }, h('b', {}, 'Electrodomésticos'), zona,
+      h('div', { class: 'chips' }, ELECTRO.map(([k, n]) => h('button', { type: 'button', 'data-acc': 'anadir-electro', 'data-v': k, onclick: () => { d.electro.push(electroNuevo(k)); cambio(); repintar(); } }, n))));
+  }
+
+  // Duplicar (la copia va al mismo trabajo, sin las fotos) y mover a otro trabajo o a notas sueltas.
+  async function duplicar() {
+    await guardarYa();
+    const copia = duplicarFicha(ficha, ficha.trabajo_id);
+    await App.guardarFila('fichas', copia);
+    App.ir('#/ficha/' + copia.id);
+  }
+  async function mover() {
+    await guardarYa();
+    const trabajos = vivos(await App.almacen.todos('trabajos')).filter(t => t.id !== ficha.trabajo_id).sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
+    const destinos = (ficha.trabajo_id ? [[null, 'Notas sueltas']] : []).concat(trabajos.map(t => [t.id, t.nombre || 'Trabajo sin nombre']));
+    const capa = h('div', { class: 'cota-dialogo' }, h('form', { onsubmit: ev => ev.preventDefault() },
+      h('b', {}, '¿A dónde la mueves?'),
+      destinos.length ? h('div', { class: 'lista destinos' }, destinos.map(([tid, n]) => h('button', { type: 'button', 'data-acc': 'mover-a', onclick: async () => {
+        capa.remove();
+        ficha.trabajo_id = tid;
+        await guardarYa(); App.vaciar = null; App.alSalir = null;
+        await pintarFicha(App, id);
+      } }, n))) : h('p', {}, 'No hay otros trabajos.'),
+      h('div', { class: 'botones' }, h('button', { type: 'button', 'data-acc': 'mover-cancelar', onclick: () => capa.remove() }, 'Cancelar'))));
+    document.body.append(capa);
+  }
+
   function propios() {
     if (ficha.tipo === 'puerta') return [h('div', { class: 'tarjeta' }, h('b', {}, 'Para todas las puertas'), h('div', { class: 'dos' }, texto(d, 'modelo', 'puertas-modelo', 'Modelo'), texto(d, 'color', 'puertas-color', 'Color'))), ...puertas()];
-    if (ficha.tipo === 'cocina') return [acabados(), ...paredes(TIPOS_ELEMENTO.cocina)];
+    if (ficha.tipo === 'cocina') return [acabados(), electro(), ...paredes(TIPOS_ELEMENTO.cocina)];
     if (ficha.tipo === 'armario') {
       const r = [h('div', { class: 'tarjeta' },
         h('label', { class: 'et' }, 'Ancho del hueco'),
@@ -341,12 +387,17 @@ export async function pintarFicha(App, id) {
         h('small', { class: 'ayuda' }, 'Mídelo en el lado izquierdo y en el lado derecho. Si no coinciden, el suelo o el techo no están a nivel.'),
         h('div', { class: 'dos' }, medida(d, 'alto_izq', 'Lado izquierdo'), medida(d, 'alto_der', 'Lado derecho')),
         h('div', { class: 'avisos', 'data-avisos': 'altos' }),
+        h('label', { class: 'et' }, 'Diagonales del hueco'),
+        h('small', { class: 'ayuda' }, 'De una esquina a la contraria, en las dos direcciones. Si no coinciden, el hueco no está a escuadra.'),
+        h('div', { class: 'dos' }, medida(d, 'diag_1', 'Diagonal 1', { aviso: null }), medida(d, 'diag_2', 'Diagonal 2', { aviso: null })),
+        h('div', { class: 'avisos', 'data-avisos': 'diagonales' }),
         medida(d, 'fondo', 'Fondo del hueco'),
         h('div', { class: 'dos' }, medida(d, 'rodapie_alto', 'Alto de rodapié'), medida(d, 'rodapie_grosor', 'Grosor de rodapié')),
         ficha.subtipo === 'corredera' ? campoEntero({ etiqueta: 'Número de hojas', acc: 'hojas', valor: d.hojas, alCambiar: v => { d.hojas = v; cambio(); } }) : null,
         ficha.subtipo === 'abatible' ? campoEntero({ etiqueta: 'Número de puertas', acc: 'puertas', valor: d.puertas, alCambiar: v => { d.puertas = v; cambio(); } }) : null)];
       r.push(...cuerpos());
-      r.push(...enchufes());
+      // En el vestidor los enchufes van en sus paredes; la lista aparte solo se ve si ya tenía alguno.
+      if (ficha.subtipo !== 'vestidor' || (d.enchufes || []).length) r.push(...enchufes());
       if (ficha.subtipo === 'vestidor') r.push(...paredes(TIPOS_ELEMENTO.vestidor));
       return r;
     }
@@ -385,10 +436,13 @@ export async function pintarFicha(App, id) {
   repintarLibres();
   main.append(
     general,
-    ficha.tipo === 'puerta' ? null : h('input', { 'data-acc': 'nombre-ficha', placeholder: 'Nombre', value: ficha.nombre, oninput: ev => { ficha.nombre = ev.target.value; cambio(); } }),
+    ...(ficha.tipo === 'puerta' ? [] : [h('input', { 'data-acc': 'nombre-ficha', placeholder: 'Nombre', value: ficha.nombre, oninput: ev => { ficha.nombre = ev.target.value; cambio(); } })]),
     ...propios(), h('h2', {}, 'Otras medidas'), zonaLibres, ...notas(),
     ...adjuntos.nodos,
     h('button', { type: 'button', class: 'prin ancho', 'data-acc': 'terminar', onclick: async () => { await guardarYa(); App.ir('#/resumen/' + id); } }, 'Terminar y ver resumen'),
+    h('div', { class: 'dos' },
+      h('button', { type: 'button', 'data-acc': 'duplicar-ficha', onclick: duplicar }, 'Duplicar'),
+      h('button', { type: 'button', 'data-acc': 'mover-ficha', onclick: mover }, 'Mover a otro trabajo')),
     h('button', { type: 'button', class: 'peligro', 'data-acc': 'borrar-ficha', onclick: async () => {
       if (!confirm('¿Borrar esta ficha?')) return;
       ficha.borrado_at = new Date().toISOString();
@@ -398,7 +452,13 @@ export async function pintarFicha(App, id) {
   refrescarAvisos();
   App.refrescar = async () => {
     const nueva = await App.almacen.leer('fichas', id);
-    if (!espera && nueva && huella(normalizarFicha(nueva)) !== huella(ficha)) return pintarFicha(App, id);
+    // Se repinta sin perder el sitio: un cambio de otro dispositivo no debe llevar la ficha arriba.
+    if (!espera && nueva && huella(normalizarFicha(nueva)) !== huella(ficha)) {
+      const y = window.scrollY;
+      await pintarFicha(App, id);
+      window.scrollTo(0, y);
+      return;
+    }
     adjuntos.pintar();
   };
 }

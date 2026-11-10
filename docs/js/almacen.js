@@ -37,6 +37,7 @@ export async function abrirAlmacen(nombre = 'medidas-db') {
   return {
     leer,
     todos: store => prom(db.transaction(store).objectStore(store).getAll()),
+    claves: store => prom(db.transaction(store).objectStore(store).getAllKeys()),
     poner: (store, obj) => tx([store], t => { t.objectStore(store).put(obj); }),
     quitar: (store, id) => tx([store], t => { t.objectStore(store).delete(id); }),
     getMeta: k => leer('meta', k).then(v => v ? v.v : null),

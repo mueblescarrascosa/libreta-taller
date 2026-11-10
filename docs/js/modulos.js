@@ -56,3 +56,23 @@ export function avisosModulos(ficha, unidad) {
 }
 
 export const acabadosNuevos = () => ({ bitono: null, modelo: '', color: '', modelo_altos: '', color_altos: '', modelo_bajos: '', color_bajos: '', encimera: { material: '', color: '', grueso: null }, lineales: [] });
+
+// Electrodomésticos de la cocina: qué son, de qué tipo, su ancho (cm) y el modelo si se sabe.
+export const ELECTRO = [
+  ['frigo', 'Frigorífico', [['integrable', 'Integrable'], ['libre', 'Libre'], ['americano', 'Americano']]],
+  ['horno', 'Horno', [['columna', 'En columna'], ['bajo', 'Bajo encimera']]],
+  ['microondas', 'Microondas', [['integrable', 'Integrable'], ['libre', 'Libre']]],
+  ['placa', 'Placa', [['induccion', 'Inducción'], ['vitro', 'Vitro'], ['gas', 'Gas']]],
+  ['campana', 'Campana', [['decorativa', 'Decorativa'], ['extraible', 'Extraíble'], ['integrada', 'Integrada'], ['techo', 'De techo'], ['isla', 'De isla']]],
+  ['lavavajillas', 'Lavavajillas', [['integrable', 'Integrable'], ['libre', 'Libre']]],
+  ['lavadora', 'Lavadora', [['integrable', 'Integrable'], ['libre', 'Libre']]],
+  ['otro', 'Otro', []],
+];
+export const datosElectro = clave => ELECTRO.find(e => e[0] === clave) || ['otro', 'Otro', []];
+export const electroNuevo = clave => ({ id: id(), clave, tipo: null, ancho: null, modelo: '', nombre: '' });
+export const nombreElectro = e => (e.clave === 'otro' ? e.nombre || 'Otro' : datosElectro(e.clave)[1]);
+export function textoElectro(e) {
+  const tipo = (datosElectro(e.clave)[2].find(t => t[0] === e.tipo) || [])[1];
+  const partes = [tipo && tipo.toLowerCase(), hay(e.ancho) ? verMedida(e.ancho, 'cm') + ' cm' : null, e.modelo && e.modelo.trim()].filter(Boolean);
+  return nombreElectro(e) + (partes.length ? ': ' + partes.join(' · ') : '');
+}

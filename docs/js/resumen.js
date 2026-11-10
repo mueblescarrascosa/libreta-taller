@@ -2,7 +2,7 @@
 import { verMedida } from './unidades.js';
 import { tituloFicha } from './util.js';
 import { resumenPuerta, nombreElemento, camposDeElemento, textoAzulejo } from './modelo.js';
-import { nombreModulo, cuadreBajos, cuadreAltos, textoCuadre, nombreLineal, nombreInterior } from './modulos.js';
+import { nombreModulo, cuadreBajos, cuadreAltos, textoCuadre, nombreLineal, nombreInterior, textoElectro } from './modulos.js';
 
 const hay = v => v !== null && v !== undefined && v !== '';
 const unir = (partes, sep = ' · ') => partes.filter(hay).join(sep);
@@ -64,6 +64,7 @@ export function bloquesResumen({ ficha, trabajo, ajustes }) {
   } else if (ficha.tipo === 'cocina' || ficha.subtipo === 'vestidor') {
     if (hay(d.alto_techo)) cab.push('Altura: ' + v(d.alto_techo, pared) + ' ' + pared);
     cab.push(...acabadosTexto(d.acabados, ajustes));
+    (d.electro || []).forEach(e => cab.push(textoElectro(e)));
     bloques.push(cab);
     (d.paredes || []).forEach(p => bloques.push(bloquePared(p, pared, u)));
   } else {
@@ -74,6 +75,7 @@ export function bloquesResumen({ ficha, trabajo, ajustes }) {
     if (tri.length) l.push('Ancho del hueco: ' + tri.map(x => x[0] + ' ' + v(x[1])).join(', ') + ' ' + u);
     const altos = [['izquierda', d.alto_izq], ['derecha', d.alto_der]].filter(x => hay(x[1]));
     if (altos.length) l.push('Alto del hueco: ' + altos.map(x => x[0] + ' ' + v(x[1])).join(', ') + ' ' + u);
+    if (hay(d.diag_1) || hay(d.diag_2)) l.push('Diagonales: ' + [d.diag_1, d.diag_2].filter(hay).map(x => v(x)).join(' y ') + ' ' + u);
     if (hay(d.fondo)) l.push('Fondo: ' + v(d.fondo) + ' ' + u);
     if (hay(d.rodapie_alto) || hay(d.rodapie_grosor)) l.push('Rodapié: ' + unir([hay(d.rodapie_alto) ? 'alto ' + v(d.rodapie_alto) + ' ' + u : null, hay(d.rodapie_grosor) ? 'grosor ' + v(d.rodapie_grosor) + ' ' + u : null], ', '));
     if (hay(d.hojas)) l.push('Hojas: ' + d.hojas);
