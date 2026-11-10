@@ -123,9 +123,15 @@ export async function pintarFicha(App, id) {
     const enM = () => d.paredes_m ?? App.ajustes().paredesM;
     const repintar = () => { zona.replaceChildren(...d.paredes.map(p => pared(p, tipos, repintar, enM() ? 'm' : unidad))); refrescarAvisos(); };
     repintar();
-    return [h('div', { class: 'cab' }, h('h2', {}, 'Paredes'),
-      segmentado({ acc: 'ud-paredes', opciones: [[false, unidad], [true, 'm']], valor: !!enM(), alCambiar: v => { d.paredes_m = v; App.cambiarParedesM(v); cambio(); repintar(); } })),
-    h('small', { class: 'et' }, 'Largo y alto de las paredes; tócalo para escribirlos en metros.'),
+    // La altura es una para toda la habitación; lo especial (vigas, buhardillas) va en notas.
+    const zonaAlto = h('div', {});
+    const pintarAlto = () => zonaAlto.replaceChildren(medida(d, 'alto_techo', 'Altura de suelo a techo', { unidad: enM() ? 'm' : unidad }),
+      h('small', { class: 'ayuda' }, 'Si hay algo especial (una viga, una buhardilla, un techo inclinado), apúntalo en Notas.'));
+    pintarAlto();
+    return [h('div', { class: 'cab' }, h('h2', {}, 'Habitación'),
+      segmentado({ acc: 'ud-paredes', opciones: [[false, unidad], [true, 'm']], valor: !!enM(), alCambiar: v => { d.paredes_m = v; App.cambiarParedesM(v); cambio(); pintarAlto(); repintar(); } })),
+    h('div', { class: 'tarjeta' }, zonaAlto),
+    h('h2', {}, 'Paredes'),
     zona,
     h('button', { type: 'button', class: 'ancho', 'data-acc': 'anadir-pared', onclick: () => { d.paredes.push(paredNueva(d.paredes)); cambio(); repintar(); } }, '+ Añadir pared')];
   }
@@ -143,7 +149,7 @@ export async function pintarFicha(App, id) {
       h('div', { class: 'cab' }, h('h3', {}, 'Pared ' + p.letra),
         h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-pared', onclick: () => { if (confirmarQuitar('la pared ' + p.letra)) { d.paredes.splice(d.paredes.indexOf(p), 1); cambio(); repintarTodo(); } } }, 'Quitar')),
       medida(p, 'largo', 'Largo', { aviso: null, unidad: udPared }),
-      medida(p, 'alto', 'Alto', { aviso: null, unidad: udPared }),
+      p.alto !== null && p.alto !== undefined ? medida(p, 'alto', 'Alto', { aviso: null, unidad: udPared }) : null,
       h('div', { class: 'avisos', 'data-avisos': 'pared.' + p.id }),
       pilares,
       zonaEl,
@@ -170,7 +176,7 @@ export async function pintarFicha(App, id) {
 
   function propios() {
     if (ficha.tipo === 'puerta') return puertas();
-    if (ficha.tipo === 'cocina') return [h('div', { class: 'tarjeta' }, medida(d, 'alto_techo', 'Altura de suelo a techo')), ...paredes(TIPOS_ELEMENTO.cocina)];
+    if (ficha.tipo === 'cocina') return paredes(TIPOS_ELEMENTO.cocina);
     if (ficha.tipo === 'armario') {
       const r = [h('div', { class: 'tarjeta' },
         h('label', { class: 'et' }, 'Ancho del hueco'),

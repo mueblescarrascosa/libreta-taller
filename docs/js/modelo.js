@@ -84,7 +84,7 @@ function datosDe(tipo, subtipo) {
     Object.assign(c, { ancho_arriba: null, ancho_medio: null, ancho_abajo: null, alto_izq: null, alto_der: null, fondo: null, rodapie_alto: null, rodapie_grosor: null, enchufes: [] });
     if (subtipo === 'corredera') c.hojas = null;
     if (subtipo === 'abatible') c.puertas = null;
-    if (subtipo === 'vestidor') c.paredes = [paredNueva([])];
+    if (subtipo === 'vestidor') Object.assign(c, { alto_techo: null, paredes: [paredNueva([])] });
   }
   return c;
 }
@@ -147,7 +147,7 @@ export function avisos(ficha, unidad) {
       revisarTamano(l, campo, n + 'tabique', p.tabique, unidad);
     });
   }
-  if (ficha.tipo === 'cocina') revisarTamano(l, 'alto_techo', 'Altura', d.alto_techo, unidad);
+  if (ficha.tipo === 'cocina' || ficha.subtipo === 'vestidor') revisarTamano(l, 'alto_techo', 'Altura', d.alto_techo, unidad);
   if (ficha.tipo === 'armario') {
     [['ancho_arriba', 'Ancho arriba'], ['ancho_medio', 'Ancho en medio'], ['ancho_abajo', 'Ancho abajo'], ['alto_izq', 'Alto izquierda'], ['alto_der', 'Alto derecha'], ['fondo', 'Fondo'], ['rodapie_alto', 'Alto de rodapié']]
       .forEach(([c, n]) => revisarTamano(l, c, n, d[c], unidad));

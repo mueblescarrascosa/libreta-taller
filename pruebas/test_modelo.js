@@ -63,6 +63,7 @@ prueba('las paredes tienen alto y cocina y vestidor empiezan con la pared A', ()
   igual(fichaNueva('armario', 'vestidor', 't').datos.paredes.map(p => p.letra), ['A']);
 });
 prueba('alto de pared cero avisa', () => { const f = fichaNueva('cocina', null, 't'); f.datos.paredes[0].alto = 0; igual(avisos(f, 'mm').length, 1); });
+prueba('el vestidor tiene altura general y avisa si es cero', () => { const f = fichaNueva('armario', 'vestidor', 't'); igual(f.datos.alto_techo, null); f.datos.alto_techo = 0; igual(avisos(f, 'mm').length, 1); });
 prueba('nota suelta sin trabajo', () => igual(fichaNueva('nota', null, null).trabajo_id, null));
 prueba('trabajo nuevo con su unidad', () => { const t = trabajoNuevo('Casa', 'cm'); igual(t.unidad, 'cm'); igual(t.nombre, 'Casa'); igual(t.updated_at, null); });
 prueba('elemento fuera de la pared avisa', () => igual(avisos(cocina(3000, { distancia: 3100 }), 'mm').length, 1));

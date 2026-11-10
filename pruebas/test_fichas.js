@@ -74,10 +74,12 @@ prueba('tocar el botón marcado lo desmarca', con({}, async a => {
   await nueva(a, 'puerta'); await a.page.fill(P + '[data-acc="ancho"]', '800'); await a.page.click(P + '[data-acc="condena"][data-v="true"]'); await a.page.click(P + '[data-acc="condena"][data-v="true"]');
   await recargar(a); igual((await ficha(a)).datos.puertas[0].condena, null);
 }));
-prueba('cocina: pared A preparada con largo y alto, elementos, referencia y puntos de medida', con({}, async a => {
+prueba('cocina: altura general en metros, pared A preparada solo con largo, elementos, referencia y puntos de medida', con({}, async a => {
   await nueva(a, 'cocina');
-  afirma(await a.page.$('[data-pared="A"] > [data-c="largo"]') && await a.page.$('[data-pared="A"] > [data-c="alto"]'), 'la pared A no pide largo y alto');
-  await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3'); await a.page.fill('[data-pared="A"] > [data-c="alto"] input', '2,6');
+  afirma(await a.page.$('[data-pared="A"] > [data-c="largo"]') && !(await a.page.$('[data-pared="A"] > [data-c="alto"]')), 'la pared A debe pedir solo el largo');
+  igual(await a.page.innerText('[data-c="alto_techo"] .ud'), 'm');
+  afirma(/viga|buhardilla/i.test(await a.page.evaluate(() => document.querySelector('main').innerText)), 'no dice dónde apuntar lo especial');
+  await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3'); await a.page.fill('[data-acc="alto_techo"]', '2,6');
   await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="desague"]');
   await a.page.click('[data-pared="A"] [data-elemento="desague"] [data-acc="ref"]');
   await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="desague"]');
@@ -88,7 +90,7 @@ prueba('cocina: pared A preparada con largo y alto, elementos, referencia y punt
   afirma(/al borde/.test(await a.page.innerText(v)) && /al centro/.test(await a.page.innerText('[data-pared="A"] [data-elemento="desague"]')));
   await a.page.click('[data-acc="anadir-pared"]'); afirma(await a.page.$('[data-pared="B"]'), 'sin pared B');
   await recargar(a);
-  const f = await ficha(a); igual(f.datos.paredes.length, 2); igual([f.datos.paredes[0].largo, f.datos.paredes[0].alto], [3000, 2600]); igual(f.datos.paredes[0].elementos.map(e => e.ref), ['der', 'der', 'der']);
+  const f = await ficha(a); igual(f.datos.paredes.length, 2); igual([f.datos.paredes[0].largo, f.datos.alto_techo], [3000, 2600]); igual(f.datos.paredes[0].elementos.map(e => e.ref), ['der', 'der', 'der']);
 }));
 prueba('armario: etiquetas que explican qué medir', con({}, async a => {
   await nueva(a, 'armario', 'corredera');
@@ -130,8 +132,10 @@ prueba('tecla a tecla, lo mal escrito no deja guardado un trozo y sigue avisando
 }));
 prueba('tecla a tecla en cm con dos decimales no guarda 245,5', con({}, async a => {
   await nueva(a, 'cocina', null, 'cm');
-  await a.page.click('[data-acc="alto_techo"]'); await a.page.keyboard.type('245,55');
-  await a.page.waitForTimeout(400); igual((await ficha(a)).datos.alto_techo, null);
+  await a.page.evaluate(() => history.back()); await a.page.waitForSelector('[data-pantalla="trabajo"]');
+  await a.page.click('[data-acc="tipo"][data-v="armario"]'); await a.page.click('[data-acc="subtipo"][data-v="corredera"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
+  await a.page.click('[data-acc="fondo"]'); await a.page.keyboard.type('245,55');
+  await a.page.waitForTimeout(400); igual((await ficha(a)).datos.fondo, null);
 }));
 prueba('avisos junto al dato y sin impedir guardar', con({}, async a => {
   await nueva(a, 'armario', 'corredera');
@@ -224,5 +228,14 @@ prueba('una ficha con solo una foto no se descarta', con({}, async a => {
   await a.page.setInputFiles('[data-acc="foto-input"]', { name: 'f.jpg', mimeType: 'image/jpeg', buffer: buf }); await a.page.waitForSelector('[data-acc="ver-adjunto"]');
   await a.page.evaluate(() => history.back()); await a.page.waitForSelector('[data-pantalla="trabajo"]'); await a.page.waitForTimeout(200);
   igual((await a.page.$$('[data-acc="abrir-ficha"]')).length, 1);
+}));
+prueba('una pared con alto ya apuntado lo sigue enseñando', con({}, async a => {
+  await nueva(a, 'cocina'); await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3'); await a.page.waitForTimeout(400);
+  await a.page.evaluate(async () => { const id = location.hash.split('/')[2]; const { abrirAlmacen } = await import('./js/almacen.js'); const al = await abrirAlmacen(); const f = await al.leer('fichas', id); f.datos.paredes[0].alto = 2500; await al.poner('fichas', f); });
+  await a.page.reload(); await a.page.waitForSelector('[data-pared="A"]');
+  igual(await val(a, '[data-pared="A"] > [data-c="alto"] input'), '2,5');
+}));
+prueba('el vestidor también tiene altura general', con({}, async a => {
+  await nueva(a, 'armario', 'vestidor'); afirma(await a.page.$('[data-acc="alto_techo"]'), 'sin altura');
 }));
 fin();
