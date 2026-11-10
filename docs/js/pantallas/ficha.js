@@ -135,8 +135,11 @@ export async function pintarFicha(App, id) {
       h('div', { class: 'dos' }, medida(e, 'distancia', 'Distancia', refExtra), c.altura ? medida(e, 'altura', 'Altura del suelo', { aviso: null }) : null),
       c.ancho || c.alto || c.fondo ? h('div', { class: 'dos' },
         c.ancho ? medida(e, 'ancho', 'Ancho', { aviso: null }) : null,
-        c.alto ? medida(e, 'alto', 'Alto', { aviso: null }) : null,
+        c.alto && !(e.tipo === 'zona' && e.techo) ? medida(e, 'alto', 'Alto', { aviso: null }) : null,
         c.fondo ? medida(e, 'fondo', 'Sobresale de la pared', { aviso: null }) : null) : null,
+      // Una zona azulejada puede subir hasta el techo: entonces no hace falta su alto.
+      e.tipo === 'zona' ? h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Hasta el techo'),
+        segmentado({ acc: 'techo', opciones: SI_NO, valor: e.techo ?? null, permitirVacio: true, alCambiar: v => { e.techo = v; cambio(); repintar(); } })) : null,
       h('div', { class: 'avisos', 'data-avisos': 'elemento.' + e.id }));
   }
 
@@ -385,6 +388,7 @@ export async function pintarFicha(App, id) {
     ficha.tipo === 'puerta' ? null : h('input', { 'data-acc': 'nombre-ficha', placeholder: 'Nombre', value: ficha.nombre, oninput: ev => { ficha.nombre = ev.target.value; cambio(); } }),
     ...propios(), h('h2', {}, 'Otras medidas'), zonaLibres, ...notas(),
     ...adjuntos.nodos,
+    h('button', { type: 'button', class: 'prin ancho', 'data-acc': 'terminar', onclick: async () => { await guardarYa(); App.ir('#/resumen/' + id); } }, 'Terminar y ver resumen'),
     h('button', { type: 'button', class: 'peligro', 'data-acc': 'borrar-ficha', onclick: async () => {
       if (!confirm('¿Borrar esta ficha?')) return;
       ficha.borrado_at = new Date().toISOString();

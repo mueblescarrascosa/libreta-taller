@@ -111,3 +111,32 @@ button.mini { min-height: 36px; padding: 4px 10px; font-size: 14px; }
 .modulo.abierto { grid-template-columns: minmax(0, 1fr); padding: 8px; }
 .modulo .cab span { display: flex; gap: 4px; }
 .cuadre { color: #92400e; font-weight: 600; min-height: 1em; }
+
+/* Resumen */
+.acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.acciones button { flex: 1 1 140px; }
+.aviso-resumen { color: var(--tenue); margin: 0 0 8px; min-height: 1em; }
+.resumen-doc { background: #fff; color: #111827; border: 1px solid var(--borde); border-radius: 10px; padding: 18px; overflow-wrap: anywhere; }
+.resumen-doc header { border-bottom: 3px solid var(--acento); padding-bottom: 8px; margin-bottom: 10px; }
+.resumen-doc h1 { font-size: 22px; margin: 0; }
+.resumen-doc header p { margin: 2px 0; color: #374151; }
+.resumen-doc .fecha { color: var(--tenue); font-size: 13px; }
+.resumen-doc h2 { font-size: 18px; margin: 12px 0 8px; color: #78350f; }
+.resumen-doc h3 { font-size: 15px; margin: 14px 0 6px; }
+.resumen-doc section { margin: 10px 0; padding-top: 6px; border-top: 1px solid #f1f5f9; }
+.resumen-doc section p { margin: 3px 0; }
+.resumen-doc .tit { font-size: 15px; margin-top: 4px; }
+.resumen-doc table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.resumen-doc th, .resumen-doc td { border-bottom: 1px solid #e5e7eb; padding: 5px 4px; text-align: left; }
+.resumen-doc th { background: #fef3c7; }
+.resumen-doc .nota-ud { color: var(--tenue); font-size: 12px; }
+.planta-resumen svg.planta { width: 100%; height: auto; max-height: 70vh; border: 1px solid #e5e7eb; border-radius: 8px; display: block; }
+.fotos-resumen { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.fotos-resumen img { width: 100%; border: 1px solid #e5e7eb; border-radius: 6px; }
+.resumen-doc footer { margin-top: 14px; color: var(--tenue); font-size: 12px; text-align: right; }
+@media print {
+  header, .acciones, .aviso-resumen { display: none !important; }
+  body, html { background: #fff; }
+  main { max-width: none; padding: 0; }
+  .resumen-doc { border: 0; padding: 0; }
+}

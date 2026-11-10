@@ -263,4 +263,16 @@ prueba('azulejo de la pared: franja hasta el techo y zonas', con({}, async a => 
   await recargar(a); const p = (await ficha(a)).datos.paredes[0];
   igual([p.azulejo, p.azulejo_desde, p.azulejo_techo], ['zonas', 900, true]); igual(p.elementos.map(e => [e.tipo, e.nombre, e.ancho]), [['zona', 'campana', 900]]);
 }));
+prueba('una zona azulejada puede ir hasta el techo', con({}, async a => {
+  await nueva(a, 'cocina');
+  await a.page.click('[data-pared="A"] [data-acc="azulejo"][data-v="zonas"]'); await a.page.click('[data-pared="A"] [data-acc="anadir-zona"]');
+  const Z = '[data-elemento="zona"] ';
+  await a.page.fill(Z + '[data-acc="nombre-elemento"]', 'campana'); await a.page.fill(Z + '[data-acc="altura"]', '1500');
+  afirma(await a.page.$(Z + '[data-acc="alto"]'), 'no pide el alto');
+  await a.page.click(Z + '[data-acc="techo"][data-v="true"]');
+  afirma(!(await a.page.$(Z + '[data-acc="alto"]')), 'sigue pidiendo el alto');
+  await recargar(a); const e = (await ficha(a)).datos.paredes[0].elementos[0];
+  igual([e.nombre, e.altura, e.techo], ['campana', 1500, true]);
+  afirma(!(await a.page.$(Z + '[data-acc="alto"]')) && await a.page.evaluate(() => document.querySelector('[data-elemento="zona"] [data-acc="techo"][data-v="true"]').classList.contains('on')));
+}));
 fin();

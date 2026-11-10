@@ -99,6 +99,10 @@ export async function abrir(op = {}) {
   await page.route(u => !u.href.startsWith(base), route => {
     const q = route.request(), u = new URL(q.url());
     if (u.hostname === 'cdn.jsdelivr.net') return route.fulfill({ status: 200, headers: CORS, contentType: 'text/javascript', body: fs.readFileSync(path.join(RAIZ, 'node_modules/@supabase/supabase-js/dist/umd/supabase.js')) });
+    if (u.hostname === 'cdnjs.cloudflare.com') {
+      const f = /jspdf/.test(u.pathname) ? 'node_modules/jspdf/dist/jspdf.umd.min.js' : /html2canvas/.test(u.pathname) ? 'node_modules/html2canvas/dist/html2canvas.min.js' : null;
+      return f ? route.fulfill({ status: 200, headers: CORS, contentType: 'text/javascript', body: fs.readFileSync(path.join(RAIZ, f)) }) : route.abort().catch(() => {});
+    }
     if (!/supabase\.co$/.test(u.hostname)) return route.abort().catch(() => {});
     if (q.method() === 'OPTIONS') return route.fulfill({ status: 200, headers: CORS, body: '' });
     if (nube.sinRed) return route.abort().catch(() => {});

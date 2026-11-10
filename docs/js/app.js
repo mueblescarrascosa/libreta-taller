@@ -9,6 +9,7 @@ import { pintarInicio } from './pantallas/inicio.js';
 import { pintarTrabajo } from './pantallas/trabajo.js';
 import { pintarFicha, descartarVacio } from './pantallas/ficha.js';
 import { pintarAjustes } from './pantallas/ajustes.js';
+import { pintarResumen } from './pantallas/resumen.js';
 
 const raiz = document.getElementById('app');
 const RETARDO_SINCRO = 1500;
@@ -127,6 +128,7 @@ async function ruta() {
   if (seccion === 'sueltas') return pintarTrabajo(App, null);
   if (seccion === 'ficha') return pintarFicha(App, id);
   if (seccion === 'ajustes') return pintarAjustes(App);
+  if (seccion === 'resumen') return pintarResumen(App, id);
   return pintarInicio(App);
 }
 

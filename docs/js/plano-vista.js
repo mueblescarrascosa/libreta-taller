@@ -9,7 +9,7 @@ const FONDO_MODULO = 600;
 
 const ETIQUETA_CORTA = {
   humos: 'Humos', desague: 'Desagüe', agua: 'Agua', gas: 'Gas', enchufe: 'E', enchufe_hmo: 'E H/MO', enchufe_horno: 'E horno',
-  enchufe_microondas: 'E micro', enchufe_frigo: 'E frigo', enchufe_lavavajillas: 'E lavav.', ventana: 'Ventana', puerta: 'Puerta', pilar: 'Mocheta', zona: 'Azulejo',
+  enchufe_microondas: 'E micro', enchufe_frigo: 'E frigo', enchufe_lavavajillas: 'E lavav.', ventana: 'Ventana', puerta: 'Puerta', pilar: 'Mocheta', zona: 'Az.',
 };
 const COLOR = { humos: '#7c3aed', desague: '#0891b2', toma: '#2563eb', agua: '#2563eb', gas: '#ea580c', ventana: '#0284c7', puerta: '#92400e', pilar: '#6b7280' };
 const colorDe = t => COLOR[t] || (t.startsWith('enchufe') ? '#dc2626' : '#111827');
@@ -19,6 +19,7 @@ const etiqueta = e => nombreElemento(e);
 // Etiqueta corta para la planta: «E H/MO», «Toma termo», «Desagüe»…
 function corta(e) {
   if (e.tipo === 'otro') return e.nombre || 'Otro';
+  if (e.tipo === 'zona') return 'Az.' + (e.nombre ? ' ' + e.nombre : '');
   const uso = USOS[e.tipo] && USOS[e.tipo].find(u => u[0] === e.para), texto = e.para_nombre || (uso && uso[1]);
   if (e.tipo === 'enchufe') return texto ? 'E ' + (e.para === 'hmo' ? 'H/MO' : texto.toLowerCase()) : 'E';
   if (e.tipo === 'toma') return texto ? 'Toma ' + texto.toLowerCase() : 'Toma';
@@ -122,6 +123,12 @@ export function svgPlanta(geo) {
   });
   geo.elementos.forEach(e => {
     const col = colorDe(e.tipo), d = e.dentro;
+    if (e.tipo === 'zona' && e.a) {
+      const f = s * 2.4, a = { x: e.a.x - d.x * f, y: e.a.y - d.y * f }, b = { x: e.b.x - d.x * f, y: e.b.y - d.y * f };
+      svg.append(el('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: '#0f766e', 'stroke-width': s * 0.7, 'stroke-dasharray': s * 1.5 + ' ' + s, opacity: 0.8, 'data-zona': '' }));
+      texto((a.x + b.x) / 2 - d.x * s * 3, (a.y + b.y) / 2 - d.y * s * 3, e.corta, { 'font-size': s * 2.4, fill: '#0f766e' });
+      return;
+    }
     let c;
     if (e.rect) { svg.append(el('polygon', { points: e.rect.map(p => p.x + ',' + p.y).join(' '), fill: '#d1d5db', stroke: col, 'stroke-width': s * 0.6 })); c = { x: (e.rect[0].x + e.rect[2].x) / 2, y: (e.rect[0].y + e.rect[2].y) / 2 }; }
     else if (e.punto) { svg.append(el('circle', { cx: e.punto.x, cy: e.punto.y, r: s * 1.8, fill: col })); c = e.punto; }
