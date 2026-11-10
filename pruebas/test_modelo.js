@@ -1,21 +1,68 @@
 import { prueba, afirma, igual, fin } from './mini.js';
-import { camposDeElemento, paredNueva, elementoNuevo, fichaNueva, trabajoNuevo, avisos, buscar, TIPOS_ELEMENTO } from '../docs/js/modelo.js';
+import { camposDeElemento, paredNueva, elementoNuevo, fichaNueva, trabajoNuevo, avisos, buscar, TIPOS_ELEMENTO, puertaNueva, normalizarFicha, resumenPuerta, RAPIDAS_PUERTA, tieneInformacion, limpiarDatos } from '../docs/js/modelo.js';
 
 const cocina = (largo, el) => { const f = fichaNueva('cocina', null, 't'); f.datos.paredes = [{ id: 'p', letra: 'A', largo, elementos: [Object.assign(elementoNuevo('ventana', 'izq'), el)] }]; return f; };
 const armario = o => Object.assign(fichaNueva('armario', 'corredera', 't'), { datos: Object.assign(fichaNueva('armario', 'corredera', 't').datos, o) });
 
 prueba('campos por tipo', () => {
-  igual(camposDeElemento('ventana'), { ancho: true, alto: true, punto: 'borde' });
-  igual(camposDeElemento('puerta'), { ancho: true, alto: true, punto: 'borde' });
-  igual(camposDeElemento('pilar'), { ancho: true, alto: false, punto: 'borde' });
-  igual(camposDeElemento('desague'), { ancho: false, alto: false, punto: 'centro' });
+  igual(camposDeElemento('ventana'), { ancho: true, alto: true, fondo: false, altura: true, punto: 'borde' });
+  igual(camposDeElemento('puerta'), { ancho: true, alto: true, fondo: false, altura: true, punto: 'borde' });
+  igual(camposDeElemento('pilar'), { ancho: true, alto: false, fondo: true, altura: false, punto: 'borde' });
+  igual(camposDeElemento('desague'), { ancho: false, alto: false, fondo: false, altura: true, punto: 'centro' });
+});
+prueba('ficha vacía: sin nada escrito no tiene información', () => {
+  for (const [t, s] of [['puerta'], ['cocina'], ['armario', 'corredera'], ['armario', 'abatible'], ['armario', 'vestidor'], ['nota']]) {
+    const f = fichaNueva(t, s, 't'); f.datos.notas.push({ id: 'n', texto: '  ' }); f.datos.libres.push({ id: 'l', nombre: '', mm: null });
+    afirma(!tieneInformacion(f.datos), t + ' ' + s);
+  }
+  const p = fichaNueva('puerta', null, 't'); p.datos.puertas[0].condena = false; afirma(tieneInformacion(p.datos), 'condena no');
+  const c = fichaNueva('cocina', null, 't'); c.datos.paredes[0].elementos.push(elementoNuevo('desague', 'izq')); afirma(tieneInformacion(c.datos), 'un desagüe');
+  const n = fichaNueva('nota', null, null); n.datos.notas.push({ id: 'x', texto: 'hola' }); afirma(tieneInformacion(n.datos), 'nota escrita');
+  const m = fichaNueva('nota', null, null); m.datos.libres.push({ id: 'x', nombre: '', mm: null, mal: { mm: '1.5' } }); afirma(tieneInformacion(m.datos), 'medida mal escrita');
+});
+prueba('limpiar quita notas y medidas vacías y deja las demás', () => {
+  const f = fichaNueva('nota', null, null);
+  f.datos.notas = [{ id: 'a', texto: '' }, { id: 'b', texto: 'Ojo' }, { id: 'c', texto: '   ' }];
+  f.datos.libres = [{ id: 'x', nombre: '', mm: null }, { id: 'y', nombre: 'Mesa', mm: null }, { id: 'z', nombre: '', mm: 5 }];
+  const d = limpiarDatos(f.datos);
+  igual(d.notas.map(n => n.id), ['b']); igual(d.libres.map(m => m.id), ['y', 'z']); igual(f.datos.notas.length, 3, 'cambió el original');
 });
 prueba('tipos de vestidor sin los de cocina', () => { afirma(!TIPOS_ELEMENTO.vestidor.includes('humos')); afirma(TIPOS_ELEMENTO.cocina.includes('humos')); });
 prueba('siguiente letra libre', () => igual(paredNueva([{ letra: 'A' }, { letra: 'C' }]).letra, 'B'));
 prueba('el elemento nace con la última referencia', () => { igual(elementoNuevo('gas', 'der').ref, 'der'); igual(elementoNuevo('gas').ref, 'izq'); });
-prueba('ficha nueva de puerta sin hacia dentro o fuera', () => {
-  const f = fichaNueva('puerta', null, 't'); igual(f.trabajo_id, 't'); igual(f.datos.mano, null); igual(f.updated_at, null); afirma(!('sentido' in f.datos)); igual(f.datos.libres, []); igual(f.datos.notas, []);
+prueba('ficha de puertas nace con una puerta, sin hacia dentro o fuera', () => {
+  const f = fichaNueva('puerta', null, 't'); igual(f.trabajo_id, 't'); igual(f.updated_at, null); igual(f.datos.libres, []); igual(f.datos.notas, []);
+  igual(f.datos.puertas.length, 1); const p = f.datos.puertas[0];
+  igual([p.ancho, p.alto, p.tabique, p.mano, p.condena, p.vidriera], [null, null, null, null, null, null]); afirma(!('sentido' in p)); afirma(p.id);
 });
+prueba('una puerta nueva copia el tabique de la anterior', () => {
+  const p = puertaNueva({ ancho: 820, tabique: 90, mano: 'izq' }); igual(p.tabique, 90); igual(p.ancho, null); igual(p.mano, null);
+  igual(puertaNueva(null).tabique, null);
+});
+prueba('una ficha de puerta antigua pasa a tener la lista', () => {
+  const vieja = { id: 'f', tipo: 'puerta', nombre: 'Baño', datos: { libres: [], notas: [], ref_ultima: 'izq', ancho: 825, alto: 2030, tabique: 90, mano: 'der', condena: true, vidriera: false } };
+  const f = normalizarFicha(vieja), p = f.datos.puertas;
+  igual(p.length, 1); igual([p[0].nombre, p[0].ancho, p[0].alto, p[0].tabique, p[0].mano, p[0].condena, p[0].vidriera], ['Baño', 825, 2030, 90, 'der', true, false]);
+  afirma(!('ancho' in f.datos), 'quedó el ancho suelto'); igual(f.nombre, '');
+  igual(normalizarFicha(f), f, 'una ficha ya nueva no cambia');
+});
+prueba('resumen de una puerta', () => {
+  igual(resumenPuerta({ ancho: 820, alto: 2030, tabique: 90, mano: 'izq', condena: true, vidriera: false }, 'cm'), '82 × 203 cm · tabique 9 · izquierda · condena');
+  igual(resumenPuerta({ ancho: 820, alto: null, tabique: null, mano: 'der', condena: false, vidriera: true }, 'mm'), 'ancho 820 mm · derecha · vidriera');
+  igual(resumenPuerta({ ancho: null, alto: null, tabique: null, mano: null, condena: null, vidriera: null }, 'mm'), 'sin medidas');
+});
+prueba('medidas rápidas de puerta', () => { igual(RAPIDAS_PUERTA.ancho, [920, 820, 720, 620]); igual(RAPIDAS_PUERTA.alto, [2030, 2110]); igual(RAPIDAS_PUERTA.tabique, [70, 90, 110]); });
+prueba('avisos de cada puerta', () => {
+  const f = fichaNueva('puerta', null, 't'); f.datos.puertas[0].ancho = 0; f.datos.puertas.push(Object.assign(puertaNueva(null), { alto: 20001 }));
+  const a = avisos(f, 'mm'); igual(a.length, 2); igual(a[0].campo, 'puerta.' + f.datos.puertas[0].id);
+});
+prueba('buscar mira los nombres de las puertas', () => { const f = fichaNueva('puerta', null, 't'); f.datos.puertas[0].nombre = 'Dormitorio grande'; igual(buscar('dormitorio', [], [f]).fichas.length, 1); });
+prueba('las paredes tienen alto y cocina y vestidor empiezan con la pared A', () => {
+  igual(paredNueva([]).alto, null);
+  igual(fichaNueva('cocina', null, 't').datos.paredes.map(p => p.letra), ['A']);
+  igual(fichaNueva('armario', 'vestidor', 't').datos.paredes.map(p => p.letra), ['A']);
+});
+prueba('alto de pared cero avisa', () => { const f = fichaNueva('cocina', null, 't'); f.datos.paredes[0].alto = 0; igual(avisos(f, 'mm').length, 1); });
 prueba('nota suelta sin trabajo', () => igual(fichaNueva('nota', null, null).trabajo_id, null));
 prueba('trabajo nuevo con su unidad', () => { const t = trabajoNuevo('Casa', 'cm'); igual(t.unidad, 'cm'); igual(t.nombre, 'Casa'); igual(t.updated_at, null); });
 prueba('elemento fuera de la pared avisa', () => igual(avisos(cocina(3000, { distancia: 3100 }), 'mm').length, 1));
@@ -28,7 +75,7 @@ prueba('anchos de armario con 11 avisan en la unidad pedida', () => { const a = 
 prueba('altos de armario avisan', () => igual(avisos(armario({ alto_izq: 2400, alto_der: 2411 }), 'mm').length, 1));
 prueba('un solo alto no avisa', () => igual(avisos(armario({ alto_izq: 2400 }), 'mm').length, 0));
 prueba('valores improbables', () => {
-  const p = o => Object.assign(fichaNueva('puerta', null, 't'), { datos: Object.assign(fichaNueva('puerta', null, 't').datos, o) });
+  const p = o => { const f = fichaNueva('puerta', null, 't'); Object.assign(f.datos.puertas[0], o); return f; };
   igual(avisos(p({ ancho: 0 }), 'mm').length, 1); igual(avisos(p({ ancho: 20001 }), 'mm').length, 1); igual(avisos(p({ ancho: 20000 }), 'mm').length, 0);
 });
 prueba('buscar ignora acentos y borrados, y mira notas', () => {

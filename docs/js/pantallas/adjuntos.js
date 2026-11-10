@@ -2,6 +2,7 @@
 import { h, vivos } from '../util.js';
 import { abrirBoceto } from '../boceto.js';
 import { reducirFoto } from '../imagen.js';
+import { leerMedida, verMedida } from '../unidades.js';
 
 const urls = new Map(); // id -> URL del archivo ya cargado
 
@@ -21,8 +22,38 @@ async function urlDe(App, a) {
   return u;
 }
 
-export async function seccionAdjuntos(App, ficha) {
+// Pregunta cuánto mide una línea de la regla. Devuelve {mm, texto} o null («Sin medida»).
+function pedirMedida(unidad) {
+  return new Promise(ok => {
+    const input = h('input', { 'data-acc': 'cota-valor', inputmode: unidad === 'mm' ? 'numeric' : 'decimal', autocomplete: 'off' });
+    const msg = h('div', { class: 'msg-error' });
+    const cerrar = r => { capa.remove(); ok(r); };
+    const capa = h('div', { class: 'cota-dialogo' }, h('form', { onsubmit: ev => {
+      ev.preventDefault();
+      const r = leerMedida(input.value, unidad);
+      if (r.error || r.mm === null) { msg.textContent = r.error ? (unidad === 'mm' ? 'En milímetros, sin decimales' : 'En centímetros, con un decimal como mucho') : 'Escribe la medida o pulsa «Sin medida»'; return; }
+      cerrar({ mm: r.mm, texto: verMedida(r.mm, unidad) });
+    } },
+    h('b', {}, '¿Cuánto mide esta línea?'),
+    h('div', { class: 'med' }, input, h('span', { class: 'ud' }, unidad)), msg,
+    h('div', { class: 'botones' },
+      h('button', { type: 'button', 'data-acc': 'cota-no', onclick: () => cerrar(null) }, 'Sin medida'),
+      h('button', { type: 'submit', class: 'prin', 'data-acc': 'cota-ok' }, 'Aceptar'))));
+    // Dentro del editor: si está a pantalla completa, lo que quede fuera no se ve.
+    (document.querySelector('.boceto') || document.body).append(capa);
+    input.focus();
+  });
+}
+
+export async function seccionAdjuntos(App, ficha, { unidad = 'mm', anadirCotas = null } = {}) {
   const zona = h('div', { class: 'adjuntos' });
+  // Abre el editor preguntando la medida de cada línea de la regla, y pasa esas medidas a la ficha.
+  async function dibujar(opciones) {
+    const cotas = [];
+    const b = await abrirBoceto(Object.assign({ medir: () => pedirMedida(unidad), cotas }, opciones));
+    if (b && cotas.length && anadirCotas) await anadirCotas(cotas);
+    return b;
+  }
 
   async function guardar(blob, tipo) {
     const id = crypto.randomUUID(), ext = blob.type === 'image/png' ? 'png' : 'jpg';
@@ -65,7 +96,7 @@ export async function seccionAdjuntos(App, ficha) {
   };
   const foto = elegir('foto-input', async f => guardar(await reducirFoto(f), 'foto'));
   const cotas = elegir('cotas-input', async f => {
-    const b = await abrirBoceto({ fondo: f, foto: true, titulo: 'Cotas sobre la foto' });
+    const b = await dibujar({ fondo: f, foto: true, titulo: 'Cotas sobre la foto' });
     if (b) await guardar(await reducirFoto(b), 'foto');
   });
   foto.setAttribute('capture', 'environment');
@@ -73,7 +104,7 @@ export async function seccionAdjuntos(App, ficha) {
   await pintar();
   return { pintar, nodos: [h('h2', {}, 'Croquis y fotos'), zona,
     h('div', { class: 'tipos' },
-      h('button', { type: 'button', 'data-acc': 'croquis', onclick: async () => { const b = await abrirBoceto({ titulo: 'Croquis' }); if (b) await guardar(b, 'croquis'); } }, 'Croquis'),
+      h('button', { type: 'button', 'data-acc': 'croquis', onclick: async () => { const b = await dibujar({ titulo: 'Croquis' }); if (b) await guardar(b, 'croquis'); } }, 'Croquis'),
       h('button', { type: 'button', 'data-acc': 'foto', onclick: () => foto.click() }, 'Foto'),
       h('button', { type: 'button', 'data-acc': 'cotas', onclick: () => cotas.click() }, 'Cotas sobre foto')),
     foto, cotas] };

@@ -14,5 +14,10 @@ prueba('ver en cm', () => { igual(verMedida(2455, 'cm'), '245,5'); igual(verMedi
 prueba('ver en mm', () => igual(verMedida(2453, 'mm'), '2453'));
 prueba('ver vacío', () => igual(verMedida(null, 'cm'), ''));
 prueba('ida y vuelta sin redondeo en todo el rango', () => { for (let mm = 0; mm <= 20000; mm++) igual(leerMedida(verMedida(mm, 'cm'), 'cm').mm, mm); });
+prueba('metros con hasta tres decimales', () => {
+  igual(leerMedida('3,45', 'm'), ok(3450)); igual(leerMedida('2.6', 'm'), ok(2600)); igual(leerMedida('3', 'm'), ok(3000)); igual(leerMedida('3,455', 'm'), ok(3455));
+  igual(leerMedida('3,4555', 'm'), mal); igual(verMedida(3450, 'm'), '3,45'); igual(verMedida(3000, 'm'), '3'); igual(verMedida(3455, 'm'), '3,455'); igual(verMedida(5, 'm'), '0,005');
+});
+prueba('ida y vuelta en metros', () => { for (let mm = 0; mm <= 20000; mm += 7) igual(leerMedida(verMedida(mm, 'm'), 'm').mm, mm); });
 prueba('unidad del trabajo o la de ajustes', () => { igual(unidadDe({ unidad: 'cm' }, { unidad: 'mm' }), 'cm'); igual(unidadDe(null, { unidad: 'cm' }), 'cm'); });
 fin();

@@ -4,7 +4,9 @@
 const COLORES = ["#111827", "#dc2626", "#2563eb", "#16a34a"];
 const GROSORES = [3, 7, 14];
 
-export function abrirBoceto({ fondo = null, foto = false, titulo = "Boceto" } = {}) {
+// Con medir: al terminar una línea con la regla se pregunta su medida (medir() → {mm, texto} o null);
+// el texto se dibuja junto a la línea y, al guardar, las medidas de las líneas que queden se dejan en cotas.
+export function abrirBoceto({ fondo = null, foto = false, titulo = "Boceto", medir = null, cotas = null } = {}) {
   return new Promise(async (resolver) => {
     // Tamaño lógico fijo (el dibujo no se deforma si se gira el móvil); lado largo 2000 px
     let W = 2000, H = 1400;
@@ -80,6 +82,7 @@ export function abrirBoceto({ fondo = null, foto = false, titulo = "Boceto" } = 
         if (o.herr === "linea") { g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); }
         else g.rect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
         g.stroke();
+        if (o.cota) dibujarCota(o, a, b, g);
       } else {
         g.beginPath(); g.moveTo(p[0].x, p[0].y);
         if (p.length === 1) g.lineTo(p[0].x + 0.1, p[0].y);
@@ -90,6 +93,18 @@ export function abrirBoceto({ fondo = null, foto = false, titulo = "Boceto" } = 
         if (p.length > 1) g.lineTo(p[p.length - 1].x, p[p.length - 1].y);
         g.stroke();
       }
+      g.restore();
+    }
+    // La medida va en el centro de la línea, a lo largo de ella, legible y con borde blanco.
+    function dibujarCota(o, a, b, g) {
+      let ang = Math.atan2(b.y - a.y, b.x - a.x);
+      if (ang > Math.PI / 2 || ang < -Math.PI / 2) ang += Math.PI;
+      const tam = Math.round((26 + o.grosor * 4) * escalaG());
+      g.save();
+      g.translate((a.x + b.x) / 2, (a.y + b.y) / 2); g.rotate(ang);
+      g.font = `700 ${tam}px system-ui, sans-serif`; g.textAlign = "center"; g.textBaseline = "bottom";
+      g.lineWidth = tam / 5; g.strokeStyle = "#fff"; g.strokeText(o.cota.texto, 0, -tam / 4);
+      g.fillStyle = o.color; g.fillText(o.cota.texto, 0, -tam / 4);
       g.restore();
     }
     function pintarBase(g) {
@@ -151,9 +166,14 @@ export function abrirBoceto({ fondo = null, foto = false, titulo = "Boceto" } = 
       if (e.pointerId !== puntero) return;
       puntero = null;
       if (st.actual) {
-        if (st.actual.herr !== "goma") st.ops.push(st.actual);
+        const op = st.actual;
+        if (op.herr !== "goma") st.ops.push(op);
         st.actual = null; st.deshechos = []; st.cambios = true;
         repintarCapa(); pintar();
+        const [a, b] = [op.puntos[0], op.puntos[op.puntos.length - 1]];
+        if (medir && op.herr === "linea" && Math.hypot(b.x - a.x, b.y - a.y) > W / 50) {
+          medir().then((c) => { if (c) { op.cota = c; repintarCapa(); pintar(); } });
+        }
       }
     };
     canvas.addEventListener("pointerup", fin);
@@ -196,6 +216,7 @@ export function abrirBoceto({ fondo = null, foto = false, titulo = "Boceto" } = 
       if (!st.ops.length && !imgFondo) { alert("El dibujo está vacío."); return; }
       pintar();
       // Sobre una foto se guarda en JPG (mucho más ligero); los dibujos a mano, en PNG (trazos nítidos)
+      if (cotas) st.ops.forEach((o) => { if (o.cota) cotas.push(o.cota); });
       canvas.toBlob((b) => { window.removeEventListener("popstate", alAtras); history.back(); salir(b); }, foto ? "image/jpeg" : "image/png", 0.88);
     };
 

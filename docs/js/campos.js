@@ -17,23 +17,31 @@ export function botonRef(ref, alCambiar) {
 
 // Si lo tecleado no es válido, se marca y la medida queda vacía: alCambiar(null, texto).
 // Así nunca se guarda un trozo de lo que se estaba escribiendo (por ejemplo, 1 de «1.500»).
-export function campoMedida({ etiqueta, acc, valor, mal, unidad, alCambiar, ref, alCambiarRef, aviso }) {
+// rapidos: medidas habituales (en mm) como botones; el campo sigue admitiendo cualquier otra.
+export function campoMedida({ etiqueta, acc, valor, mal, unidad, alCambiar, ref, alCambiarRef, aviso, rapidos }) {
   const msg = h('div', { class: 'msg-error' });
   const input = h('input', { 'data-acc': acc, inputmode: unidad === 'mm' ? 'numeric' : 'decimal', autocomplete: 'off', enterkeyhint: 'next', value: mal || verMedida(valor, unidad) });
+  const botones = (rapidos || []).map(mm => h('button', { type: 'button', 'data-acc': 'rapido', 'data-v': String(mm), onclick: () => {
+    input.value = verMedida(mm, unidad);
+    aplicar();
+  } }, verMedida(mm, unidad)));
   const caja = h('div', { class: 'campo', 'data-c': acc },
     etiqueta ? h('label', { class: 'et' }, etiqueta) : null,
+    botones.length ? h('div', { class: 'chips rapidos' }, botones) : null,
     h('div', { class: 'med' }, ref ? botonRef(ref, alCambiarRef) : null, input, h('span', { class: 'ud' }, unidad)),
     msg, aviso ? h('div', { class: 'avisos', 'data-avisos': aviso }) : null);
   const marcar = r => {
     caja.classList.toggle('error', !!r.error);
     msg.textContent = r.error ? (unidad === 'mm' ? 'En milímetros, sin decimales' : 'En centímetros, con un decimal como mucho') : '';
+    botones.forEach(b => b.classList.toggle('on', !r.error && Number(b.dataset.v) === r.mm));
   };
-  input.addEventListener('input', () => {
+  function aplicar() {
     const r = leerMedida(input.value, unidad);
     marcar(r);
     alCambiar(r.error ? null : r.mm, r.error ? input.value : null);
-  });
-  if (mal) marcar(leerMedida(mal, unidad));
+  }
+  input.addEventListener('input', aplicar);
+  marcar(leerMedida(input.value, unidad));
   return caja;
 }
 

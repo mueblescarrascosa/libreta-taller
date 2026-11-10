@@ -23,7 +23,7 @@ export function segmentado({ acc, opciones, valor, alCambiar, permitirVacio }) {
   return h('div', { class: 'seg' }, botones);
 }
 
-export const NOMBRE_TIPO = { puerta: 'Puerta', cocina: 'Cocina', armario: 'Armario', nota: 'Nota' };
+export const NOMBRE_TIPO = { puerta: 'Puertas', cocina: 'Cocina', armario: 'Armario', nota: 'Nota' };
 export const NOMBRE_SUBTIPO = { vestidor: 'Vestidor', corredera: 'Corredera', abatible: 'Abatible' };
 export const tituloFicha = f => f.nombre || (f.subtipo ? NOMBRE_TIPO[f.tipo] + ' ' + NOMBRE_SUBTIPO[f.subtipo].toLowerCase() : NOMBRE_TIPO[f.tipo]);
 export const vivos = l => l.filter(x => !x.borrado_at);

@@ -11,28 +11,80 @@ export const TIPOS_ELEMENTO = {
 };
 export const NOMBRE_ELEMENTO = {
   humos: 'Salida de humos', desague: 'Desagüe', agua: 'Toma de agua', gas: 'Gas', enchufe_horno: 'Enchufe horno', enchufe_microondas: 'Enchufe microondas',
-  enchufe_frigo: 'Enchufe frigorífico', enchufe_lavavajillas: 'Enchufe lavavajillas', enchufe: 'Enchufe', ventana: 'Ventana', puerta: 'Puerta', pilar: 'Pilar', otro: 'Otro',
+  enchufe_frigo: 'Enchufe frigorífico', enchufe_lavavajillas: 'Enchufe lavavajillas', enchufe: 'Enchufe', ventana: 'Ventana', puerta: 'Puerta', pilar: 'Pilar o columna', otro: 'Otro',
 };
 
 export function camposDeElemento(tipo) {
-  if (tipo === 'ventana' || tipo === 'puerta') return { ancho: true, alto: true, punto: 'borde' };
-  if (tipo === 'pilar') return { ancho: true, alto: false, punto: 'borde' };
-  return { ancho: false, alto: false, punto: 'centro' };
+  if (tipo === 'ventana' || tipo === 'puerta') return { ancho: true, alto: true, fondo: false, altura: true, punto: 'borde' };
+  if (tipo === 'pilar') return { ancho: true, alto: false, fondo: true, altura: false, punto: 'borde' };
+  return { ancho: false, alto: false, fondo: false, altura: true, punto: 'centro' };
+}
+
+// Lo que no es información: identificadores, letras de pared y referencias por defecto.
+const SIN_INFO = new Set(['id', 'letra', 'ref', 'ref_ultima', 'paredes_m']);
+
+// ¿Hay algo apuntado? Cuenta cualquier texto, número, sí/no o elemento añadido.
+export function tieneInformacion(v, clave) {
+  if (clave && SIN_INFO.has(clave)) return false;
+  if (v === null || v === undefined) return false;
+  if (typeof v === 'string') return v.trim() !== '';
+  if (typeof v === 'number' || typeof v === 'boolean') return true;
+  if (Array.isArray(v)) return v.some(x => tieneInformacion(x));
+  return Object.keys(v).some(k => tieneInformacion(v[k], k));
+}
+
+// Quita las notas en blanco y las medidas sin nombre ni valor. No cambia el original.
+export function limpiarDatos(d) {
+  return Object.assign({}, d, {
+    notas: (d.notas || []).filter(n => String(n.texto || '').trim()),
+    libres: (d.libres || []).filter(m => tieneInformacion(m)),
+  });
 }
 
 export function trabajoNuevo(nombre, unidad) {
   return { id: id(), nombre, cliente: '', direccion: '', unidad, creado_at: ahora(), updated_at: null, borrado_at: null };
 }
 
+// Botones de medida habitual (en mm): anchos de puerta, altos y grosores de tabique.
+export const RAPIDAS_PUERTA = { ancho: [920, 820, 720, 620], alto: [2030, 2110], tabique: [70, 90, 110] };
+const CAMPOS_PUERTA = ['ancho', 'alto', 'tabique', 'mano', 'condena', 'vidriera'];
+
+// En un mismo piso el tabique suele repetirse: la puerta nueva lo copia de la anterior.
+export function puertaNueva(anterior) {
+  return { id: id(), nombre: '', ancho: null, alto: null, tabique: anterior ? anterior.tabique ?? null : null, mano: null, condena: null, vidriera: null };
+}
+
+// Las fichas de puerta antiguas tenían una sola puerta con los datos sueltos: pasan a la lista.
+export function normalizarFicha(f) {
+  if (f.tipo !== 'puerta' || Array.isArray(f.datos.puertas)) return f;
+  const d = Object.assign({}, f.datos), p = Object.assign(puertaNueva(null), { nombre: f.nombre || '' });
+  CAMPOS_PUERTA.forEach(k => { if (k in d) p[k] = d[k]; delete d[k]; });
+  if (d.mal) { p.mal = d.mal; delete d.mal; }
+  d.puertas = [p];
+  return Object.assign({}, f, { nombre: '', datos: d });
+}
+
+export function resumenPuerta(p, unidad) {
+  const t = [], v = mm => verMedida(mm, unidad);
+  if (hay(p.ancho) && hay(p.alto)) t.push(v(p.ancho) + ' × ' + v(p.alto) + ' ' + unidad);
+  else if (hay(p.ancho)) t.push('ancho ' + v(p.ancho) + ' ' + unidad);
+  else if (hay(p.alto)) t.push('alto ' + v(p.alto) + ' ' + unidad);
+  if (hay(p.tabique)) t.push('tabique ' + v(p.tabique));
+  if (p.mano) t.push(p.mano === 'izq' ? 'izquierda' : 'derecha');
+  if (p.condena) t.push('condena');
+  if (p.vidriera) t.push('vidriera');
+  return t.length ? t.join(' · ') : 'sin medidas';
+}
+
 function datosDe(tipo, subtipo) {
   const c = { libres: [], notas: [], ref_ultima: 'izq' };
-  if (tipo === 'puerta') return Object.assign(c, { ancho: null, alto: null, tabique: null, mano: null, condena: null, vidriera: null });
-  if (tipo === 'cocina') return Object.assign(c, { alto_techo: null, paredes: [] });
+  if (tipo === 'puerta') return Object.assign(c, { puertas: [puertaNueva(null)] });
+  if (tipo === 'cocina') return Object.assign(c, { alto_techo: null, paredes: [paredNueva([])] });
   if (tipo === 'armario') {
     Object.assign(c, { ancho_arriba: null, ancho_medio: null, ancho_abajo: null, alto_izq: null, alto_der: null, fondo: null, rodapie_alto: null, rodapie_grosor: null, enchufes: [] });
     if (subtipo === 'corredera') c.hojas = null;
     if (subtipo === 'abatible') c.puertas = null;
-    if (subtipo === 'vestidor') c.paredes = [];
+    if (subtipo === 'vestidor') c.paredes = [paredNueva([])];
   }
   return c;
 }
@@ -49,7 +101,7 @@ export function paredNueva(paredes) {
   const usadas = new Set(paredes.map(p => p.letra));
   let n = 0, letra;
   do { letra = n < 26 ? String.fromCharCode(65 + n) : 'P' + (n + 1); n++; } while (usadas.has(letra));
-  return { id: id(), letra, largo: null, elementos: [] };
+  return { id: id(), letra, largo: null, alto: null, elementos: [] };
 }
 
 const hay = v => v !== null && v !== undefined;
@@ -71,6 +123,7 @@ function revisarDiferencia(lista, campo, nombre, valores, unidad) {
 function avisosParedes(lista, paredes, unidad) {
   (paredes || []).forEach(p => {
     revisarTamano(lista, 'pared.' + p.id, 'Pared ' + p.letra, p.largo, unidad);
+    revisarTamano(lista, 'pared.' + p.id, 'Alto de la pared ' + p.letra, p.alto, unidad);
     p.elementos.forEach(e => {
       const campo = 'elemento.' + e.id, nombre = e.nombre || NOMBRE_ELEMENTO[e.tipo] || e.tipo;
       revisarMaximo(lista, campo, nombre, e.distancia, unidad);
@@ -87,9 +140,12 @@ function avisosParedes(lista, paredes, unidad) {
 export function avisos(ficha, unidad) {
   const d = ficha.datos, l = [];
   if (ficha.tipo === 'puerta') {
-    revisarTamano(l, 'ancho', 'Ancho', d.ancho, unidad);
-    revisarTamano(l, 'alto', 'Alto', d.alto, unidad);
-    revisarTamano(l, 'tabique', 'Tabique', d.tabique, unidad);
+    (d.puertas || []).forEach((p, i) => {
+      const campo = 'puerta.' + p.id, n = (p.nombre || 'Puerta ' + (i + 1)) + ': ';
+      revisarTamano(l, campo, n + 'ancho', p.ancho, unidad);
+      revisarTamano(l, campo, n + 'alto', p.alto, unidad);
+      revisarTamano(l, campo, n + 'tabique', p.tabique, unidad);
+    });
   }
   if (ficha.tipo === 'cocina') revisarTamano(l, 'alto_techo', 'Altura', d.alto_techo, unidad);
   if (ficha.tipo === 'armario') {
@@ -115,6 +171,7 @@ function textoFicha(f) {
   (d.notas || []).forEach(n => t.push(n.texto));
   (d.libres || []).forEach(m => t.push(m.nombre));
   (d.paredes || []).forEach(p => p.elementos.forEach(e => t.push(e.nombre)));
+  (Array.isArray(d.puertas) ? d.puertas : []).forEach(p => t.push(p.nombre));
   return t.join(' ');
 }
 

@@ -3,10 +3,10 @@ import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
 import { abrirAlmacen } from './almacen.js';
 import { crearNube } from './nube.js';
 import { crearSincro } from './sincro.js';
-import { h } from './util.js';
+import { h, vivos } from './util.js';
 import { pintarInicio } from './pantallas/inicio.js';
 import { pintarTrabajo } from './pantallas/trabajo.js';
-import { pintarFicha } from './pantallas/ficha.js';
+import { pintarFicha, descartarVacio } from './pantallas/ficha.js';
 import { pintarAjustes } from './pantallas/ajustes.js';
 
 const raiz = document.getElementById('app');
@@ -17,8 +17,12 @@ const App = {
   vaciar: null, // cada pantalla guarda aquí lo que tenga pendiente; se llama al cambiar de pantalla o cerrar la app
   refrescar: null, // repinta la pantalla si llegan cambios de la nube
 
-  ajustes() { return { unidad: App.unidad }; },
+  alSalir: null, // al dejar la ficha: descarta lo vacío
+  paredesM: true, // largo y alto de paredes en metros (lo habitual); se recuerda la última elección
+
+  ajustes() { return { unidad: App.unidad, paredesM: App.paredesM }; },
   async cambiarUnidad(u) { App.unidad = u; await App.almacen.setMeta('unidad', u); },
+  async cambiarParedesM(v) { App.paredesM = v; await App.almacen.setMeta('paredesM', v); },
 
   async guardarFila(tabla, fila) {
     await App.almacen.guardar(tabla, fila);
@@ -96,6 +100,7 @@ function pintarEntrada(aviso) {
 async function ruta() {
   if (!App.uid) return pintarEntrada();
   if (App.vaciar) { const v = App.vaciar; App.vaciar = null; await v(); }
+  if (App.alSalir) { const s = App.alSalir; App.alSalir = null; await s(); }
   App.refrescar = null;
   const [, seccion, id] = (location.hash || '#/').split('/');
   if (seccion === 'trabajo') return pintarTrabajo(App, id);
@@ -109,6 +114,8 @@ async function arrancar() {
   App.almacen = await abrirAlmacen();
   App.unidad = (await App.almacen.getMeta('unidad')) || 'mm';
   App.email = (await App.almacen.getMeta('email')) || '';
+  const pm = await App.almacen.getMeta('paredesM');
+  App.paredesM = pm === null ? true : pm;
   // La cuenta se recuerda aquí para poder abrir la app sin cobertura aunque el token haya caducado.
   App.uid = await App.almacen.getMeta('uid');
   // Sin la librería (sin cobertura y sin copia guardada) la app abre igual: todo queda pendiente de subir.
@@ -126,6 +133,8 @@ async function arrancar() {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && App.vaciar) App.vaciar(); });
   window.addEventListener('online', () => App.sincro.sincronizar());
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && App.uid) App.sincro.sincronizar(); });
+  // Fichas que se quedaron vacías (por ejemplo, si se cerró la app recién creada): fuera.
+  if (App.uid) for (const f of vivos(await App.almacen.todos('fichas'))) await descartarVacio(App, f);
   await ruta();
   if (App.uid) App.sincro.sincronizar();
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});

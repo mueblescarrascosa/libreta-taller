@@ -64,6 +64,37 @@ prueba('cotas sobre foto abre el editor con la foto y guarda JPEG', con({}, asyn
   await bocetoListo(a); await a.page.click('.boceto [data-acc="guardar"]'); await a.page.waitForSelector('[data-acc="ver-adjunto"]');
   await hasta(() => a.nube.med_adjuntos.length === 1, 'subida'); afirma(/\.jpg$/.test(a.nube.med_adjuntos[0].ruta)); igual(a.nube.med_adjuntos[0].tipo, 'foto');
 }));
+const linea = async (a, x1, y1, x2, y2) => {
+  const c = await (await a.page.$('.boceto canvas')).boundingBox();
+  await a.page.mouse.move(c.x + x1, c.y + y1); await a.page.mouse.down(); await a.page.mouse.move(c.x + x2, c.y + y2, { steps: 6 }); await a.page.mouse.up();
+};
+prueba('la regla pregunta cuánto mide la línea y lo apunta en la ficha', con({}, async a => {
+  await nuevaNota(a);
+  await a.page.click('[data-acc="croquis"]'); await bocetoListo(a); await a.page.click('.boceto [data-herr="linea"]');
+  await linea(a, 30, 40, 220, 40);
+  await a.page.waitForSelector('[data-acc="cota-valor"]'); igual(await a.page.innerText('.cota-dialogo .ud'), 'mm');
+  await a.page.fill('[data-acc="cota-valor"]', '12,5'); await a.page.click('[data-acc="cota-ok"]');
+  afirma(await a.page.$('[data-acc="cota-valor"]'), 'aceptó una medida mal escrita');
+  await a.page.fill('[data-acc="cota-valor"]', '2450'); await a.page.click('[data-acc="cota-ok"]');
+  await a.page.waitForFunction(() => !document.querySelector('.cota-dialogo'));
+  await linea(a, 30, 90, 30, 200); await a.page.waitForSelector('[data-acc="cota-valor"]'); await a.page.click('[data-acc="cota-no"]');
+  await a.page.waitForFunction(() => !document.querySelector('.cota-dialogo'));
+  await a.page.click('.boceto [data-acc="guardar"]'); await a.page.waitForSelector('[data-acc="ver-adjunto"]');
+  await a.page.waitForFunction(() => [...document.querySelectorAll('[data-acc="libre-nombre"]')].some(i => i.value === 'Cota 1'));
+  const f = await a.page.evaluate(async () => { const id = location.hash.split('/')[2]; const { abrirAlmacen } = await import('./js/almacen.js'); return (await abrirAlmacen()).leer('fichas', id); });
+  igual(f.datos.libres.map(m => [m.nombre, m.mm]), [['Cota 1', 2450]]);
+}));
+prueba('deshacer una línea medida quita también su cota', con({}, async a => {
+  await nuevaNota(a);
+  await a.page.click('[data-acc="croquis"]'); await bocetoListo(a); await a.page.click('.boceto [data-herr="linea"]');
+  await linea(a, 30, 40, 220, 40); await a.page.waitForSelector('[data-acc="cota-valor"]'); await a.page.fill('[data-acc="cota-valor"]', '900'); await a.page.click('[data-acc="cota-ok"]');
+  await a.page.waitForFunction(() => !document.querySelector('.cota-dialogo'));
+  await a.page.click('.boceto [data-herr="lapiz"]'); await linea(a, 50, 120, 200, 160);
+  await a.page.click('.boceto [data-acc="deshacer"]'); await a.page.click('.boceto [data-acc="deshacer"]');
+  await a.page.click('.boceto [data-acc="guardar"]'); await a.page.waitForTimeout(300);
+  const f = await a.page.evaluate(async () => { const id = location.hash.split('/')[2]; const { abrirAlmacen } = await import('./js/almacen.js'); return (await abrirAlmacen()).leer('fichas', id); });
+  igual(f ? f.datos.libres.length : 0, 0);
+}));
 prueba('borrar una foto pide confirmación', con({}, async a => {
   await nuevaNota(a); await a.page.setInputFiles('[data-acc="foto-input"]', { name: 'f.jpg', mimeType: 'image/jpeg', buffer: await fotoJpeg(a) });
   await a.page.click('[data-acc="ver-adjunto"]'); a.estado.aceptar = false; await a.page.click('[data-acc="borrar-adjunto"]'); await a.page.waitForTimeout(100);
