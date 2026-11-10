@@ -1,7 +1,7 @@
 // Acceso a Supabase. La sincronización solo conoce estos métodos.
 import { BUCKET } from './config.js';
 
-const TABLA = { trabajos: 'med_trabajos', fichas: 'med_fichas', adjuntos: 'med_adjuntos' };
+const TABLA = { ajustes: 'med_ajustes', trabajos: 'med_trabajos', fichas: 'med_fichas', adjuntos: 'med_adjuntos' };
 const PAGINA = 500;
 
 // Errores con tipo: 'red' (reintentar luego), 'sesion' (hay que entrar) o 'datos' (esta fila falla).

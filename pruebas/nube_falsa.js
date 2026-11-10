@@ -12,7 +12,7 @@ function comoPostgres(f) {
 }
 
 export function crearNubeFalsa() {
-  const t = { trabajos: new Map(), fichas: new Map(), adjuntos: new Map() }, archivos = new Map();
+  const t = { ajustes: new Map(), trabajos: new Map(), fichas: new Map(), adjuntos: new Map() }, archivos = new Map();
   const n = {
     t, archivos, sinRed: false, perderRespuesta: 0, fallarArchivo: false, marcas: [],
     _ok() { if (n.sinRed) { const e = new Error('red'); e.tipo = 'red'; throw e; } },
@@ -47,7 +47,7 @@ export function crearNubeFalsa() {
 }
 
 export function crearAlmacenFalso() {
-  const s = { trabajos: new Map(), fichas: new Map(), adjuntos: new Map(), blobs: new Map(), cola: new Map(), meta: new Map() };
+  const s = { ajustes: new Map(), trabajos: new Map(), fichas: new Map(), adjuntos: new Map(), blobs: new Map(), cola: new Map(), meta: new Map() };
   return {
     s,
     async leer(store, id) { const v = s[store].get(id); return v === undefined ? null : (store === 'blobs' ? v : copia(v)); },

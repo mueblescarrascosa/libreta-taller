@@ -127,7 +127,7 @@ export function enderezar(puntos) {
 }
 
 // ── Comprobación de medidas ──
-const MARGEN = 10;
+const MARGEN_FABRICA = 10;
 const recta = a => Math.abs(a / 90 - Math.round(a / 90)) < 0.5 / 90;
 const esquinaRecta = () => ({ estado: 'escuadra', sentido: null, mm: null, en: 1000 });
 
@@ -183,7 +183,7 @@ function recorrer(plano) {
   return { pts, dirs, hFin: h };
 }
 
-export function comprobar(plano) {
+export function comprobar(plano, MARGEN = MARGEN_FABRICA) {
   const m = plano.cerrada ? plano.vertices.length : plano.vertices.length - 1;
   const faltan = [];
   for (let i = 0; i < m; i++) if (plano.largos[i] === null || plano.largos[i] === undefined) faltan.push(i);
@@ -207,8 +207,8 @@ export function comprobar(plano) {
 }
 
 // Vértices en mm para dibujar a escala, o null si no hay datos o no cierra.
-export function aEscala(plano) {
-  if (plano.cerrada && comprobar(plano).cierre !== 'ok') return null;
+export function aEscala(plano, margen = MARGEN_FABRICA) {
+  if (plano.cerrada && comprobar(plano, margen).cierre !== 'ok') return null;
   const r = recorrer(plano);
   if (!r || r.error) return null;
   return plano.cerrada ? r.pts.slice(0, plano.vertices.length) : r.pts;

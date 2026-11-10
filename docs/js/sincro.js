@@ -1,5 +1,5 @@
 // Sube la cola y baja lo nuevo. Nunca descarta una medida en silencio: un conflicto en una ficha deja las dos versiones.
-const ORDEN = ['trabajos', 'fichas', 'adjuntos'];
+const ORDEN = ['ajustes', 'trabajos', 'fichas', 'adjuntos'];
 const MARGEN_MS = 60000;
 const SUFIJO = ' (versión de este dispositivo)';
 

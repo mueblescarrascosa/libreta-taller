@@ -54,6 +54,17 @@ prueba('una fila bajada no pisa cambios sin subir', () => conAlmacen(async a => 
   const r = await ev(a, "await al.guardar('fichas',{id:'f1',nombre:'A',updated_at:null});const x=await al.aplicarRemota('fichas',{id:'f1',nombre:'Z',updated_at:'U1'});const y=await al.aplicarRemota('fichas',{id:'f2',nombre:'Z',updated_at:'U1'});return {x,y,f:await al.leer('fichas','f1')};");
   igual(r.x, false); igual(r.y, true); igual(r.f.nombre, 'A');
 }));
+prueba('una base antigua (sin ajustes) se amplía sin perder nada', () => conAlmacen(async a => {
+  const r = await a.page.evaluate(async () => {
+    const vieja = await new Promise((ok, mal) => { const q = indexedDB.open('vieja-db', 1); q.onupgradeneeded = () => { const db = q.result; ['trabajos', 'fichas', 'adjuntos', 'blobs'].forEach(t => db.createObjectStore(t, { keyPath: 'id' })); db.createObjectStore('cola', { keyPath: 'clave' }); db.createObjectStore('meta', { keyPath: 'k' }); }; q.onsuccess = () => ok(q.result); q.onerror = () => mal(q.error); });
+    await new Promise(ok => { const t = vieja.transaction('fichas', 'readwrite'); t.objectStore('fichas').put({ id: 'f1', nombre: 'Antigua' }); t.oncomplete = ok; });
+    vieja.close();
+    const { abrirAlmacen } = await import('/js/almacen.js'); const al = await abrirAlmacen('vieja-db');
+    await al.guardar('ajustes', { id: 'U1', datos: { margen: 20 }, updated_at: null });
+    return { f: await al.leer('fichas', 'f1'), aj: await al.leer('ajustes', 'U1') };
+  });
+  igual(r.f.nombre, 'Antigua'); igual(r.aj.datos.margen, 20);
+}));
 prueba('meta guarda y lee', () => conAlmacen(async a => {
   const r = await ev(a, "await al.setMeta('unidad','cm');return {v:await al.getMeta('unidad'),n:await al.getMeta('nada')};");
   igual(r.v, 'cm'); igual(r.n, null);

@@ -32,7 +32,7 @@ export async function pagina() {
   return { page, ctx, base, cerrar: async () => { await browser.close(); srv.close(); } };
 }
 
-export const nubeNueva = () => ({ med_trabajos: [], med_fichas: [], med_adjuntos: [], archivos: new Map(), sinRed: false, caducada: false, reloj: 0 });
+export const nubeNueva = () => ({ med_ajustes: [], med_trabajos: [], med_fichas: [], med_adjuntos: [], archivos: new Map(), sinRed: false, caducada: false, reloj: 0 });
 
 const sello = n => new Date(1800000000000 + (++n.reloj) * 1000).toISOString().replace('Z', '+00:00');
 const b64url = o => Buffer.from(JSON.stringify(o)).toString('base64url');

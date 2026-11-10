@@ -16,9 +16,9 @@ const etiqueta = e => nombreElemento(e);
 // Etiqueta corta para la planta: «E H/MO», «Toma termo», «Desagüe»…
 function corta(e) {
   if (e.tipo === 'otro') return e.nombre || 'Otro';
-  const uso = USOS[e.tipo] && USOS[e.tipo].find(u => u[0] === e.para);
-  if (e.tipo === 'enchufe') return uso ? 'E ' + (e.para === 'hmo' ? 'H/MO' : uso[1].toLowerCase()) : 'E';
-  if (e.tipo === 'toma') return uso ? 'Toma ' + uso[1].toLowerCase() : 'Toma';
+  const uso = USOS[e.tipo] && USOS[e.tipo].find(u => u[0] === e.para), texto = e.para_nombre || (uso && uso[1]);
+  if (e.tipo === 'enchufe') return texto ? 'E ' + (e.para === 'hmo' ? 'H/MO' : texto.toLowerCase()) : 'E';
+  if (e.tipo === 'toma') return texto ? 'Toma ' + texto.toLowerCase() : 'Toma';
   return ETIQUETA_CORTA[e.tipo] || etiqueta(e);
 }
 
@@ -33,16 +33,16 @@ function planoDe(d) {
   return planoPorDefecto(paredes);
 }
 
-export function geometriaPlanta(d) {
+export function geometriaPlanta(d, { margen = 10 } = {}) {
   const plano = planoDe(d), vacio = { paredes: [], elementos: [], sinSituar: [], aEscala: false, cierre: null };
   if (!plano) return vacio;
-  let pts = aEscala(plano);
+  let pts = aEscala(plano, margen);
   const escala = !!pts;
   if (!pts) pts = plano.vertices.map(v => ({ x: v.x * 10, y: v.y * 10 }));
   const n = pts.length, m = plano.cerrada ? n : n - 1;
   // Sin plano dibujado, cada pared de la planta es la de la ficha en ese orden, con su letra.
   const nombres = d.plano ? letras(m) : (d.paredes || []).map(p => p.letra);
-  const geo = { paredes: [], elementos: [], sinSituar: [], fuera: [], aEscala: escala, cierre: comprobar(plano).cierre };
+  const geo = { paredes: [], elementos: [], sinSituar: [], fuera: [], aEscala: escala, cierre: comprobar(plano, margen).cierre };
   for (let i = 0; i < m; i++) {
     const a = pts[i], b = pts[(i + 1) % n], letra = nombres[i];
     const pared = (d.paredes || []).find(p => p.letra === letra) || { largo: null, elementos: [] };

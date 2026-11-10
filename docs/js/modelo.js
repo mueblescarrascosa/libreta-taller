@@ -1,7 +1,7 @@
 // Modelo de datos: fichas, elementos, avisos y búsqueda. Sin pantallas ni red.
 import { verMedida } from './unidades.js';
 
-const MARGEN = 10, MAXIMO = 20000;
+const MAXIMO = 20000;
 const id = () => crypto.randomUUID();
 const ahora = () => new Date().toISOString();
 
@@ -11,10 +11,37 @@ export const TIPOS_ELEMENTO = {
   cocina: ['humos', 'desague', 'toma', 'enchufe', 'ventana', 'puerta', 'pilar', 'otro'],
   vestidor: ['enchufe', 'ventana', 'puerta', 'pilar', 'otro'],
 };
-export const USOS = {
-  toma: [['agua', 'Agua'], ['termo', 'Termo'], ['gas', 'Gas']],
-  enchufe: [['general', 'General'], ['hmo', 'H/MO (columna)'], ['placa', 'Placa'], ['campana', 'Campana'], ['frigo', 'Frigorífico'], ['lavavajillas', 'Lavavajillas'], ['lavadora', 'Lavadora'], ['termo', 'Termo']],
+// Valores de fábrica de lo que se puede cambiar en Ajustes (compartidos entre dispositivos). Medidas en mm.
+export const AJUSTES_FABRICA = {
+  unidad: 'mm', paredes_m: true, margen: 10,
+  puerta_anchos: [920, 820, 720, 620], puerta_altos: [2030, 2110], puerta_tabiques: [70, 90, 110],
+  modulo_anchos: [300, 400, 450, 500, 600, 800, 900, 1000, 1200],
+  usos_toma: [['agua', 'Agua'], ['termo', 'Termo'], ['gas', 'Gas']],
+  usos_enchufe: [['general', 'General'], ['hmo', 'H/MO (columna)'], ['placa', 'Placa'], ['campana', 'Campana'], ['frigo', 'Frigorífico'], ['lavavajillas', 'Lavavajillas'], ['lavadora', 'Lavadora'], ['termo', 'Termo']],
+  lineales: [['zocalo', 'Zócalo'], ['cornisa', 'Cornisa'], ['moldura', 'Moldura'], ['led', 'Tira LED'], ['tapajuntas', 'Tapajuntas']],
+  interiores: [['barra', 'Barra'], ['doble_barra', 'Doble barra'], ['estantes', 'Estantes'], ['cajonera', 'Cajonera'], ['zapatero', 'Zapatero']],
 };
+export const USOS = { toma: AJUSTES_FABRICA.usos_toma, enchufe: AJUSTES_FABRICA.usos_enchufe };
+
+const copiar = v => JSON.parse(JSON.stringify(v));
+const listaNumeros = v => Array.isArray(v) && v.every(x => Number.isInteger(x) && x > 0);
+const listaPares = v => Array.isArray(v) && v.every(x => Array.isArray(x) && x.length === 2 && typeof x[0] === 'string' && typeof x[1] === 'string');
+
+// Ajustes completos: lo guardado si es válido; si no, el valor de fábrica.
+export function mezclarAjustes(g) {
+  const a = copiar(AJUSTES_FABRICA), d = g && typeof g === 'object' ? g : {};
+  if (['mm', 'cm'].includes(d.unidad)) a.unidad = d.unidad;
+  if (typeof d.paredes_m === 'boolean') a.paredes_m = d.paredes_m;
+  if (Number.isInteger(d.margen) && d.margen > 0) a.margen = d.margen;
+  ['puerta_anchos', 'puerta_altos', 'puerta_tabiques', 'modulo_anchos'].forEach(k => { if (listaNumeros(d[k])) a[k] = copiar(d[k]); });
+  ['usos_toma', 'usos_enchufe', 'lineales', 'interiores'].forEach(k => { if (listaPares(d[k])) a[k] = copiar(d[k]); });
+  return a;
+}
+
+// Clave para un texto que añade el usuario: «Vitrocerámica grande» → vitroceramica_grande.
+export function claveDe(t) {
+  return String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'x';
+}
 export const NOMBRE_ELEMENTO = {
   humos: 'Salida de humos', desague: 'Desagüe', toma: 'Toma', agua: 'Toma de agua', gas: 'Gas', enchufe_hmo: 'Enchufe H/MO (columna)', enchufe_horno: 'Enchufe horno', enchufe_microondas: 'Enchufe microondas',
   enchufe_frigo: 'Enchufe frigorífico', enchufe_lavavajillas: 'Enchufe lavavajillas', enchufe: 'Enchufe', ventana: 'Ventana', puerta: 'Puerta', pilar: 'Mocheta (pilar)', zona: 'Zona azulejada', otro: 'Otro',
@@ -23,8 +50,8 @@ export const NOMBRE_ELEMENTO = {
 export function nombreElemento(e) {
   if (e.tipo === 'otro') return e.nombre || 'Otro';
   if (e.tipo === 'zona') return 'Zona azulejada' + (e.nombre ? ' (' + e.nombre + ')' : '');
-  const uso = USOS[e.tipo] && USOS[e.tipo].find(u => u[0] === e.para);
-  if (uso) return e.tipo === 'toma' ? 'Toma de ' + uso[1].toLowerCase() : 'Enchufe ' + uso[1];
+  const uso = USOS[e.tipo] && USOS[e.tipo].find(u => u[0] === e.para), texto = e.para_nombre || (uso && uso[1]);
+  if (texto && (e.tipo === 'toma' || e.tipo === 'enchufe')) return e.tipo === 'toma' ? 'Toma de ' + texto.toLowerCase() : 'Enchufe ' + texto;
   return NOMBRE_ELEMENTO[e.tipo] || e.tipo;
 }
 
@@ -76,7 +103,7 @@ export function trabajoNuevo(nombre, unidad) {
 }
 
 // Botones de medida habitual (en mm): anchos de puerta, altos y grosores de tabique.
-export const RAPIDAS_PUERTA = { ancho: [920, 820, 720, 620], alto: [2030, 2110], tabique: [70, 90, 110] };
+export const RAPIDAS_PUERTA = { ancho: AJUSTES_FABRICA.puerta_anchos, alto: AJUSTES_FABRICA.puerta_altos, tabique: AJUSTES_FABRICA.puerta_tabiques };
 const CAMPOS_PUERTA = ['ancho', 'alto', 'tabique', 'mano', 'condena', 'vidriera'];
 
 // En un mismo piso el tabique suele repetirse: la puerta nueva lo copia de la anterior.
@@ -143,11 +170,11 @@ function revisarTamano(lista, campo, nombre, v, unidad) {
   if (v === 0) lista.push({ campo, texto: nombre + ': no puede ser 0' });
   else revisarMaximo(lista, campo, nombre, v, unidad);
 }
-function revisarDiferencia(lista, campo, nombre, valores, unidad) {
+function revisarDiferencia(lista, campo, nombre, valores, unidad, margen) {
   const v = valores.filter(hay);
   if (v.length < 2) return;
   const dif = Math.max(...v) - Math.min(...v);
-  if (dif > MARGEN) lista.push({ campo, texto: nombre + ' difieren ' + verMedida(dif, unidad) + ' ' + unidad });
+  if (dif > margen) lista.push({ campo, texto: nombre + ' difieren ' + verMedida(dif, unidad) + ' ' + unidad });
 }
 
 function avisosParedes(lista, paredes, unidad) {
@@ -169,7 +196,7 @@ function avisosParedes(lista, paredes, unidad) {
   });
 }
 
-export function avisos(ficha, unidad) {
+export function avisos(ficha, unidad, { margen = AJUSTES_FABRICA.margen } = {}) {
   const d = ficha.datos, l = [];
   if (ficha.tipo === 'puerta') {
     (d.puertas || []).forEach((p, i) => {
@@ -184,8 +211,8 @@ export function avisos(ficha, unidad) {
     [['ancho_arriba', 'Ancho arriba'], ['ancho_medio', 'Ancho en medio'], ['ancho_abajo', 'Ancho abajo'], ['alto_izq', 'Alto izquierda'], ['alto_der', 'Alto derecha'], ['fondo', 'Fondo'], ['rodapie_alto', 'Alto de rodapié']]
       .forEach(([c, n]) => revisarTamano(l, c, n, d[c], unidad));
     revisarMaximo(l, 'rodapie_grosor', 'Grosor de rodapié', d.rodapie_grosor, unidad);
-    revisarDiferencia(l, 'anchos', 'Los anchos', [d.ancho_arriba, d.ancho_medio, d.ancho_abajo], unidad);
-    revisarDiferencia(l, 'altos', 'Los altos', [d.alto_izq, d.alto_der], unidad);
+    revisarDiferencia(l, 'anchos', 'Los anchos', [d.ancho_arriba, d.ancho_medio, d.ancho_abajo], unidad, margen);
+    revisarDiferencia(l, 'altos', 'Los altos', [d.alto_izq, d.alto_der], unidad, margen);
     (d.enchufes || []).forEach(e => {
       revisarMaximo(l, 'enchufe.' + e.id, 'Enchufe', e.distancia, unidad);
       revisarMaximo(l, 'enchufe.' + e.id, 'Enchufe (altura)', e.altura, unidad);

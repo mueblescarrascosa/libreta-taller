@@ -103,3 +103,6 @@ button.mini { min-height: 36px; padding: 4px 10px; font-size: 14px; }
 .fila-pared { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; }
 .fila-pared .msg-error { grid-column: 1 / -1; }
 .aviso-plano { margin: 0; color: var(--tenue); }
+.items { display: grid; gap: 4px; }
+.item { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: center; padding: 2px 0; border-bottom: 1px solid #f1f5f9; }
+.item span { overflow-wrap: anywhere; }

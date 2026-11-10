@@ -28,7 +28,7 @@ function aSvg(svg, ev) {
 const nParedes = p => (p.cerrada ? p.vertices.length : p.vertices.length - 1);
 
 // largos: {A: mm, B: mm, ...} con lo que ya tenga la ficha. unidad: la de las paredes.
-export function abrirPlano({ plano = null, largos = {}, unidad = 'm' } = {}) {
+export function abrirPlano({ plano = null, largos = {}, unidad = 'm', margen = 10 } = {}) {
   return new Promise(resolver => {
     const st = { plano: null, sel: 0, esquina: null, diag: null, aviso: '' };
     const conLargos = p => Object.assign({ esquinas: p.vertices.map(esquinaRecta), diagonales: [] }, p, { largos: letras(nParedes(p)).map(l => largos[l] ?? null) });
@@ -89,7 +89,7 @@ export function abrirPlano({ plano = null, largos = {}, unidad = 'm' } = {}) {
       est.r.diagonales.forEach((d, j) => { const x = panel.querySelector('[data-diag="' + j + '"]'); if (x) x.textContent = textoDiagonal(d); });
     }
     function pintarLienzo() {
-      const p = st.plano, escala = aEscala(p), pts = escala || p.vertices, m = nParedes(p), nombres = letras(m);
+      const p = st.plano, escala = aEscala(p, margen), pts = escala || p.vertices, m = nParedes(p), nombres = letras(m);
       const r = lienzo.getBoundingClientRect(), W = Math.max(r.width, 100), H = Math.max(r.height, 100);
       const xs = pts.map(v => v.x), ys = pts.map(v => v.y), x0 = Math.min(...xs), y0 = Math.min(...ys);
       const k = Math.min((W - 80) / (Math.max(...xs) - x0 || 1), (H - 80) / (Math.max(...ys) - y0 || 1));
@@ -152,7 +152,7 @@ export function abrirPlano({ plano = null, largos = {}, unidad = 'm' } = {}) {
     }
 
     function textoEstado() {
-      const p = st.plano, r = comprobar(p), n = letras(nParedes(p)), mm = v => Math.round(Math.abs(v)) + ' mm';
+      const p = st.plano, r = comprobar(p, margen), n = letras(nParedes(p)), mm = v => Math.round(Math.abs(v)) + ' mm';
       let t;
       if (r.cierre === 'abierta') t = 'Figura abierta: no hay cierre que comprobar.';
       else if (r.cierre === 'sin_datos') t = 'Faltan largos: ' + r.faltan.map(i => n[i]).join(', ') + '.';
@@ -161,9 +161,9 @@ export function abrirPlano({ plano = null, largos = {}, unidad = 'm' } = {}) {
       else if (r.cierre === 'ok') t = '✓ Las medidas cierran.';
       else {
         const partes = [];
-        if (Math.abs(r.errorX) > 10) partes.push(mm(r.errorX) + ' en la dirección de la pared A');
-        if (Math.abs(r.errorY) > 10) partes.push(mm(r.errorY) + ' en la otra dirección');
-        if (r.errorAngulo > 10) partes.push(mm(r.errorAngulo) + ' por el ángulo de la esquina ' + n[n.length - 1] + '–A');
+        if (Math.abs(r.errorX) > margen) partes.push(mm(r.errorX) + ' en la dirección de la pared A');
+        if (Math.abs(r.errorY) > margen) partes.push(mm(r.errorY) + ' en la otra dirección');
+        if (r.errorAngulo > margen) partes.push(mm(r.errorAngulo) + ' por el ángulo de la esquina ' + n[n.length - 1] + '–A');
         t = 'No cierra: falla ' + partes.join(' y ') + '. Revisa las paredes ' + r.paredes.map(i => n[i]).join(', ') + ' o marca una esquina descuadrada.';
       }
       return { t, r, ok: r.cierre === 'ok' };

@@ -1,15 +1,17 @@
 // Almacén local (IndexedDB): la app trabaja siempre contra esto; la cola dice qué falta por subir.
-const TABLAS = ['trabajos', 'fichas', 'adjuntos', 'blobs'];
+const TABLAS = ['ajustes', 'trabajos', 'fichas', 'adjuntos', 'blobs'];
+// Versión 2: añade «ajustes». Al subir de versión solo se crea lo que falta; lo que había se conserva.
+const VERSION_BASE = 2;
 
 const prom = r => new Promise((ok, mal) => { r.onsuccess = () => ok(r.result); r.onerror = () => mal(r.error); });
 
 function abrirBase(nombre) {
-  const r = indexedDB.open(nombre, 1);
+  const r = indexedDB.open(nombre, VERSION_BASE);
   r.onupgradeneeded = () => {
-    const db = r.result;
-    TABLAS.forEach(t => db.createObjectStore(t, { keyPath: 'id' }));
-    db.createObjectStore('cola', { keyPath: 'clave' });
-    db.createObjectStore('meta', { keyPath: 'k' });
+    const db = r.result, hay = n => db.objectStoreNames.contains(n);
+    TABLAS.forEach(t => { if (!hay(t)) db.createObjectStore(t, { keyPath: 'id' }); });
+    if (!hay('cola')) db.createObjectStore('cola', { keyPath: 'clave' });
+    if (!hay('meta')) db.createObjectStore('meta', { keyPath: 'k' });
   };
   return prom(r);
 }

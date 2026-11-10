@@ -4,6 +4,7 @@ import { abrirAlmacen } from './almacen.js';
 import { crearNube } from './nube.js';
 import { crearSincro } from './sincro.js';
 import { h, vivos } from './util.js';
+import { mezclarAjustes } from './modelo.js';
 import { pintarInicio } from './pantallas/inicio.js';
 import { pintarTrabajo } from './pantallas/trabajo.js';
 import { pintarFicha, descartarVacio } from './pantallas/ficha.js';
@@ -13,16 +14,34 @@ const raiz = document.getElementById('app');
 const RETARDO_SINCRO = 1500;
 
 const App = {
-  almacen: null, nube: null, sincro: null, uid: null, email: '', unidad: 'mm',
+  almacen: null, nube: null, sincro: null, uid: null, email: '',
   vaciar: null, // cada pantalla guarda aquí lo que tenga pendiente; se llama al cambiar de pantalla o cerrar la app
   refrescar: null, // repinta la pantalla si llegan cambios de la nube
 
   alSalir: null, // al dejar la ficha: descarta lo vacío
-  paredesM: true, // largo y alto de paredes en metros (lo habitual); se recuerda la última elección
+  _ajustes: mezclarAjustes(null), _filaAjustes: null,
 
-  ajustes() { return { unidad: App.unidad, paredesM: App.paredesM }; },
-  async cambiarUnidad(u) { App.unidad = u; await App.almacen.setMeta('unidad', u); },
-  async cambiarParedesM(v) { App.paredesM = v; await App.almacen.setMeta('paredesM', v); },
+  // Ajustes compartidos entre dispositivos (tabla med_ajustes, una fila por cuenta con id = uid).
+  ajustes() { return Object.assign({}, App._ajustes, { paredesM: App._ajustes.paredes_m }); },
+  async cargarAjustes() {
+    const f = App.uid ? await App.almacen.leer('ajustes', App.uid) : null;
+    App._filaAjustes = f;
+    if (f) { App._ajustes = mezclarAjustes(f.datos); return; }
+    // Aún sin ajustes compartidos: los que tuviera este dispositivo.
+    const d = {}, u = await App.almacen.getMeta('unidad'), pm = await App.almacen.getMeta('paredesM');
+    if (u) d.unidad = u;
+    if (pm !== null) d.paredes_m = pm;
+    App._ajustes = mezclarAjustes(d);
+  },
+  async cambiarAjustes(cambios) {
+    const f = App._filaAjustes || { id: App.uid, datos: {}, creado_at: new Date().toISOString(), updated_at: null, borrado_at: null };
+    const fila = Object.assign({}, f, { datos: Object.assign({}, f.datos, cambios) });
+    App._filaAjustes = fila;
+    App._ajustes = mezclarAjustes(fila.datos);
+    await App.guardarFila('ajustes', fila);
+  },
+  cambiarUnidad(u) { return App.cambiarAjustes({ unidad: u }); },
+  cambiarParedesM(v) { return App.cambiarAjustes({ paredes_m: v }); },
 
   async guardarFila(tabla, fila) {
     await App.almacen.guardar(tabla, fila);
@@ -90,6 +109,7 @@ function pintarEntrada(aviso) {
     App.uid = r.uid; App.email = r.email;
     await App.almacen.setMeta('uid', r.uid);
     await App.almacen.setMeta('email', r.email);
+    await App.cargarAjustes();
     if (!location.hash) location.hash = '#/';
     await ruta();
     App.sincro.sincronizar();
@@ -112,18 +132,17 @@ async function ruta() {
 
 async function arrancar() {
   App.almacen = await abrirAlmacen();
-  App.unidad = (await App.almacen.getMeta('unidad')) || 'mm';
   App.email = (await App.almacen.getMeta('email')) || '';
-  const pm = await App.almacen.getMeta('paredesM');
-  App.paredesM = pm === null ? true : pm;
   // La cuenta se recuerda aquí para poder abrir la app sin cobertura aunque el token haya caducado.
   App.uid = await App.almacen.getMeta('uid');
+  await App.cargarAjustes();
   // Sin la librería (sin cobertura y sin copia guardada) la app abre igual: todo queda pendiente de subir.
   App.nube = window.supabase
     ? crearNube(window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storageKey: 'medidas-auth', persistSession: true, autoRefreshToken: true } }))
     : nubeSinConexion();
   App.sincro = crearSincro({ almacen: App.almacen, nube: App.nube });
-  App.sincro.alCambiar(hayCambios => {
+  App.sincro.alCambiar(async hayCambios => {
+    if (hayCambios) await App.cargarAjustes();
     App.pintarEstado();
     if (hayCambios && App.refrescar && !document.activeElement.matches('input,textarea')) App.refrescar();
   });

@@ -38,7 +38,8 @@ export async function pintarFicha(App, id) {
   if (!leida || leida.borrado_at) return App.ir('#/');
   const ficha = normalizarFicha(leida);
   const trabajo = ficha.trabajo_id ? await App.almacen.leer('trabajos', ficha.trabajo_id) : null;
-  const unidad = unidadDe(trabajo, App.ajustes()), d = ficha.datos;
+  const AJ = App.ajustes(), unidad = unidadDe(trabajo, AJ), d = ficha.datos;
+  const usosDe = t => (t === 'toma' ? AJ.usos_toma : t === 'enchufe' ? AJ.usos_enchufe : []);
   const main = App.marco('ficha', tituloFicha(ficha), trabajo ? '#/trabajo/' + trabajo.id : '#/sueltas');
 
   let espera = null;
@@ -52,7 +53,7 @@ export async function pintarFicha(App, id) {
   let pintarPlanta = null;
   function refrescarAvisos() {
     const porCampo = {};
-    avisos(ficha, unidad).forEach(a => { (porCampo[a.campo] = porCampo[a.campo] || []).push(a.texto); });
+    avisos(ficha, unidad, { margen: AJ.margen }).forEach(a => { (porCampo[a.campo] = porCampo[a.campo] || []).push(a.texto); });
     const zonas = [...main.querySelectorAll('[data-avisos]')], conZona = new Set(zonas.map(z => z.dataset.avisos));
     zonas.forEach(z => { z.textContent = (porCampo[z.dataset.avisos] || []).join(' · '); });
     general.textContent = Object.keys(porCampo).filter(k => !conZona.has(k)).map(k => porCampo[k].join(' · ')).join(' · ');
@@ -78,9 +79,9 @@ export async function pintarFicha(App, id) {
             d.puertas.splice(d.puertas.indexOf(p), 1); abierta = null; cambio(); repintar();
           } }, 'Quitar')),
         h('input', { 'data-acc': 'nombre-puerta', placeholder: 'Nombre (por ejemplo, Dormitorio 1)', value: p.nombre, oninput: ev => { p.nombre = ev.target.value; cambio(); } }),
-        medida(p, 'ancho', 'Ancho', { rapidos: RAPIDAS_PUERTA.ancho, aviso: null }),
-        medida(p, 'alto', 'Alto', { rapidos: RAPIDAS_PUERTA.alto, aviso: null }),
-        medida(p, 'tabique', 'Grosor de tabique', { rapidos: RAPIDAS_PUERTA.tabique, aviso: null }),
+        medida(p, 'ancho', 'Ancho', { rapidos: AJ.puerta_anchos, aviso: null }),
+        medida(p, 'alto', 'Alto', { rapidos: AJ.puerta_altos, aviso: null }),
+        medida(p, 'tabique', 'Grosor de tabique', { rapidos: AJ.puerta_tabiques, aviso: null }),
         h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Abre a'),
           segmentado({ acc: 'mano', opciones: [['izq', 'Izquierda'], ['der', 'Derecha']], valor: p.mano, permitirVacio: true, alCambiar: v => { p.mano = v; cambio(); } })),
         h('div', { class: 'dos' }, siNo(p, 'condena', 'Condena'), siNo(p, 'vidriera', 'Vidriera')),
@@ -107,8 +108,9 @@ export async function pintarFicha(App, id) {
   // ── Paredes ──
   // De qué es una toma o un enchufe: botones; tocar el marcado lo desmarca.
   function segmentadoChips(e) {
-    const botones = USOS[e.tipo].map(([v, t]) => h('button', { type: 'button', 'data-acc': 'para', 'data-v': v, class: e.para === v ? 'on' : '', onclick: ev => {
+    const botones = usosDe(e.tipo).map(([v, t]) => h('button', { type: 'button', 'data-acc': 'para', 'data-v': v, class: e.para === v ? 'on' : '', onclick: ev => {
       e.para = e.para === v ? null : v;
+      e.para_nombre = e.para ? t : null;
       botones.forEach(b => b.classList.toggle('on', b.dataset.v === e.para));
       const tit = ev.target.closest('.elemento').querySelector('[data-acc="nombre-elemento-titulo"]');
       if (tit) tit.textContent = nombreElemento(e);
@@ -124,7 +126,7 @@ export async function pintarFicha(App, id) {
     return h('div', { class: 'elemento', 'data-elemento': e.tipo },
       h('div', { class: 'cab' }, h('b', { 'data-acc': 'nombre-elemento-titulo' }, nombreElemento(e)), h('small', {}, c.punto === 'centro' ? 'medido al centro' : 'medido al borde'),
         h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-elemento', onclick: () => { if (confirmarQuitar(nombreElemento(e).toLowerCase())) { lista.splice(lista.indexOf(e), 1); cambio(); repintar(); } } }, 'Quitar')),
-      USOS[e.tipo] ? h('div', { class: 'chips usos' }, segmentadoChips(e)) : null,
+      usosDe(e.tipo).length ? h('div', { class: 'chips usos' }, segmentadoChips(e)) : null,
       e.tipo === 'otro' || e.tipo === 'zona' ? h('input', { 'data-acc': 'nombre-elemento', placeholder: e.tipo === 'zona' ? '¿Qué zona? (campana, fregadero…)' : '¿Qué es?', value: e.nombre, oninput: ev => { e.nombre = ev.target.value; cambio(); } }) : null,
       h('div', { class: 'dos' }, medida(e, 'distancia', 'Distancia', refExtra), c.altura ? medida(e, 'altura', 'Altura del suelo', { aviso: null }) : null),
       c.ancho || c.alto || c.fondo ? h('div', { class: 'dos' },
@@ -147,7 +149,7 @@ export async function pintarFicha(App, id) {
     // Planta dibujada con las medidas: se rehace con cada cambio.
     const zonaPlanta = h('div', { class: 'zona-planta' });
     pintarPlanta = () => {
-      const g = geometriaPlanta(d), hijos = [];
+      const g = geometriaPlanta(d, { margen: AJ.margen }), hijos = [];
       if (g.paredes.length) hijos.push(svgPlanta(g));
       if (g.paredes.length && !g.aEscala) hijos.push(h('small', { class: 'ayuda' }, 'Sin escala: faltan largos o las medidas no cierran.'));
       if (g.sinSituar.length) hijos.push(h('small', { class: 'ayuda', 'data-acc': 'sin-situar' }, 'Sin situar (falta la distancia o el largo de su pared): ' + g.sinSituar.map(e => e.etiqueta + ' en ' + e.pared).join(', ') + '.'));
@@ -156,7 +158,7 @@ export async function pintarFicha(App, id) {
     const dibujar = async () => {
       await guardarYa();
       const largos = {}; d.paredes.forEach(p => { largos[p.letra] = p.largo; });
-      const r = await abrirPlano({ plano: d.plano || null, largos, unidad: enM() ? 'm' : unidad });
+      const r = await abrirPlano({ plano: d.plano || null, largos, unidad: enM() ? 'm' : unidad, margen: AJ.margen });
       if (!r) return;
       Object.assign(d, aplicarPlano(d, r));
       await guardarYa(); repintar();
