@@ -5,17 +5,47 @@ const MARGEN = 10, MAXIMO = 20000;
 const id = () => crypto.randomUUID();
 const ahora = () => new Date().toISOString();
 
+// Botones para añadir: pocos; de qué es cada toma o enchufe se elige después (campo «para»).
+// Los tipos antiguos (agua, gas, enchufe_horno…) siguen teniendo nombre para las fichas ya hechas.
 export const TIPOS_ELEMENTO = {
-  cocina: ['humos', 'desague', 'agua', 'gas', 'enchufe_horno', 'enchufe_microondas', 'enchufe_frigo', 'enchufe_lavavajillas', 'ventana', 'puerta', 'pilar', 'otro'],
+  cocina: ['humos', 'desague', 'toma', 'enchufe', 'ventana', 'puerta', 'pilar', 'otro'],
   vestidor: ['enchufe', 'ventana', 'puerta', 'pilar', 'otro'],
 };
+export const USOS = {
+  toma: [['agua', 'Agua'], ['termo', 'Termo'], ['gas', 'Gas']],
+  enchufe: [['general', 'General'], ['hmo', 'H/MO (columna)'], ['placa', 'Placa'], ['campana', 'Campana'], ['frigo', 'Frigorífico'], ['lavavajillas', 'Lavavajillas'], ['lavadora', 'Lavadora'], ['termo', 'Termo']],
+};
 export const NOMBRE_ELEMENTO = {
-  humos: 'Salida de humos', desague: 'Desagüe', agua: 'Toma de agua', gas: 'Gas', enchufe_horno: 'Enchufe horno', enchufe_microondas: 'Enchufe microondas',
-  enchufe_frigo: 'Enchufe frigorífico', enchufe_lavavajillas: 'Enchufe lavavajillas', enchufe: 'Enchufe', ventana: 'Ventana', puerta: 'Puerta', pilar: 'Pilar o columna', otro: 'Otro',
+  humos: 'Salida de humos', desague: 'Desagüe', toma: 'Toma', agua: 'Toma de agua', gas: 'Gas', enchufe_hmo: 'Enchufe H/MO (columna)', enchufe_horno: 'Enchufe horno', enchufe_microondas: 'Enchufe microondas',
+  enchufe_frigo: 'Enchufe frigorífico', enchufe_lavavajillas: 'Enchufe lavavajillas', enchufe: 'Enchufe', ventana: 'Ventana', puerta: 'Puerta', pilar: 'Mocheta (pilar)', zona: 'Zona azulejada', otro: 'Otro',
 };
 
+export function nombreElemento(e) {
+  if (e.tipo === 'otro') return e.nombre || 'Otro';
+  if (e.tipo === 'zona') return 'Zona azulejada' + (e.nombre ? ' (' + e.nombre + ')' : '');
+  const uso = USOS[e.tipo] && USOS[e.tipo].find(u => u[0] === e.para);
+  if (uso) return e.tipo === 'toma' ? 'Toma de ' + uso[1].toLowerCase() : 'Enchufe ' + uso[1];
+  return NOMBRE_ELEMENTO[e.tipo] || e.tipo;
+}
+
+// Azulejo de una pared, en una frase: «azulejo desde 0,9 hasta el techo».
+export function textoAzulejo(p, unidad) {
+  const v = mm => verMedida(mm, unidad);
+  if (p.azulejo === 'no') return 'sin azulejo';
+  if (p.azulejo === 'toda') return 'azulejo en toda la pared';
+  if (p.azulejo === 'zonas') return 'azulejo por zonas';
+  if (p.azulejo !== 'franja') return '';
+  const desde = hay(p.azulejo_desde), hasta = !p.azulejo_techo && hay(p.azulejo_hasta);
+  if (!desde && !hasta && !p.azulejo_techo) return 'azulejo en franja';
+  let t = 'azulejo';
+  if (desde) t += ' desde ' + v(p.azulejo_desde) + (hasta ? '' : ' ' + unidad);
+  if (p.azulejo_techo) t += ' hasta el techo';
+  else if (hasta) t += ' hasta ' + v(p.azulejo_hasta) + ' ' + unidad;
+  return t;
+}
+
 export function camposDeElemento(tipo) {
-  if (tipo === 'ventana' || tipo === 'puerta') return { ancho: true, alto: true, fondo: false, altura: true, punto: 'borde' };
+  if (tipo === 'ventana' || tipo === 'puerta' || tipo === 'zona') return { ancho: true, alto: true, fondo: false, altura: true, punto: 'borde' };
   if (tipo === 'pilar') return { ancho: true, alto: false, fondo: true, altura: false, punto: 'borde' };
   return { ancho: false, alto: false, fondo: false, altura: true, punto: 'centro' };
 }
@@ -94,7 +124,7 @@ export function fichaNueva(tipo, subtipo, trabajoId) {
 }
 
 export function elementoNuevo(tipo, refUltima) {
-  return { id: id(), tipo, nombre: '', distancia: null, ref: refUltima || 'izq', altura: null, ancho: null, alto: null };
+  return { id: id(), tipo, para: null, nombre: '', distancia: null, ref: refUltima || 'izq', altura: null, ancho: null, alto: null };
 }
 
 export function paredNueva(paredes) {
@@ -124,8 +154,10 @@ function avisosParedes(lista, paredes, unidad) {
   (paredes || []).forEach(p => {
     revisarTamano(lista, 'pared.' + p.id, 'Pared ' + p.letra, p.largo, unidad);
     revisarTamano(lista, 'pared.' + p.id, 'Alto de la pared ' + p.letra, p.alto, unidad);
+    if (p.azulejo === 'franja' && !p.azulejo_techo && hay(p.azulejo_desde) && hay(p.azulejo_hasta) && p.azulejo_hasta <= p.azulejo_desde)
+      lista.push({ campo: 'pared.' + p.id, texto: 'Azulejo de la pared ' + p.letra + ': termina por debajo de donde empieza' });
     p.elementos.forEach(e => {
-      const campo = 'elemento.' + e.id, nombre = e.nombre || NOMBRE_ELEMENTO[e.tipo] || e.tipo;
+      const campo = 'elemento.' + e.id, nombre = nombreElemento(e);
       revisarMaximo(lista, campo, nombre, e.distancia, unidad);
       revisarMaximo(lista, campo, nombre + ' (altura)', e.altura, unidad);
       revisarTamano(lista, campo, nombre + ' (ancho)', e.ancho, unidad);

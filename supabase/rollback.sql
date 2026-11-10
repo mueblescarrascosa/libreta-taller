@@ -6,6 +6,7 @@ drop policy if exists med_archivos_crear on storage.objects;
 drop policy if exists med_archivos_cambiar on storage.objects;
 delete from storage.buckets where id = 'medidas';
 
+drop table if exists public.med_ajustes;
 drop table if exists public.med_adjuntos;
 drop table if exists public.med_fichas;
 drop table if exists public.med_trabajos;

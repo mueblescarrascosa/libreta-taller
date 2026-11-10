@@ -1,5 +1,5 @@
 import { prueba, afirma, igual, fin } from './mini.js';
-import { camposDeElemento, paredNueva, elementoNuevo, fichaNueva, trabajoNuevo, avisos, buscar, TIPOS_ELEMENTO, puertaNueva, normalizarFicha, resumenPuerta, RAPIDAS_PUERTA, tieneInformacion, limpiarDatos } from '../docs/js/modelo.js';
+import { camposDeElemento, paredNueva, elementoNuevo, fichaNueva, trabajoNuevo, avisos, buscar, TIPOS_ELEMENTO, puertaNueva, normalizarFicha, resumenPuerta, RAPIDAS_PUERTA, tieneInformacion, limpiarDatos, NOMBRE_ELEMENTO, USOS, nombreElemento, textoAzulejo } from '../docs/js/modelo.js';
 
 const cocina = (largo, el) => { const f = fichaNueva('cocina', null, 't'); f.datos.paredes = [{ id: 'p', letra: 'A', largo, elementos: [Object.assign(elementoNuevo('ventana', 'izq'), el)] }]; return f; };
 const armario = o => Object.assign(fichaNueva('armario', 'corredera', 't'), { datos: Object.assign(fichaNueva('armario', 'corredera', 't').datos, o) });
@@ -28,6 +28,36 @@ prueba('limpiar quita notas y medidas vacías y deja las demás', () => {
   igual(d.notas.map(n => n.id), ['b']); igual(d.libres.map(m => m.id), ['y', 'z']); igual(f.datos.notas.length, 3, 'cambió el original');
 });
 prueba('tipos de vestidor sin los de cocina', () => { afirma(!TIPOS_ELEMENTO.vestidor.includes('humos')); afirma(TIPOS_ELEMENTO.cocina.includes('humos')); });
+prueba('pocos botones: tomas y enchufes se eligen después', () => {
+  igual(TIPOS_ELEMENTO.cocina, ['humos', 'desague', 'toma', 'enchufe', 'ventana', 'puerta', 'pilar', 'otro']);
+  igual(TIPOS_ELEMENTO.vestidor, ['enchufe', 'ventana', 'puerta', 'pilar', 'otro']);
+  igual(USOS.toma.map(u => u[0]), ['agua', 'termo', 'gas']);
+  igual(USOS.enchufe.map(u => u[0]), ['general', 'hmo', 'placa', 'campana', 'frigo', 'lavavajillas', 'lavadora', 'termo']);
+  igual(NOMBRE_ELEMENTO.pilar, 'Mocheta (pilar)');
+});
+prueba('nombre de cada elemento según de qué es', () => {
+  igual(nombreElemento({ tipo: 'enchufe', para: 'hmo' }), 'Enchufe H/MO (columna)');
+  igual(nombreElemento({ tipo: 'enchufe', para: null }), 'Enchufe');
+  igual(nombreElemento({ tipo: 'toma', para: 'termo' }), 'Toma de termo');
+  igual(nombreElemento({ tipo: 'toma', para: null }), 'Toma');
+  igual(nombreElemento({ tipo: 'enchufe_horno' }), 'Enchufe horno'); // los antiguos siguen igual
+  igual(nombreElemento({ tipo: 'otro', nombre: 'Radiador' }), 'Radiador');
+  igual(camposDeElemento('toma').punto, 'centro');
+});
+prueba('zonas azulejadas: rectángulo en la pared con su nombre', () => {
+  igual(camposDeElemento('zona'), { ancho: true, alto: true, fondo: false, altura: true, punto: 'borde' });
+  igual(nombreElemento({ tipo: 'zona', nombre: 'campana' }), 'Zona azulejada (campana)'); igual(nombreElemento({ tipo: 'zona', nombre: '' }), 'Zona azulejada');
+});
+prueba('texto del azulejo de una pared', () => {
+  igual(textoAzulejo({ azulejo: null }, 'm'), ''); igual(textoAzulejo({ azulejo: 'no' }, 'm'), 'sin azulejo');
+  igual(textoAzulejo({ azulejo: 'toda' }, 'm'), 'azulejo en toda la pared');
+  igual(textoAzulejo({ azulejo: 'franja', azulejo_desde: 900, azulejo_hasta: 1500 }, 'm'), 'azulejo desde 0,9 hasta 1,5 m');
+  igual(textoAzulejo({ azulejo: 'franja', azulejo_desde: 900, azulejo_techo: true }, 'cm'), 'azulejo desde 90 cm hasta el techo');
+  igual(textoAzulejo({ azulejo: 'franja' }, 'm'), 'azulejo en franja');
+  igual(textoAzulejo({ azulejo: 'zonas' }, 'm'), 'azulejo por zonas');
+});
+prueba('franja al revés avisa', () => { const f = fichaNueva('cocina', null, 't'); Object.assign(f.datos.paredes[0], { azulejo: 'franja', azulejo_desde: 1500, azulejo_hasta: 900 }); igual(avisos(f, 'mm').length, 1); });
+prueba('el elemento nuevo empieza sin elegir de qué es', () => { igual(elementoNuevo('enchufe', 'izq').para, null); });
 prueba('siguiente letra libre', () => igual(paredNueva([{ letra: 'A' }, { letra: 'C' }]).letra, 'B'));
 prueba('el elemento nace con la última referencia', () => { igual(elementoNuevo('gas', 'der').ref, 'der'); igual(elementoNuevo('gas').ref, 'izq'); });
 prueba('ficha de puertas nace con una puerta, sin hacia dentro o fuera', () => {

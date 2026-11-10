@@ -146,8 +146,8 @@ prueba('avisos junto al dato y sin impedir guardar', con({}, async a => {
 }));
 prueba('elemento fuera de la pared avisa en su tarjeta', con({}, async a => {
   await nueva(a, 'cocina'); await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3');
-  await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="gas"]'); await a.page.fill('[data-elemento="gas"] [data-acc="distancia"]', '3100');
-  await a.page.waitForFunction(() => /se sale/.test(document.querySelector('[data-elemento="gas"] [data-avisos^="elemento."]').innerText));
+  await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="toma"]'); await a.page.fill('[data-elemento="toma"] [data-acc="distancia"]', '3100');
+  await a.page.waitForFunction(() => /se sale/.test(document.querySelector('[data-elemento="toma"] [data-avisos^="elemento."]').innerText));
 }));
 prueba('lo escrito justo antes de cerrar no se pierde', con({}, async a => {
   await nueva(a, 'puerta'); await a.page.fill(P + '[data-acc="ancho"]', '777');
@@ -237,5 +237,30 @@ prueba('una pared con alto ya apuntado lo sigue enseñando', con({}, async a => 
 }));
 prueba('el vestidor también tiene altura general', con({}, async a => {
   await nueva(a, 'armario', 'vestidor'); afirma(await a.page.$('[data-acc="alto_techo"]'), 'sin altura');
+}));
+prueba('tomas y enchufes: se elige de qué es y la planta lo nombra', con({}, async a => {
+  await nueva(a, 'cocina'); await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3');
+  const chips = await a.page.$$eval('[data-pared="A"] [data-acc="anadir-elemento"]', b => b.map(x => x.dataset.v));
+  igual(chips, ['humos', 'desague', 'toma', 'enchufe', 'ventana', 'puerta', 'pilar', 'otro']);
+  await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="enchufe"]');
+  await a.page.click('[data-elemento="enchufe"] [data-acc="para"][data-v="hmo"]'); await a.page.fill('[data-elemento="enchufe"] [data-acc="distancia"]', '50');
+  igual(await a.page.innerText('[data-elemento="enchufe"] [data-acc="nombre-elemento-titulo"]'), 'Enchufe H/MO (columna)');
+  await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="toma"]'); await a.page.click('[data-elemento="toma"] [data-acc="para"][data-v="termo"]');
+  await a.page.fill('[data-elemento="toma"] [data-acc="distancia"]', '120');
+  await a.page.waitForFunction(() => { const t = document.querySelector('[data-acc="planta"]'); return t && /E H\/MO/.test(t.textContent) && /Toma termo/.test(t.textContent); });
+  await recargar(a); const e = (await ficha(a)).datos.paredes[0].elementos; igual(e.map(x => [x.tipo, x.para]), [['enchufe', 'hmo'], ['toma', 'termo']]);
+}));
+prueba('azulejo de la pared: franja hasta el techo y zonas', con({}, async a => {
+  await nueva(a, 'cocina'); await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3');
+  await a.page.click('[data-pared="A"] [data-acc="azulejo"][data-v="franja"]');
+  await a.page.fill('[data-pared="A"] [data-acc="azulejo_desde"]', '0,9');
+  afirma(await a.page.$('[data-pared="A"] [data-acc="azulejo_hasta"]'), 'sin hasta');
+  await a.page.click('[data-pared="A"] [data-acc="azulejo_techo"][data-v="true"]');
+  afirma(!(await a.page.$('[data-pared="A"] [data-acc="azulejo_hasta"]')), 'sigue pidiendo hasta');
+  await a.page.waitForFunction(() => /azulejo desde 0,9 m hasta el techo/.test(document.querySelector('[data-acc="planta"]').textContent));
+  await a.page.click('[data-pared="A"] [data-acc="azulejo"][data-v="zonas"]'); await a.page.click('[data-pared="A"] [data-acc="anadir-zona"]');
+  await a.page.fill('[data-elemento="zona"] [data-acc="nombre-elemento"]', 'campana'); await a.page.fill('[data-elemento="zona"] [data-acc="ancho"]', '900');
+  await recargar(a); const p = (await ficha(a)).datos.paredes[0];
+  igual([p.azulejo, p.azulejo_desde, p.azulejo_techo], ['zonas', 900, true]); igual(p.elementos.map(e => [e.tipo, e.nombre, e.ancho]), [['zona', 'campana', 900]]);
 }));
 fin();

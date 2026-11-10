@@ -85,3 +85,22 @@ create policy med_archivos_crear on storage.objects for insert to authenticated
 create policy med_archivos_cambiar on storage.objects for update to authenticated
   using (bucket_id = 'medidas' and (storage.foldername(name))[1] = (select auth.uid())::text)
   with check (bucket_id = 'medidas' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+-- Ajustes compartidos entre dispositivos (añadido el 10/11/2026): una fila por cuenta.
+create table public.med_ajustes (
+  id uuid primary key,
+  user_id uuid not null default auth.uid() references auth.users (id),
+  datos jsonb not null default '{}'::jsonb,
+  creado_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  borrado_at timestamptz
+);
+create index med_ajustes_sync on public.med_ajustes (user_id, updated_at);
+create trigger med_ajustes_fecha before insert or update on public.med_ajustes
+  for each row execute function public.med_poner_updated_at();
+alter table public.med_ajustes enable row level security;
+revoke all on public.med_ajustes from anon;
+grant select, insert, update on public.med_ajustes to authenticated;
+create policy med_ajustes_ver on public.med_ajustes for select to authenticated using (user_id = (select auth.uid()));
+create policy med_ajustes_crear on public.med_ajustes for insert to authenticated with check (user_id = (select auth.uid()));
+create policy med_ajustes_cambiar on public.med_ajustes for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
