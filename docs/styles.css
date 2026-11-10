@@ -1,0 +1,81 @@
+:root { --fondo: #f3f4f6; --tarjeta: #fff; --texto: #111827; --tenue: #6b7280; --borde: #d1d5db; --acento: #b45309; --oscuro: #1f2937; --rojo: #b91c1c; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--fondo); color: var(--texto); font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+body { overflow-x: hidden; }
+body.sin-scroll { overflow: hidden; }
+header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 8px; padding: 8px 12px; padding-top: max(8px, env(safe-area-inset-top)); background: var(--oscuro); color: #fff; }
+header a { color: #fff; text-decoration: none; font-size: 22px; padding: 2px 6px; }
+.titulo { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.estado { font-size: 12px; background: transparent; color: #d1fae5; border: 0; padding: 4px; white-space: nowrap; }
+.estado.pendiente { color: #fde68a; }
+main { max-width: 720px; margin: 0 auto; padding: 12px; padding-bottom: 40px; }
+h2 { font-size: 15px; margin: 18px 0 8px; color: var(--tenue); }
+h3 { font-size: 15px; margin: 0; }
+input, textarea, select { font: inherit; width: 100%; padding: 10px; border: 1px solid var(--borde); border-radius: 8px; background: #fff; color: inherit; }
+textarea { min-height: 70px; resize: vertical; }
+button { font: inherit; min-height: 44px; padding: 8px 14px; border: 1px solid var(--borde); border-radius: 8px; background: #fff; color: inherit; cursor: pointer; }
+button.prin { background: var(--acento); border-color: var(--acento); color: #fff; font-weight: 600; }
+button.ancho { width: 100%; margin: 10px 0; }
+button.peligro { color: var(--rojo); border-color: var(--rojo); margin-top: 24px; }
+button.mini { min-height: 36px; padding: 4px 10px; font-size: 14px; }
+.entrada { max-width: 360px; margin: 12vh auto 0; padding: 16px; display: grid; gap: 10px; }
+.entrada h1 { margin: 0 0 6px; }
+.aviso { color: var(--rojo); margin: 0; min-height: 1.4em; }
+.tarjeta { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 10px; padding: 12px; margin: 10px 0; display: grid; gap: 8px; }
+.tarjeta > * { min-width: 0; }
+.et { font-size: 13px; color: var(--tenue); }
+.buscador { margin-bottom: 10px; }
+.lista { display: grid; gap: 8px; }
+.fila { display: block; background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 10px; padding: 12px; color: inherit; text-decoration: none; overflow-wrap: anywhere; }
+.fila small { display: block; color: var(--tenue); }
+.fila.suelta { margin-bottom: 4px; }
+.vacio { color: var(--tenue); text-align: center; padding: 16px 0; }
+.seg { display: flex; gap: 0; }
+.seg button { flex: 1; border-radius: 0; margin-left: -1px; }
+.seg button:first-child { border-radius: 8px 0 0 8px; margin-left: 0; }
+.seg button:last-child { border-radius: 0 8px 8px 0; }
+.seg button.on { background: var(--oscuro); border-color: var(--oscuro); color: #fff; }
+.tipos { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.version { color: var(--tenue); display: block; text-align: center; margin-top: 12px; }
+
+/* Ficha */
+.campo { display: grid; gap: 4px; }
+.med { display: flex; gap: 6px; align-items: center; }
+.med input { flex: 1 1 0; min-width: 0; }
+.med .ud { color: var(--tenue); font-size: 13px; }
+.med .ref { min-width: 52px; font-family: ui-monospace, Consolas, monospace; font-weight: 700; background: var(--oscuro); color: #fff; border-color: var(--oscuro); }
+.campo.error input { border-color: var(--rojo); }
+.msg-error { color: var(--rojo); font-size: 13px; }
+.avisos:empty { display: none; }
+.avisos { color: #92400e; background: #fef3c7; border-radius: 6px; padding: 6px 8px; font-size: 13px; }
+.dos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.elemento { border-top: 1px dashed var(--borde); padding-top: 8px; display: grid; gap: 6px; }
+.cab { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cab small { color: var(--tenue); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { min-height: 38px; padding: 4px 10px; font-size: 14px; }
+.libre { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+.adjuntos { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.adjuntos button.mini-img { padding: 0; height: 96px; overflow: hidden; background: #fff; }
+.adjuntos img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.visor { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.92); display: flex; flex-direction: column; }
+.visor img { flex: 1; min-height: 0; object-fit: contain; width: 100%; }
+.visor .barra { display: flex; justify-content: space-between; padding: 10px; gap: 8px; }
+
+/* Editor de bocetos (copiado de la app de partes) */
+.boceto { position: fixed; inset: 0; z-index: 300; background: #334155; display: flex; flex-direction: column; touch-action: none; user-select: none; -webkit-user-select: none; }
+.boceto-barra, .boceto-herr { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: #0f172a; color: #fff; flex-wrap: wrap; }
+.boceto-barra { padding-top: max(6px, env(safe-area-inset-top)); }
+.boceto-herr { padding-bottom: max(6px, env(safe-area-inset-bottom)); justify-content: center; }
+.bb-titulo { flex: 1; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.boceto button { min-width: 40px; height: 40px; min-height: 0; border-radius: 10px; border: 0; background: #1e293b; color: #fff; font-size: 19px; font-weight: 700; cursor: pointer; display: inline-grid; place-items: center; padding: 0 8px; }
+.boceto button.on { background: #2563eb; }
+.boceto .bb-ok { background: #16a34a; font-size: 15px; padding: 0 14px; }
+.boceto .bb-txt { background: transparent; }
+.boceto .bh-color { background: var(--c); border: 3px solid #64748b; }
+.boceto .bh-color.on { border-color: #fff; background: var(--c); }
+.boceto [data-grosor] i { display: block; border-radius: 50%; background: #fff; }
+.bh-grupo { display: flex; gap: 4px; padding: 0 4px; border-right: 1px solid #334155; }
+.bh-grupo:last-child { border-right: 0; }
+.boceto-lienzo { flex: 1; display: grid; place-items: center; overflow: hidden; min-height: 0; padding: 6px; }
+.boceto-lienzo canvas { background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,.35); touch-action: none; }

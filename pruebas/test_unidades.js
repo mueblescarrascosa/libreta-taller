@@ -1,0 +1,18 @@
+import { prueba, igual, fin } from './mini.js';
+import { leerMedida, verMedida, unidadDe } from '../docs/js/unidades.js';
+const ok = mm => ({ mm, error: null }), mal = { mm: null, error: 'formato' };
+prueba('mm entero', () => igual(leerMedida('2450', 'mm'), ok(2450)));
+prueba('vacío no es error', () => { igual(leerMedida('', 'mm'), ok(null)); igual(leerMedida('   ', 'cm'), ok(null)); });
+prueba('cm con coma y espacios', () => igual(leerMedida(' 245,5 ', 'cm'), ok(2455)));
+prueba('cm con punto', () => igual(leerMedida('245.5', 'cm'), ok(2455)));
+prueba('cm entero', () => igual(leerMedida('245', 'cm'), ok(2450)));
+prueba('cm con dos decimales es error', () => igual(leerMedida('245,55', 'cm'), mal));
+prueba('mm con decimales es error', () => igual(leerMedida('12,5', 'mm'), mal));
+prueba('negativo es error', () => igual(leerMedida('-3', 'mm'), mal));
+prueba('letras son error', () => igual(leerMedida('12a', 'cm'), mal));
+prueba('ver en cm', () => { igual(verMedida(2455, 'cm'), '245,5'); igual(verMedida(2450, 'cm'), '245'); });
+prueba('ver en mm', () => igual(verMedida(2453, 'mm'), '2453'));
+prueba('ver vacío', () => igual(verMedida(null, 'cm'), ''));
+prueba('ida y vuelta sin redondeo en todo el rango', () => { for (let mm = 0; mm <= 20000; mm++) igual(leerMedida(verMedida(mm, 'cm'), 'cm').mm, mm); });
+prueba('unidad del trabajo o la de ajustes', () => { igual(unidadDe({ unidad: 'cm' }, { unidad: 'mm' }), 'cm'); igual(unidadDe(null, { unidad: 'cm' }), 'cm'); });
+fin();
