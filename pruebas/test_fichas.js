@@ -78,10 +78,10 @@ prueba('tocar el botón marcado lo desmarca', con({}, async a => {
 }));
 prueba('cocina: altura general en metros, pared A preparada solo con largo, elementos, referencia y puntos de medida', con({}, async a => {
   await nueva(a, 'cocina');
-  afirma(await a.page.$('[data-pared="A"] > [data-c="largo"]') && !(await a.page.$('[data-pared="A"] > [data-c="alto"]')), 'la pared A debe pedir solo el largo');
+  afirma(await a.page.$('[data-pared="A"] > .fila-largo > [data-c="largo"]') && !(await a.page.$('[data-pared="A"] > [data-c="alto"]')), 'la pared A debe pedir solo el largo');
   igual(await a.page.innerText('[data-c="alto_techo"] .ud'), 'm');
   afirma(/viga|buhardilla/i.test(await a.page.evaluate(() => document.querySelector('main').innerText)), 'no dice dónde apuntar lo especial');
-  await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3'); await a.page.fill('[data-acc="alto_techo"]', '2,6');
+  await a.page.fill('[data-pared="A"] > .fila-largo > [data-c="largo"] input', '3'); await a.page.fill('[data-acc="alto_techo"]', '2,6');
   await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="desague"]');
   await a.page.click('[data-pared="A"] [data-elemento="desague"] [data-acc="ref"]');
   await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="desague"]');
@@ -147,7 +147,7 @@ prueba('avisos junto al dato y sin impedir guardar', con({}, async a => {
   await a.page.waitForFunction(() => /difieren/.test(document.querySelector('[data-avisos="anchos"]').innerText));
 }));
 prueba('elemento fuera de la pared avisa en su tarjeta', con({}, async a => {
-  await nueva(a, 'cocina'); await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3');
+  await nueva(a, 'cocina'); await a.page.fill('[data-pared="A"] > .fila-largo > [data-c="largo"] input', '3');
   await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="toma"]'); await a.page.fill('[data-elemento="toma"] [data-acc="distancia"]', '3100');
   await a.page.waitForFunction(() => /se sale/.test(document.querySelector('[data-elemento="toma"] [data-avisos^="elemento."]').innerText));
 }));
@@ -214,7 +214,7 @@ prueba('ajustes: no sale «null» en las listas', con({}, async a => {
 }));
 prueba('elemento junto a un pilar de esquina: pregunta si se midió desde la esquina o desde el pilar', con({}, async a => {
   await nueva(a, 'cocina', null, 'cm');
-  await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3');
+  await a.page.fill('[data-pared="A"] > .fila-largo > [data-c="largo"] input', '3');
   await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="puerta"]');
   afirma(await a.page.$eval('[data-pared="A"] [data-elemento="puerta"] [data-acc="zona-desde"]', z => z.hidden), 'pregunta sin pilar');
   await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="pilar"]');
@@ -255,17 +255,17 @@ prueba('en móvil la cocina y las puertas no se desbordan', con({ ancho: 360 }, 
 }));
 prueba('paredes en metros por defecto, con botón para cambiar; pilares en cm', con({}, async a => {
   await nueva(a, 'cocina', null, 'cm');
-  igual(await a.page.innerText('[data-pared="A"] > [data-c="largo"] .ud'), 'm');
-  await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3,45'); await a.page.waitForTimeout(400); igual((await ficha(a)).datos.paredes[0].largo, 3450);
+  igual(await a.page.innerText('[data-pared="A"] > .fila-largo > [data-c="largo"] .ud'), 'm');
+  await a.page.fill('[data-pared="A"] > .fila-largo > [data-c="largo"] input', '3,45'); await a.page.waitForTimeout(400); igual((await ficha(a)).datos.paredes[0].largo, 3450);
   await a.page.click('[data-acc="ud-paredes"][data-v="false"]');
-  igual(await a.page.innerText('[data-pared="A"] > [data-c="largo"] .ud'), 'cm'); igual(await val(a, '[data-pared="A"] > [data-c="largo"] input'), '345');
+  igual(await a.page.innerText('[data-pared="A"] > .fila-largo > [data-c="largo"] .ud'), 'cm'); igual(await val(a, '[data-pared="A"] > .fila-largo > [data-c="largo"] input'), '345');
   await a.page.click('[data-pared="A"] [data-acc="pilares"][data-v="true"]');
   const pil = '[data-pared="A"] [data-elemento="pilar"]';
   afirma(await a.page.$(pil), 'no añadió pilar'); igual(await a.page.innerText(pil + ' [data-c="ancho"] .ud'), 'cm');
   afirma(/Sobresale/.test(await a.page.innerText(pil)) && !(await a.page.$(pil + ' [data-c="altura"]')), 'campos del pilar');
   await a.page.fill(pil + ' [data-acc="fondo"]', '30'); await recargar(a);
   const p = (await ficha(a)).datos.paredes[0]; igual(p.pilares, true); igual(p.elementos[0].fondo, 300);
-  igual(await a.page.innerText('[data-pared="A"] > [data-c="largo"] .ud'), 'cm', 'no recordó la elección');
+  igual(await a.page.innerText('[data-pared="A"] > .fila-largo > [data-c="largo"] .ud'), 'cm', 'no recordó la elección');
 }));
 prueba('una ficha sin nada se descarta al salir; con algo se queda', con({}, async a => {
   await nueva(a, 'nota'); await a.page.evaluate(() => history.back()); await a.page.waitForSelector('[data-pantalla="trabajo"]');
@@ -297,7 +297,7 @@ prueba('una ficha con solo una foto no se descarta', con({}, async a => {
   igual((await a.page.$$('[data-acc="abrir-ficha"]')).length, 1);
 }));
 prueba('una pared con alto ya apuntado lo sigue enseñando', con({}, async a => {
-  await nueva(a, 'cocina'); await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3'); await a.page.waitForTimeout(400);
+  await nueva(a, 'cocina'); await a.page.fill('[data-pared="A"] > .fila-largo > [data-c="largo"] input', '3'); await a.page.waitForTimeout(400);
   await a.page.evaluate(async () => { const id = location.hash.split('/')[2]; const { abrirAlmacen } = await import('./js/almacen.js'); const al = await abrirAlmacen(); const f = await al.leer('fichas', id); f.datos.paredes[0].alto = 2500; await al.poner('fichas', f); });
   await a.page.reload(); await a.page.waitForSelector('[data-pared="A"]');
   igual(await val(a, '[data-pared="A"] > [data-c="alto"] input'), '2,5');
@@ -306,7 +306,7 @@ prueba('el vestidor también tiene altura general', con({}, async a => {
   await nueva(a, 'armario', 'vestidor'); afirma(await a.page.$('[data-acc="alto_techo"]'), 'sin altura');
 }));
 prueba('tomas y enchufes: se elige de qué es y la planta lo nombra', con({}, async a => {
-  await nueva(a, 'cocina'); await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3');
+  await nueva(a, 'cocina'); await a.page.fill('[data-pared="A"] > .fila-largo > [data-c="largo"] input', '3');
   const chips = await a.page.$$eval('[data-pared="A"] [data-acc="anadir-elemento"]', b => b.map(x => x.dataset.v));
   igual(chips, ['humos', 'desague', 'toma', 'enchufe', 'ventana', 'puerta', 'pilar', 'otro']);
   await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="enchufe"]');
@@ -318,7 +318,7 @@ prueba('tomas y enchufes: se elige de qué es y la planta lo nombra', con({}, as
   await recargar(a); const e = (await ficha(a)).datos.paredes[0].elementos; igual(e.map(x => [x.tipo, x.para]), [['enchufe', 'hmo'], ['toma', 'termo']]);
 }));
 prueba('azulejo de la pared: franja hasta el techo y zonas', con({}, async a => {
-  await nueva(a, 'cocina'); await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3');
+  await nueva(a, 'cocina'); await a.page.fill('[data-pared="A"] > .fila-largo > [data-c="largo"] input', '3');
   await a.page.click('[data-pared="A"] [data-acc="azulejo"][data-v="franja"]');
   await a.page.fill('[data-pared="A"] [data-acc="azulejo_desde"]', '0,9');
   afirma(await a.page.$('[data-pared="A"] [data-acc="azulejo_hasta"]'), 'sin hasta');

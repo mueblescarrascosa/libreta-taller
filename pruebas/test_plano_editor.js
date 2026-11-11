@@ -66,7 +66,7 @@ prueba('diagonal: compara la medida con la calculada', con({}, async a => {
 }));
 prueba('volver a editar conserva medidas y elementos de las paredes', con({}, async a => {
   await cocina(a);
-  await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3'); await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="humos"]');
+  await a.page.fill('[data-pared="A"] > .fila-largo > [data-c="largo"] input', '3'); await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="humos"]');
   await a.page.fill('[data-elemento="humos"] [data-acc="distancia"]', '150');
   await abrirEditor(a); await dibujar(a, RECT); await a.page.waitForSelector('[data-letra]');
   igual(await a.page.inputValue('[data-acc="largo-pared"]'), '3');
@@ -75,7 +75,7 @@ prueba('volver a editar conserva medidas y elementos de las paredes', con({}, as
 }));
 prueba('la planta enseña los elementos en su pared, y lo que no se puede situar', con({}, async a => {
   await cocina(a);
-  await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3');
+  await a.page.fill('[data-pared="A"] > .fila-largo > [data-c="largo"] input', '3');
   await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="desague"]'); await a.page.fill('[data-elemento="desague"] [data-acc="distancia"]', '60');
   await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="toma"]'); await a.page.click('[data-elemento="toma"] [data-acc="para"][data-v="gas"]');
   await a.page.waitForSelector('[data-acc="planta"] [data-elemento="desague"]');
@@ -113,7 +113,7 @@ prueba('cancelar al reabrir no guarda lo tocado', con({}, async a => {
   await a.page.click('[data-esquina="1"]'); await a.page.click('[data-acc="esquina"][data-v="descuadrada"]');
   await a.page.click('[data-acc="anadir-diagonal"]'); await a.page.click('[data-esquina="0"]'); await a.page.click('[data-esquina="2"]');
   await a.page.click('[data-acc="cancelar-plano"]');
-  await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3,1'); await a.page.waitForTimeout(500);
+  await a.page.fill('[data-pared="A"] > .fila-largo > [data-c="largo"] input', '3,1'); await a.page.waitForTimeout(500);
   const f = await ficha(a); igual(f.datos.plano.diagonales, []); afirma(!(f.datos.plano.esquinas || []).some(e => e && e.estado === 'descuadrada'), JSON.stringify(f.datos.plano.esquinas));
 }));
 prueba('invertir solo se ofrece con una pared suelta', con({}, async a => {

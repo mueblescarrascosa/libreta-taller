@@ -62,6 +62,7 @@ export function geometriaAlzado(d, pared) {
       const y0 = e.altura || 0, h = e.techo ? techo - y0 : hay(e.alto) ? e.alto : 0;
       return pieza('azulejo', x, y0, ancho, h, e.nombre ? 'Az. ' + e.nombre : '');
     }
+    if (e.tipo === 'humos' && e.humos_sale === 'techo') return g.puntos.push({ tipo: e.tipo, x, y: techo, texto: corta(e), techo: true });
     if (PUNTOS.includes(e.tipo)) g.puntos.push({ tipo: e.tipo, x, y: hay(e.altura) ? e.altura : null, texto: corta(e) });
   });
   return g;
@@ -108,9 +109,9 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
   g.puntos.forEach(q => {
     const col = COLOR[q.tipo] || '#111827', y = q.y === null ? 0 : q.y, py = Y(y);
     svg.append(el('circle', { cx: q.x, cy: py, r: s * 1.5, fill: q.y === null ? '#fff' : col, stroke: col, 'stroke-width': s * 0.5, 'data-punto': q.tipo }));
-    const t = q.texto + ' ' + (q.y === null ? '(sin altura)' : verMedida(q.y, unidad)), tam = 3, w = t.length * s * tam * 0.58, hh = s * tam * 1.3;
+    const t = q.techo ? q.texto : q.texto + ' ' + (q.y === null ? '(sin altura)' : verMedida(q.y, unidad)), tam = 3, w = t.length * s * tam * 0.58, hh = s * tam * 1.3;
     let paso = 0, caja;
-    do { caja = { x: q.x - w / 2, y: py - s * 4 - paso * hh - hh / 2, w, h: hh }; paso++; } while (paso < 12 && puestos.some(b => pisa(caja, b)));
+    do { caja = { x: q.x - w / 2, y: (q.techo ? py + s * 2.5 : py - s * 4 - hh / 2) + (q.techo ? 1 : -1) * paso * hh, w, h: hh }; paso++; } while (paso < 12 && puestos.some(b => pisa(caja, b)));
     puestos.push(caja);
     if (paso > 1) svg.append(el('line', { x1: q.x, y1: py - s * 1.5, x2: q.x, y2: caja.y + hh, stroke: col, 'stroke-width': s * 0.3, opacity: 0.7 }));
     texto(q.x, caja.y + hh / 2, t, { fill: col, 'font-size': s * tam, 'data-rotulo-punto': q.tipo });

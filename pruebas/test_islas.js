@@ -40,7 +40,7 @@ prueba('en la ficha: añadir una isla y verla en la planta', async () => {
     await entrar(a); await crearTrabajo(a, 'Casa');
     await a.page.click('[data-acc="unidad"][data-v="cm"]'); await a.page.waitForTimeout(50);
     await a.page.click('[data-acc="tipo"][data-v="cocina"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
-    await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '4');
+    await a.page.fill('[data-pared="A"] > .fila-largo > [data-c="largo"] input', '4');
     await a.page.click('[data-acc="anadir-isla"]');
     const I = '[data-isla="isla"] ';
     for (const [k, v] of [['largo', '240'], ['fondo', '100'], ['separacion', '100'], ['distancia', '80']]) await a.page.fill(I + '[data-acc="' + k + '"]', v);

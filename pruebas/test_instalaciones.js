@@ -6,7 +6,7 @@ prueba('resumen: nombre de la empresa y tabla de tomas con dónde y a qué altur
     await entrar(a); await crearTrabajo(a, 'Casa');
     await a.page.click('[data-acc="unidad"][data-v="cm"]'); await a.page.waitForTimeout(50);
     await a.page.click('[data-acc="tipo"][data-v="cocina"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
-    await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3');
+    await a.page.fill('[data-pared="A"] > .fila-largo > [data-c="largo"] input', '3');
     await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="desague"]');
     const E = '[data-pared="A"] [data-elemento="desague"] ';
     await a.page.fill(E + '[data-acc="distancia"]', '120'); await a.page.fill(E + '[data-acc="altura"]', '45'); await a.page.press(E + '[data-acc="altura"]', 'Tab');
@@ -23,7 +23,7 @@ prueba('salida de humos: redonda o rectangular con medidas rápidas', async () =
     await entrar(a); await crearTrabajo(a, 'Casa');
     await a.page.click('[data-acc="unidad"][data-v="cm"]'); await a.page.waitForTimeout(50);
     await a.page.click('[data-acc="tipo"][data-v="cocina"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
-    await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3');
+    await a.page.fill('[data-pared="A"] > .fila-largo > [data-c="largo"] input', '3');
     await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="humos"]');
     const E = '[data-pared="A"] [data-elemento="humos"] ';
     await a.page.click(E + '[data-acc="humos-forma"][data-v="redonda"]');
@@ -39,9 +39,28 @@ prueba('salida de humos: redonda o rectangular con medidas rápidas', async () =
     afirma((await a.page.innerText('.resumen-doc')).includes('Salida de humos: 17×8 cm'));
     await a.page.click('header [data-acc="editar"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
     await a.page.click(E + '[data-acc="humos-forma"][data-v="recirculacion"]');
+    afirma(!(await a.page.$(E + '[data-acc="altura"]')) && !(await a.page.$(E + '[data-acc="humos-sale"]')), 'recirculación sigue pidiendo altura');
     await a.page.waitForFunction(() => [...document.querySelectorAll('[data-acc="planta"] text')].some(t => t.textContent.startsWith('Recirculación')));
     await a.page.click('header [data-acc="cab-resumen"]'); await a.page.waitForSelector('[data-pantalla="resumen"]');
     igual((await a.page.$$eval('.instalaciones tbody tr td', ts => ts.map(t => t.textContent)))[1], 'Campana de recirculación (sin salida de humos)');
+    igual(a.errores, []);
+  } finally { await a.cerrar(); }
+});
+prueba('salida de humos por el techo: separación de la pared en vez de altura', async () => {
+  const a = await abrir(); try {
+    await entrar(a); await crearTrabajo(a, 'Casa');
+    await a.page.click('[data-acc="unidad"][data-v="cm"]'); await a.page.waitForTimeout(50);
+    await a.page.click('[data-acc="tipo"][data-v="cocina"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
+    await a.page.fill('[data-pared="A"] > .fila-largo > [data-c="largo"] input', '3');
+    await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="humos"]');
+    const E = '[data-pared="A"] [data-elemento="humos"] ';
+    await a.page.click(E + '[data-acc="humos-sale"][data-v="techo"]');
+    afirma(!(await a.page.$(E + '[data-acc="altura"]')), 'sigue pidiendo la altura');
+    await a.page.fill(E + '[data-acc="distancia"]', '150'); await a.page.fill(E + '[data-acc="separacion"]', '30'); await a.page.press(E + '[data-acc="separacion"]', 'Tab');
+    await a.page.waitForFunction(() => [...document.querySelectorAll('[data-acc="planta"] text')].some(t => t.textContent.startsWith('Humos techo')));
+    await a.page.click('header [data-acc="cab-resumen"]'); await a.page.waitForSelector('[data-pantalla="resumen"]');
+    igual((await a.page.$$eval('.instalaciones tbody tr td', ts => ts.map(t => t.textContent)))[3], 'techo, a 30 cm de la pared');
+    afirma((await a.page.innerText('.resumen-doc')).includes('por el techo, separada 30 cm de la pared'));
     igual(a.errores, []);
   } finally { await a.cerrar(); }
 });

@@ -17,7 +17,7 @@ prueba('terminar guarda y enseña el resumen de puertas', con({}, async a => {
   await a.page.click('[data-acc="editar"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
 }));
 prueba('el resumen de cocina trae la planta, las paredes y los módulos', con({}, async a => {
-  await nueva(a, 'cocina'); await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3');
+  await nueva(a, 'cocina'); await a.page.fill('[data-pared="A"] > .fila-largo > [data-c="largo"] input', '3');
   await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="humos"]'); await a.page.fill('[data-elemento="humos"] [data-acc="distancia"]', '600');
   await a.page.click('[data-pared="A"] [data-fila="bajos"] [data-acc="anadir-modulo"][data-v="fregadero"]');
   await a.page.click('[data-pared="A"] [data-modulo].abierto [data-acc="rapido"][data-v="800"]');
@@ -82,7 +82,7 @@ prueba('al imprimir el título de la página lleva los datos del trabajo y luego
   await a.page.waitForFunction(t => document.title === t, antes, { timeout: 5000 });
 }));
 prueba('en el móvil el resumen cabe', con({ ancho: 360 }, async a => {
-  await nueva(a, 'cocina'); await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3'); await terminar(a);
+  await nueva(a, 'cocina'); await a.page.fill('[data-pared="A"] > .fila-largo > [data-c="largo"] input', '3'); await terminar(a);
   igual(await a.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
 }));
 fin();

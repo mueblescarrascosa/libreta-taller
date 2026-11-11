@@ -35,7 +35,7 @@ try {
   await toca('[data-acc="tipo"][data-v="cocina"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
   await foto('cocina_nueva');
   console.log('cocina vacía: alto', await alto());
-  await escribe('[data-pared="A"] > [data-c="largo"] input', '3,6');
+  await escribe('[data-pared="A"] > .fila-largo > [data-c="largo"] input', '3,6');
   await toca('[data-pared="A"] [data-acc="anadir-elemento"][data-v="enchufe"]');
   await foto('cocina_enchufe');
   await toca('[data-pared="A"] [data-fila="bajos"] [data-acc="anadir-modulo"][data-v="fregadero"]');

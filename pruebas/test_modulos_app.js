@@ -12,7 +12,7 @@ const ficha = a => a.page.evaluate(async () => { const id = location.hash.split(
 const A = '[data-pared="A"] ';
 
 prueba('módulos bajos de izquierda a derecha con anchos rápidos y cuadre', con({}, async a => {
-  await nueva(a, 'cocina'); await a.page.fill(A + '> [data-c="largo"] input', '3');
+  await nueva(a, 'cocina'); await a.page.fill(A + '> .fila-largo > [data-c="largo"] input', '3');
   await a.page.click(A + '[data-fila="bajos"] [data-acc="anadir-modulo"][data-v="columna_hmo"]');
   await a.page.click(A + '[data-fila="bajos"] [data-modulo].abierto [data-acc="rapido"][data-v="600"]');
   await a.page.click(A + '[data-fila="bajos"] [data-acc="anadir-modulo"][data-v="fregadero"]');
@@ -29,7 +29,7 @@ prueba('módulos bajos de izquierda a derecha con anchos rápidos y cuadre', con
   igual(p.bajos.map(m => [m.tipo, m.ancho]), [['columna_hmo', 600], ['fregadero', 800]]); igual(p.altos.map(m => [m.tipo, m.ancho]), [['alto', 1200]]);
 }));
 prueba('pasarse del largo avisa; subir y quitar módulos', con({}, async a => {
-  await nueva(a, 'cocina'); await a.page.fill(A + '> [data-c="largo"] input', '1');
+  await nueva(a, 'cocina'); await a.page.fill(A + '> .fila-largo > [data-c="largo"] input', '1');
   for (const v of ['bajo', 'cajonero']) { await a.page.click(A + '[data-fila="bajos"] [data-acc="anadir-modulo"][data-v="' + v + '"]'); await a.page.click(A + '[data-fila="bajos"] [data-modulo].abierto [data-acc="rapido"][data-v="600"]'); }
   igual(await a.page.innerText(A + '[data-acc="cuadre-bajos"]'), 'Te pasas 20 cm');
   await a.page.waitForFunction(() => /te pasas/.test(document.querySelector('[data-pared="A"] [data-avisos^="pared."]').innerText));

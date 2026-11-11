@@ -26,6 +26,7 @@ export function corta(e) {
   if (e.tipo === 'enchufe') return texto ? 'E ' + (e.para === 'hmo' ? 'H/MO' : texto.toLowerCase()) : 'E';
   if (e.tipo === 'toma') return texto ? 'Toma ' + texto.toLowerCase() : 'Toma';
   if (e.tipo === 'humos' && e.humos_forma === 'recirculacion') return 'Recirculación';
+  if (e.tipo === 'humos' && e.humos_sale === 'techo') return 'Humos techo' + (tamanoHumos(e) ? ' ' + tamanoHumos(e).replace(' mm', '').replace(' cm', '') : '');
   if (e.tipo === 'humos' && tamanoHumos(e)) return 'Humos ' + tamanoHumos(e).replace(' mm', '').replace(' cm', '');
   return ETIQUETA_CORTA[e.tipo] || etiqueta(e);
 }
@@ -80,7 +81,8 @@ export function geometriaPlanta(d, { margen = 10, unidad = 'cm' } = {}) {
       const c = camposDeElemento(e.tipo), ancho = c.ancho && hay(e.ancho) ? e.ancho : 0, dist = e.distancia + extra;
       const s = e.ref === 'der' ? (c.punto === 'centro' || !ancho ? L - dist : L - dist - ancho) : dist;
       if (!ancho) {
-        const w = ANCHO_APROX[e.tipo], r = Object.assign(base, { punto: en(s) });
+        const techo = e.tipo === 'humos' && e.humos_sale === 'techo', sep = techo && hay(e.separacion) ? e.separacion * k : 0;
+        const w = techo ? null : ANCHO_APROX[e.tipo], r = Object.assign(base, { punto: { x: en(s).x + dentro.x * sep, y: en(s).y + dentro.y * sep } });
         if (w) r.caja = [en(s - w / 2), en(s + w / 2)];
         geo.elementos.push(r); return;
       }

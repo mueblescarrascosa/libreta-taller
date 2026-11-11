@@ -36,13 +36,32 @@ prueba('en la ficha: cada pared de frente con su botón', async () => {
   const a = await abrir(); try {
     await entrar(a); await crearTrabajo(a, 'Casa');
     await a.page.click('[data-acc="tipo"][data-v="cocina"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
-    await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3');
+    await a.page.fill('[data-pared="A"] > .fila-largo > [data-c="largo"] input', '3');
     await a.page.click('[data-acc="anadir-pared"]');
-    await a.page.fill('[data-pared="B"] > [data-c="largo"] input', '2');
+    await a.page.fill('[data-pared="B"] > .fila-largo > [data-c="largo"] input', '2');
     await a.page.waitForSelector('[data-acc="alzado"]');
     igual(await a.page.getAttribute('[data-acc="alzado"]', 'aria-label'), 'Alzado de la pared A');
     await a.page.click('[data-acc="alzado-pared"][data-v="B"]');
     igual(await a.page.getAttribute('[data-acc="alzado"]', 'aria-label'), 'Alzado de la pared B');
+    igual(a.errores, []);
+  } finally { await a.cerrar(); }
+});
+prueba('pilar junto al largo y zona azulejada justo debajo, con la altura de la franja; alzados en el resumen', async () => {
+  const a = await abrir(); try {
+    await entrar(a); await crearTrabajo(a, 'Casa');
+    await a.page.click('[data-acc="unidad"][data-v="cm"]'); await a.page.waitForTimeout(50);
+    await a.page.click('[data-acc="tipo"][data-v="cocina"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
+    await a.page.fill('[data-pared="A"] > .fila-largo [data-c="largo"] input', '3');
+    await a.page.click('[data-pared="A"] [data-acc="pilares"]');
+    afirma(await a.page.$('[data-pared="A"] .zona-pilares [data-elemento="pilar"]'), 'el pilar no sale junto a su botón');
+    await a.page.click('[data-pared="A"] [data-acc="azulejo"][data-v="franja"]');
+    await a.page.fill('[data-pared="A"] [data-acc="azulejo_desde"]', '0,85'); await a.page.fill('[data-pared="A"] [data-acc="azulejo_hasta"]', '1,45');
+    await a.page.press('[data-pared="A"] [data-acc="azulejo_hasta"]', 'Tab');
+    await a.page.click('[data-pared="A"] [data-acc="anadir-zona"]');
+    const Z = '[data-pared="A"] .zona-zonas [data-elemento="zona"] ';
+    igual([await a.page.inputValue(Z + '[data-acc="altura"]'), await a.page.inputValue(Z + '[data-acc="alto"]')], ['85', '60']);
+    await a.page.click('header [data-acc="cab-resumen"]'); await a.page.waitForSelector('[data-pantalla="resumen"]');
+    igual((await a.page.$$('.resumen-doc .alzado-resumen svg.alzado')).length, 1);
     igual(a.errores, []);
   } finally { await a.cerrar(); }
 });

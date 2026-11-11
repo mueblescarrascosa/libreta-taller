@@ -10,7 +10,7 @@ const volverTrabajo = async a => { await a.page.click('header .atras'); await a.
 prueba('vestidor: sin recuadro de hueco y con cuerpos en cada pared', con({}, async a => {
   await nueva(a, 'armario', 'vestidor');
   afirma(!(await a.page.$('[data-acc="ancho_arriba"]')), 'sigue el hueco del armario');
-  await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '2');
+  await a.page.fill('[data-pared="A"] > .fila-largo > [data-c="largo"] input', '2');
   await a.page.click('[data-pared="A"] [data-acc="anadir-cuerpo"]');
   await a.page.fill('[data-pared="A"] [data-cuerpo] [data-acc="ancho"]', '100');
   await a.page.click('[data-pared="A"] [data-acc="anadir-cuerpo"]');
@@ -39,7 +39,7 @@ prueba('azulejo en franja permite añadir también zonas', con({}, async a => {
 
 prueba('planta: cajas orientativas y nombres que no se pisan', con({}, async a => {
   await nueva(a, 'cocina');
-  await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3');
+  await a.page.fill('[data-pared="A"] > .fila-largo > [data-c="largo"] input', '3');
   for (const [t, dist] of [['enchufe', '100'], ['enchufe', '106'], ['toma', '110']]) {
     await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="' + t + '"]');
     const campos = await a.page.$$('[data-pared="A"] [data-elemento] [data-acc="distancia"]');

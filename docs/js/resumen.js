@@ -17,9 +17,17 @@ function lineaElemento(e, u, delPilar = false) {
   const c = camposDeElemento(e.tipo), ud = e.tipo === 'pilar' ? 'cm' : u, v = mm => verMedida(mm, ud) + ' ' + ud;
   const partes = [], lado = e.ref === 'der' ? 'derecha' : 'izquierda';
   if (hay(e.distancia)) partes.push('a ' + v(e.distancia) + (delPilar ? ' desde el pilar de la ' + lado : ' desde la ' + lado));
-  if (c.altura && hay(e.altura)) partes.push('altura ' + v(e.altura));
+  if (e.tipo === 'humos' && e.humos_sale === 'techo') partes.push('por el techo' + (hay(e.separacion) ? ', separada ' + v(e.separacion) + ' de la pared' : ''));
+  else if (c.altura && hay(e.altura) && e.tipo !== 'zona') partes.push('altura ' + v(e.altura));
   if (c.ancho && hay(e.ancho)) partes.push('ancho ' + v(e.ancho));
-  if (c.alto && e.techo) partes.push('hasta el techo');
+  // Zona de azulejo: de qué altura a cuál, en un trozo («de 85 cm hasta el techo», «de 85 a 145 cm»).
+  if (e.tipo === 'zona') {
+    const de = hay(e.altura) ? verMedida(e.altura, ud) : null;
+    if (e.techo) partes.push((de ? 'de ' + de + ' ' + ud + ' ' : '') + 'hasta el techo');
+    else if (de && hay(e.alto)) partes.push('de ' + de + ' a ' + verMedida(e.altura + e.alto, ud) + ' ' + ud);
+    else if (de) partes.push('desde ' + de + ' ' + ud);
+    else if (hay(e.alto)) partes.push('alto ' + v(e.alto));
+  } else if (c.alto && e.techo) partes.push('hasta el techo');
   else if (c.alto && hay(e.alto)) partes.push('alto ' + v(e.alto));
   if (c.fondo && hay(e.fondo)) partes.push('sobresale ' + v(e.fondo));
   if (e.tipo === 'humos' && tamanoHumos(e)) partes.unshift(tamanoHumos(e));
@@ -45,12 +53,16 @@ function lineaModulos(nombre, lista, cuadre) {
 const textoCuerpo = (c, ajustes) => unir([hay(c.ancho) ? verMedida(c.ancho, 'cm') : '?', c.interior ? (c.interior === 'otro' ? c.nombre || 'otro' : nombreInterior(c.interior, ajustes).toLowerCase()) : null], ' ');
 
 function bloquePared(p, ud, u, ajustes, d) {
-  const l = [unir(['*Pared ' + p.letra + '*', hay(p.largo) ? verMedida(p.largo, ud) + ' ' + ud : null, hay(p.alto) ? 'alto ' + verMedida(p.alto, ud) + ' ' + ud : null, textoAzulejo(p, ud) || null])];
+  const l = [unir(['*Pared ' + p.letra + '*', hay(p.largo) ? verMedida(p.largo, ud) + ' ' + ud : null, hay(p.alto) ? 'alto ' + verMedida(p.alto, ud) + ' ' + ud : null])];
+  // Todo el azulejo junto: el general y, justo debajo, sus zonas.
+  const az = (textoAzulejo(p, ud) || '').replace(' + zonas', ''), zonas = (p.elementos || []).filter(e => e.tipo === 'zona');
+  if (az || zonas.length) l.push('- ' + (az ? az.charAt(0).toUpperCase() + az.slice(1) : 'Azulejo por zonas'));
+  zonas.forEach(e => l.push('   · ' + lineaElemento(e, u, extraPilar(d, p, e) > 0).slice(2)));
   if ((p.cuerpos || []).length) {
     const c = textoCuadre(cuadreCuerposPared(p), 'cm');
     l.push('- Cuerpos: ' + p.cuerpos.map(x => textoCuerpo(x, ajustes)).join(', ') + (c ? ' (' + c.charAt(0).toLowerCase() + c.slice(1) + ')' : ''));
   }
-  (p.elementos || []).forEach(e => l.push(lineaElemento(e, u, extraPilar(d, p, e) > 0)));
+  (p.elementos || []).filter(e => e.tipo !== 'zona').forEach(e => l.push(lineaElemento(e, u, extraPilar(d, p, e) > 0)));
   // El rinconero dice en qué pared sigue.
   const v = paredesVecinas(d, p), bajos = (p.bajos || []).map(m => (m.tipo === 'rinconero' && v[m.gira === 'izq' ? 'izq' : 'der'] ? Object.assign({}, m, { sigue: v[m.gira === 'izq' ? 'izq' : 'der'].letra }) : m));
   l.push(lineaModulos('Bajos', bajos, cuadreBajos(p, d)), (p.altos || []).length ? lineaModulos('Altos', p.altos, cuadreAltos(p)) : null);

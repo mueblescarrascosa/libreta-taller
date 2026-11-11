@@ -196,12 +196,12 @@ export async function pintarFicha(App, id) {
     return zona;
   }
   // Salida de humos: redonda (diámetro en mm) o rectangular (ancho × alto en cm), con las medidas habituales a un toque.
-  function tamanoHumosEditor(e) {
+  function tamanoHumosEditor(e, repintarPared) {
     const zona = h('div', { class: 'campo humos' });
     const pintar = () => {
       const n = [h('label', { class: 'et' }, 'Salida'),
         segmentado({ acc: 'humos-forma', opciones: [['redonda', 'Redonda'], ['rectangular', 'Rectangular'], ['recirculacion', 'Recirculación']], valor: e.humos_forma || null, permitirVacio: true,
-          alCambiar: v => { e.humos_forma = v; cambio(); pintar(); } })];
+          alCambiar: v => { const antes = e.humos_forma; e.humos_forma = v; cambio(); if ((antes === 'recirculacion') !== (v === 'recirculacion')) repintarPared(); else pintar(); } })];
       if (e.humos_forma === 'redonda') n.push(campoMedida({ etiqueta: 'Diámetro', acc: 'diametro', valor: e.diametro, mal: e.mal && e.mal.diametro, unidad: 'mm', rapidos: HUMOS_DIAMETROS,
         alCambiar: (v, t) => { anotarMedida(e, 'diametro', v, t); cambio(); } }));
       if (e.humos_forma === 'rectangular') {
@@ -225,9 +225,14 @@ export async function pintarFicha(App, id) {
       h('div', { class: 'cab' }, h('b', { 'data-acc': 'nombre-elemento-titulo' }, nombreElemento(e)), h('small', {}, c.punto === 'centro' ? 'medido al centro' : 'medido al borde'),
         h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-elemento', onclick: () => { if (confirmarQuitar(nombreElemento(e).toLowerCase())) { lista.splice(lista.indexOf(e), 1); cambio(); repintar(); } } }, 'Quitar')),
       usosDe(e.tipo).length ? h('div', { class: 'chips usos' }, segmentadoChips(e)) : null,
-      e.tipo === 'humos' ? tamanoHumosEditor(e) : null,
+      e.tipo === 'humos' && e.humos_forma !== 'recirculacion' ? h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Sale por'),
+        segmentado({ acc: 'humos-sale', opciones: [['pared', 'Pared'], ['techo', 'Techo']], valor: e.humos_sale || 'pared', alCambiar: v => { e.humos_sale = v; cambio(); repintar(); } })) : null,
+      e.tipo === 'humos' ? tamanoHumosEditor(e, repintar) : null,
       e.tipo === 'otro' || e.tipo === 'zona' ? h('input', { 'data-acc': 'nombre-elemento', placeholder: e.tipo === 'zona' ? '¿Qué zona? (campana, fregadero…)' : '¿Qué es?', value: e.nombre, oninput: ev => { e.nombre = ev.target.value; cambio(); } }) : null,
-      h('div', { class: 'dos' }, medida(e, 'distancia', 'Distancia', refExtra), c.altura ? medida(e, 'altura', e.tipo === 'ventana' ? 'Alféizar (altura del suelo)' : 'Altura del suelo', { aviso: null }) : null),
+      h('div', { class: 'dos' }, medida(e, 'distancia', 'Distancia', refExtra),
+        e.tipo === 'humos' && e.humos_forma === 'recirculacion' ? null
+          : e.tipo === 'humos' && e.humos_sale === 'techo' ? medida(e, 'separacion', 'Separación de la pared', { aviso: null })
+          : c.altura ? medida(e, 'altura', e.tipo === 'ventana' ? 'Alféizar (altura del suelo)' : 'Altura del suelo', { aviso: null }) : null),
       medidoDesde(e, pared),
       c.ancho || c.alto || c.fondo ? h('div', { class: 'dos' },
         c.ancho ? medida(e, 'ancho', 'Ancho', { aviso: null }) : null,
@@ -295,16 +300,22 @@ export async function pintarFicha(App, id) {
     zona,
     h('button', { type: 'button', class: 'ancho', 'data-acc': 'anadir-pared', onclick: () => { d.paredes.push(paredNueva(d.paredes)); cambio(); repintar(); } }, '+ Añadir pared')];
   }
+  const seccion = (clase, titulo, ...hijos) => h('section', { class: 'sec-pared sec-' + clase, 'data-sec': clase }, h('h4', {}, titulo), ...hijos);
   function pared(p, tipos, repintarTodo, udPared) {
-    const zonaEl = h('div', {});
-    const repintar = () => { zonaEl.replaceChildren(...p.elementos.map(e => elemento(e, p.elementos, repintar, p))); refrescarAvisos(); };
+    // Pilares y zonas de azulejo salen junto a su botón; el resto de elementos, abajo.
+    const zonaEl = h('div', {}), zonaPilares = h('div', { class: 'zona-pilares' }), zonaZonas = h('div', { class: 'zona-zonas' });
+    const de = f => p.elementos.filter(f).map(e => elemento(e, p.elementos, repintar, p));
+    function repintar() {
+      zonaPilares.replaceChildren(...de(e => e.tipo === 'pilar'));
+      zonaZonas.replaceChildren(...de(e => e.tipo === 'zona'));
+      zonaEl.replaceChildren(...de(e => e.tipo !== 'pilar' && e.tipo !== 'zona'));
+      refrescarAvisos();
+    }
     repintar();
-    const pilares = h('div', { class: 'campo' }, h('label', { class: 'et' }, '¿Mochetas o pilares?'),
-      segmentado({ acc: 'pilares', opciones: SI_NO, valor: p.pilares ?? null, permitirVacio: true, alCambiar: v => {
-        p.pilares = v;
-        if (v && !p.elementos.some(e => e.tipo === 'pilar')) p.elementos.push(elementoNuevo('pilar', d.ref_ultima));
-        cambio(); repintar();
-      } }));
+    // Mocheta o pilar: un botón pequeño en la línea del largo.
+    const botonPilar = h('button', { type: 'button', class: 'mini boton-pilar', 'data-acc': 'pilares', 'data-v': 'true', title: 'Añadir mocheta o pilar', onclick: () => {
+      p.pilares = true; p.elementos.push(elementoNuevo('pilar', d.ref_ultima)); cambio(); repintar();
+    } }, '＋ Pilar');
     // Azulejo: sin, toda la pared, una franja (desde una altura hasta otra o hasta el techo) o por zonas.
     const zonaAzulejo = h('div', {});
     const pintarAzulejo = () => {
@@ -316,26 +327,35 @@ export async function pintarFicha(App, id) {
           segmentado({ acc: 'azulejo_techo', opciones: SI_NO, valor: p.azulejo_techo ?? null, permitirVacio: true, alCambiar: v => { p.azulejo_techo = v; cambio(); pintarAzulejo(); } })));
       }
       if (p.azulejo === 'zonas' || p.azulejo === 'franja') {
-        extra.push(h('button', { type: 'button', 'data-acc': 'anadir-zona', onclick: () => { p.elementos.push(elementoNuevo('zona', d.ref_ultima)); cambio(); repintar(); } }, '+ Zona azulejada (campana, fregadero…)'));
+        extra.push(h('button', { type: 'button', 'data-acc': 'anadir-zona', onclick: () => {
+          const z = elementoNuevo('zona', d.ref_ultima);
+          // Con franja, la zona empieza con su misma altura (desde y hasta, o hasta el techo).
+          if (p.azulejo === 'franja') {
+            if (p.azulejo_desde !== null && p.azulejo_desde !== undefined) z.altura = p.azulejo_desde;
+            if (p.azulejo_techo) z.techo = true;
+            else if (p.azulejo_hasta != null && p.azulejo_desde != null && p.azulejo_hasta > p.azulejo_desde) z.alto = p.azulejo_hasta - p.azulejo_desde;
+          }
+          p.elementos.push(z); cambio(); repintar();
+        } }, '＋ Zona azulejada (campana, fregadero…)'));
       }
-      zonaAzulejo.replaceChildren(h('label', { class: 'et' }, 'Azulejo'),
+      zonaAzulejo.replaceChildren(
         segmentado({ acc: 'azulejo', opciones: [['no', 'Sin'], ['toda', 'Toda'], ['franja', 'Franja'], ['zonas', 'Por zonas']], valor: p.azulejo ?? null, permitirVacio: true, alCambiar: v => { p.azulejo = v; cambio(); pintarAzulejo(); } }),
-        ...extra);
+        ...extra, zonaZonas);
     };
     pintarAzulejo();
     return h('div', { class: 'tarjeta', 'data-pared': p.letra },
       h('div', { class: 'cab' }, h('h3', {}, 'Pared ' + p.letra),
         h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-pared', onclick: () => { if (confirmarQuitar('la pared ' + p.letra)) { d.paredes.splice(d.paredes.indexOf(p), 1); cambio(); repintarTodo(); } } }, 'Quitar')),
-      medida(p, 'largo', 'Largo', { aviso: null, unidad: udPared }),
+      h('div', { class: 'fila-largo' }, medida(p, 'largo', 'Largo', { aviso: null, unidad: udPared }), botonPilar),
       p.alto !== null && p.alto !== undefined ? medida(p, 'alto', 'Alto', { aviso: null, unidad: udPared }) : null,
       h('div', { class: 'avisos', 'data-avisos': 'pared.' + p.id }),
-      pilares,
-      h('div', { class: 'campo' }, zonaAzulejo),
-      tipos === TIPOS_ELEMENTO.cocina ? muebles(p) : null,
-      ficha.subtipo === 'vestidor' ? h('div', { class: 'campo' }, ...cuerpos(p, () => cuadreCuerposPared(p), false)) : null,
-      zonaEl,
-      h('label', { class: 'et' }, 'Añadir'),
-      h('div', { class: 'chips' }, tipos.map(t => h('button', { type: 'button', 'data-acc': 'anadir-elemento', 'data-v': t, onclick: () => { p.elementos.push(elementoNuevo(t, d.ref_ultima)); cambio(); repintar(); } }, CORTO_ELEMENTO[t] || NOMBRE_ELEMENTO[t]))));
+      zonaPilares,
+      // Cada parte de la pared en su bloque, con su título y su color: azulejo, muebles y tomas/huecos.
+      seccion('azulejo', '🧱 Azulejo', h('div', { class: 'campo' }, zonaAzulejo)),
+      tipos === TIPOS_ELEMENTO.cocina ? seccion('muebles', '🗄️ Muebles, de izquierda a derecha', muebles(p)) : null,
+      ficha.subtipo === 'vestidor' ? seccion('muebles', '🗄️ Cuerpos', h('div', { class: 'campo' }, ...cuerpos(p, () => cuadreCuerposPared(p), false))) : null,
+      seccion('elementos', '🔌 Tomas, huecos y cotas', zonaEl,
+        h('div', { class: 'chips' }, tipos.map(t => h('button', { type: 'button', 'data-acc': 'anadir-elemento', 'data-v': t, onclick: () => { p.elementos.push(elementoNuevo(t, d.ref_ultima)); cambio(); repintar(); } }, '＋ ' + (CORTO_ELEMENTO[t] || NOMBRE_ELEMENTO[t]))))));
   }
 
   function enchufes() {
@@ -438,7 +458,7 @@ export async function pintarFicha(App, id) {
           const m = moduloNuevo(t); p[nombre].push(m); abiertos[nombre] = m.id; cambio(); repintar();
         } }, CORTO_MODULO[t] || NOMBRE_MODULO[t]))));
     }
-    caja.append(h('label', { class: 'et' }, 'Muebles, de izquierda a derecha'), fila('bajos', 'Bajos y columnas'), fila('altos', 'Altos'));
+    caja.append(fila('bajos', 'Bajos y columnas'), fila('altos', 'Altos'));
     return caja;
   }
 

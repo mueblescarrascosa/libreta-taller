@@ -9,6 +9,7 @@ import { bloquesResumen, textoResumen, unidadesDe, urlWhatsapp } from '../resume
 import { recuentoPuertas, textoTrabajo } from '../trabajos.js';
 import { geometriaPlanta, svgPlanta } from '../plano-vista.js';
 import { generarPdf } from '../pdf.js';
+import { geometriaAlzado, svgAlzado } from '../alzado.js';
 
 const v = (mm, u) => (mm === null || mm === undefined ? '' : verMedida(mm, u));
 const siNo = x => (x === true ? 'Sí' : x === false ? 'No' : '');
@@ -48,7 +49,9 @@ function tablaInstalaciones(d, u) {
         donde = 'a ' + verMedida(e.distancia, u) + ' ' + u + ' ' + desde;
       }
       const que = e.tipo === 'humos' && e.humos_forma === 'recirculacion' ? 'Campana de recirculación (sin salida de humos)' : nombreElemento(e) + (e.tipo === 'humos' && tamanoHumos(e) ? ' ' + tamanoHumos(e) : '');
-      filas.push([p.letra, que, donde, e.altura !== null && e.altura !== undefined ? verMedida(e.altura, u) + ' ' + u : '']);
+      const alt = e.tipo === 'humos' && e.humos_sale === 'techo' ? 'techo' + (e.separacion != null ? ', a ' + verMedida(e.separacion, u) + ' ' + u + ' de la pared' : '')
+        : e.altura !== null && e.altura !== undefined ? verMedida(e.altura, u) + ' ' + u : '';
+      filas.push([p.letra, que, donde, alt]);
     });
   });
   if (!filas.length) return null;
@@ -86,6 +89,11 @@ async function nodosFicha(App, ficha, trabajo, AJ) {
   if ((d.paredes || []).length) {
     const g = geometriaPlanta(d, { margen: AJ.margen, unidad: u });
     if (g.paredes.length) nodos.push(h('div', { class: 'planta-resumen' }, svgPlanta(g)));
+    // Cada pared de frente.
+    d.paredes.forEach(p => {
+      const ga = geometriaAlzado(d, p);
+      if (ga) nodos.push(h('div', { class: 'alzado-resumen' }, h('p', { class: 'tit' }, h('b', {}, 'Pared ' + p.letra + ' de frente')), svgAlzado(ga, { unidad: u })));
+    });
     const t = tablaInstalaciones(d, u);
     if (t) nodos.push(t);
   }

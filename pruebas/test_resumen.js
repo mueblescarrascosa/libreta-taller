@@ -23,7 +23,7 @@ prueba('texto de cocina: altura, acabados, paredes con elementos y módulos', ()
   p.bajos.push(Object.assign(moduloNuevo('columna_hmo'), { ancho: 600 }), Object.assign(moduloNuevo('fregadero'), { ancho: 800 }));
   const t = textoResumen({ ficha: f, trabajo, ajustes: AJUSTES_FABRICA });
   afirma(t.includes('Altura: 2,6 m'), t); afirma(t.includes('Muebles: Alpha Blanco') && t.includes('Encimera: Compacto'), t);
-  afirma(t.includes('*Pared A* · 3 m · azulejo desde 0,9 m hasta el techo'), t);
+  afirma(t.includes('*Pared A* · 3 m\n- Azulejo desde 0,9 m hasta el techo'), t);
   afirma(t.includes('- Salida de humos: a 60 cm desde la izquierda, altura 210 cm'), t);
   afirma(t.includes('- Enchufe H/MO (columna): a 30 cm desde la derecha, altura 110 cm'), t);
   afirma(t.includes('- Bajos: Columna H/MO 60, Fregadero 80 (quedan 160 cm)'), t);

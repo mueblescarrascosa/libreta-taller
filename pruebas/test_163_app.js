@@ -47,7 +47,7 @@ prueba('con cinco paredes sin forma dibujada avisa de que el dibujo es aproximad
   await crearTrabajo(a, 'Casa');
   await a.page.click('[data-acc="tipo"][data-v="cocina"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
   for (let i = 0; i < 4; i++) await a.page.click('[data-acc="anadir-pared"]');
-  await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3');
+  await a.page.fill('[data-pared="A"] > .fila-largo > [data-c="largo"] input', '3');
   await a.page.waitForSelector('[data-acc="aviso-forma"]');
 }));
 
