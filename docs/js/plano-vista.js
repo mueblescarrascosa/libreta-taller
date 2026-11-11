@@ -19,7 +19,7 @@ const colorDe = t => COLOR[t] || (t.startsWith('enchufe') ? '#dc2626' : '#111827
 const hay = v => v !== null && v !== undefined;
 const etiqueta = e => nombreElemento(e);
 // Etiqueta corta para la planta: «E H/MO», «Toma termo», «Desagüe»…
-function corta(e) {
+export function corta(e) {
   if (e.tipo === 'otro') return e.nombre || 'Otro';
   if (e.tipo === 'zona') return 'Az.' + (e.nombre ? ' ' + e.nombre : '');
   const uso = USOS[e.tipo] && USOS[e.tipo].find(u => u[0] === e.para), texto = e.para_nombre || (uso && uso[1]);

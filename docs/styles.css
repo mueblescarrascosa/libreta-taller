@@ -62,6 +62,8 @@ details.plegable > .tarjeta, details.plegable > .lista, details.plegable > div {
 .tarjeta.puerta-cerrada > .resumen { flex: 1 1 0; min-width: 0; }
 .tarjeta.puerta-cerrada > .avisos { flex-basis: 100%; }
 .nombres-rapidos button { min-height: 32px; padding: 2px 9px; font-size: 13px; }
+.zona-alzado svg.alzado { width: 100%; height: auto; max-height: 55vh; background: #fff; border: 1px solid var(--borde); border-radius: 8px; display: block; }
+.tarjeta-alzado .chips button.on { background: var(--oscuro); border-color: var(--oscuro); color: #fff; }
 .enlace-fijo { justify-self: start; align-self: flex-start; }
 header:has(.barra-acciones) { flex-wrap: wrap; row-gap: 4px; }
 .barra-acciones { order: 9; flex: 1 0 100%; display: flex; justify-content: space-around; gap: 4px; border-top: 1px solid rgba(255,255,255,.15); padding-top: 4px; }
@@ -291,8 +293,9 @@ button { background: #fffef9; border-color: var(--borde); }
   /* Ficha de cocina o vestidor: el formulario a la izquierda y la planta fija a la derecha mientras se baja. */
   main[data-pantalla="ficha"]:has(> .lateral) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, 46%); column-gap: 24px; row-gap: 0; align-items: start; }
   main[data-pantalla="ficha"]:has(> .lateral) > * { grid-column: 1; }
-  main[data-pantalla="ficha"] > .lateral { grid-column: 2; grid-row: 1 / span 80; position: sticky; top: 72px; }
+  main[data-pantalla="ficha"] > .lateral { grid-column: 2; grid-row: 1 / span 80; position: sticky; top: 72px; max-height: calc(100vh - 84px); overflow-y: auto; padding-right: 4px; }
   main[data-pantalla="ficha"] > .lateral .tarjeta:first-child { margin-top: 10px; }
-  main[data-pantalla="ficha"] .tarjeta-planta svg.planta { max-height: calc(100vh - 260px); }
+  main[data-pantalla="ficha"] .tarjeta-planta svg.planta { max-height: 48vh; }
+  main[data-pantalla="ficha"] .zona-alzado svg.alzado { max-height: 42vh; }
 }
 @media print { html, body { background: #fff !important; } .resumen-doc { box-shadow: none; } }

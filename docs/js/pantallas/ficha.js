@@ -12,6 +12,7 @@ import { textoResumen, urlWhatsapp } from '../resumen.js';
 import { huella } from '../sincro.js';
 import { geometriaPlanta, svgPlanta, aplicarPlano } from '../plano-vista.js';
 import { abrirPlano } from '../plano-editor.js';
+import { geometriaAlzado, svgAlzado } from '../alzado.js';
 
 const RETARDO = 300;
 const nuevoId = () => crypto.randomUUID();
@@ -248,6 +249,19 @@ export async function pintarFicha(App, id) {
     const pintarAlto = () => zonaAlto.replaceChildren(medida(d, 'alto_techo', 'Altura de suelo a techo', { unidad: enM() ? 'm' : unidad }),
       h('small', { class: 'ayuda' }, 'Vigas, buhardillas o techos inclinados: en una nota.'));
     pintarAlto();
+    // Alzados: una pared de frente, elegida con su letra; se rehace con cada cambio, como la planta.
+    const zonaAlzado = h('div', { class: 'zona-alzado' }), botonesAlzado = h('div', { class: 'chips' });
+    let paredAlzado = null;
+    function pintarAlzado() {
+      const letras = d.paredes.map(p => p.letra);
+      if (!letras.includes(paredAlzado)) paredAlzado = letras[0] || null;
+      botonesAlzado.replaceChildren(...letras.map(l => h('button', { type: 'button', 'data-acc': 'alzado-pared', 'data-v': l, class: l === paredAlzado ? 'on' : '',
+        onclick: () => { paredAlzado = l; pintarAlzado(); } }, 'Pared ' + l)));
+      const p = d.paredes.find(x => x.letra === paredAlzado), g = p ? geometriaAlzado(d, p) : null;
+      zonaAlzado.replaceChildren(...(g ? [svgAlzado(g, { unidad }), g.techoMedido ? null : h('small', { class: 'ayuda' }, 'Sin la altura del techo: dibujado con 2,50 m.'),
+        h('small', { class: 'ayuda' }, 'Alturas de muebles orientativas.')].filter(Boolean)
+        : [h('small', { class: 'ayuda' }, 'Pon el largo de la pared para verla de frente.')]));
+    }
     // Planta dibujada con las medidas: se rehace con cada cambio.
     const zonaPlanta = h('div', { class: 'zona-planta' });
     pintarPlanta = () => {
@@ -257,6 +271,7 @@ export async function pintarFicha(App, id) {
       if (!d.plano && d.paredes.length >= 5) hijos.push(h('small', { class: 'ayuda', 'data-acc': 'aviso-forma' }, 'Con 5 o más paredes el dibujo es aproximado (todas en ángulo recto). Pulsa «Dibujar la forma» para que se parezca.'));
       if (g.sinSituar.length) hijos.push(h('small', { class: 'ayuda', 'data-acc': 'sin-situar' }, 'Sin situar (falta la distancia o el largo de su pared): ' + g.sinSituar.map(e => e.etiqueta + ' en ' + e.pared).join(', ') + '.'));
       zonaPlanta.replaceChildren(...hijos);
+      pintarAlzado();
     };
     const dibujar = async () => {
       await guardarYa();
@@ -274,7 +289,8 @@ export async function pintarFicha(App, id) {
     h('div', { class: 'lateral' },
       h('div', { class: 'tarjeta' }, zonaAlto),
       h('div', { class: 'tarjeta tarjeta-planta' }, h('div', { class: 'cab' }, h('b', {}, 'Planta'),
-        botonForma), zonaPlanta)),
+        botonForma), zonaPlanta),
+      h('div', { class: 'tarjeta tarjeta-alzado' }, h('b', {}, 'Paredes de frente'), botonesAlzado, zonaAlzado)),
     h('h2', {}, 'Paredes'),
     zona,
     h('button', { type: 'button', class: 'ancho', 'data-acc': 'anadir-pared', onclick: () => { d.paredes.push(paredNueva(d.paredes)); cambio(); repintar(); } }, '+ Añadir pared')];
