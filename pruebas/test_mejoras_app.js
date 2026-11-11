@@ -105,10 +105,10 @@ prueba('los trabajos se ordenan por el último tocado', con({}, async a => {
   await a.page.fill('[data-acc="cliente"]', 'Pepe'); await a.page.waitForTimeout(400);
   await irA(a, '#/', 'inicio'); igual(await a.page.innerText('[data-acc="abrir-trabajo"] b'), 'Primero');
 }));
-prueba('sin la columna nueva no hay teléfono ni estado y no se envía nada de más', con({}, async a => {
+prueba('con la columna ya creada, teléfono y estado vienen encendidos de serie', con({}, async a => {
   await crearTrabajo(a, 'Casa'); await guardado(a);
-  afirma(!(await a.page.$('[data-acc="telefono"]')) && !(await a.page.$('[data-acc="estado-trabajo"]')));
-  afirma(!('datos' in a.nube.med_trabajos[0]), 'manda datos');
+  afirma(await a.page.$('[data-acc="telefono"]') && await a.page.$('[data-acc="estado-trabajo"]'), 'no salen teléfono y estado');
+  igual(a.nube.med_trabajos[0].datos, {});
 }));
 prueba('con la columna nueva: teléfono, llamar, WhatsApp, estado y archivados', con({}, async a => {
   await a.page.evaluate(() => localStorage.setItem('medidas-trabajo-datos', '1')); await a.page.reload(); await a.page.waitForSelector('[data-pantalla="inicio"]');
