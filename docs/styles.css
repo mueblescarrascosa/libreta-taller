@@ -118,7 +118,8 @@ button.mini { min-height: 36px; padding: 4px 10px; font-size: 14px; }
 .acciones button { flex: 1 1 140px; }
 .aviso-resumen { color: var(--tenue); margin: 0 0 8px; min-height: 1em; }
 .resumen-doc { background: #fff; color: #111827; border: 1px solid var(--borde); border-radius: 10px; padding: 18px; overflow-wrap: anywhere; }
-.resumen-doc header { border-bottom: 3px solid var(--acento); padding-bottom: 8px; margin-bottom: 10px; }
+/* La cabecera del documento no es la barra oscura de la app: fondo claro, texto oscuro y sin quedarse fija. */
+.resumen-doc header { position: static; display: block; z-index: auto; background: transparent; color: inherit; padding: 0 0 8px; border-bottom: 3px solid var(--acento); margin-bottom: 10px; }
 .resumen-doc h1 { font-size: 22px; margin: 0; }
 .resumen-doc header p { margin: 2px 0; color: #374151; }
 .resumen-doc .fecha { color: var(--tenue); font-size: 13px; }
@@ -140,6 +141,7 @@ button.mini { min-height: 36px; padding: 4px 10px; font-size: 14px; }
   body, html { background: #fff; }
   main { max-width: none; padding: 0; }
   .resumen-doc { border: 0; padding: 0; }
+  .resumen-doc header { display: block !important; }
 }
 
 /* 1.6.0 */

@@ -9,7 +9,14 @@ import { generarPdf } from '../pdf.js';
 
 const v = (mm, u) => (mm === null || mm === undefined ? '' : verMedida(mm, u));
 const siNo = x => (x === true ? 'Sí' : x === false ? 'No' : '');
-const nombreArchivo = t => (t.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Medidas') + '.pdf';
+const limpio = t => String(t || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
+const nombreArchivo = t => (limpio(t).slice(0, 150).trim() || 'Medidas') + '.pdf';
+// «Piso 1 - Puertas - Juan - C/ Mayor 3 - 11-11-2026»: lo que se ve en el nombre del PDF y en el título al imprimir.
+export function tituloLargo(trabajo, parte) {
+  const f = new Date(), dd = n => String(n).padStart(2, '0');
+  const fecha = dd(f.getDate()) + '-' + dd(f.getMonth() + 1) + '-' + f.getFullYear();
+  return [trabajo && trabajo.nombre, parte, trabajo && trabajo.cliente, trabajo && trabajo.direccion, fecha].map(limpio).filter(Boolean).join(' - ');
+}
 const TIPO_PUERTA = { corredera: 'Corredera', doble: 'Doble', fija: 'Fija' };
 
 // Convierte «*Pared A* · 3 m» en negrita para la pantalla.
@@ -56,24 +63,39 @@ async function nodosFicha(App, ficha, trabajo, AJ) {
   return nodos;
 }
 
-// Botones de la cabecera del resumen: editar, enviar PDF, enviar texto e imprimir.
+// Botones de la cabecera del resumen: editar, enviar PDF, descargar PDF, enviar texto e imprimir.
 function acciones({ doc, titulo, texto, editar, aviso }) {
-  async function enviarPdf(ev) {
+  function descargar(blob, nombre) {
+    const url = URL.createObjectURL(blob), a = h('a', { href: url, download: nombre });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+  // soloDescargar: el botón «Descargar PDF»; si no, se comparte y, si el móvil no puede, se descarga.
+  const pdf = soloDescargar => async ev => {
     const boton = ev.currentTarget; boton.disabled = true; aviso.textContent = 'Preparando el PDF…';
     try {
       const blob = await generarPdf(doc), nombre = nombreArchivo(titulo);
       const archivo = new File([blob], nombre, { type: 'application/pdf' });
-      if (navigator.canShare && navigator.canShare({ files: [archivo] })) {
+      if (!soloDescargar && navigator.canShare && navigator.canShare({ files: [archivo] })) {
         aviso.textContent = '';
         await navigator.share({ files: [archivo], title: titulo });
       } else {
-        const a = h('a', { href: URL.createObjectURL(blob), download: nombre });
-        document.body.append(a); a.click(); a.remove();
-        aviso.textContent = 'PDF descargado: adjúntalo en WhatsApp.';
+        descargar(blob, nombre);
+        aviso.textContent = soloDescargar ? 'PDF descargado: «' + nombre + '».' : 'PDF descargado: adjúntalo en WhatsApp.';
       }
     } catch (e) {
       aviso.textContent = e && e.name === 'AbortError' ? '' : 'No se ha podido preparar el PDF. Comprueba la conexión la primera vez.';
     } finally { boton.disabled = false; }
+  };
+  // Al imprimir (o «Guardar como PDF» del navegador) el título de la página da el nombre del archivo y la cabecera de la hoja.
+  function imprimir() {
+    const antes = document.title;
+    let vuelto = false;
+    const volver = () => { if (!vuelto) { vuelto = true; document.title = antes; } };
+    document.title = titulo;
+    window.addEventListener('afterprint', volver, { once: true });
+    setTimeout(volver, 3000);
+    window.print();
   }
   async function enviarTexto() {
     const t = texto();
@@ -85,9 +107,10 @@ function acciones({ doc, titulo, texto, editar, aviso }) {
   }
   return h('div', { class: 'acciones' },
     h('button', { type: 'button', 'data-acc': 'editar', onclick: editar }, 'Editar'),
-    h('button', { type: 'button', class: 'prin', 'data-acc': 'enviar-pdf', onclick: enviarPdf }, 'Enviar PDF'),
+    h('button', { type: 'button', class: 'prin', 'data-acc': 'enviar-pdf', onclick: pdf(false) }, 'Enviar PDF'),
+    h('button', { type: 'button', 'data-acc': 'descargar-pdf', onclick: pdf(true) }, 'Descargar PDF'),
     h('button', { type: 'button', 'data-acc': 'enviar-texto', onclick: enviarTexto }, 'Enviar texto'),
-    h('button', { type: 'button', 'data-acc': 'imprimir', onclick: () => window.print() }, 'Imprimir'));
+    h('button', { type: 'button', 'data-acc': 'imprimir', onclick: imprimir }, 'Imprimir'));
 }
 
 export async function pintarResumen(App, id) {
@@ -98,7 +121,7 @@ export async function pintarResumen(App, id) {
   const main = App.marco('resumen', 'Resumen', '#/ficha/' + id);
   const aviso = h('p', { class: 'aviso-resumen' });
   const doc = h('article', { class: 'resumen-doc' }, cabecera(trabajo), ...(await nodosFicha(App, ficha, trabajo, AJ)), h('footer', {}, 'Libreta Taller'));
-  const titulo = [trabajo && trabajo.nombre, tituloFicha(ficha)].filter(Boolean).join(' - ');
+  const titulo = tituloLargo(trabajo, tituloFicha(ficha));
   main.append(acciones({ doc, titulo, aviso, texto: () => textoResumen({ ficha, trabajo, ajustes: AJ }), editar: () => App.ir('#/ficha/' + id) }), aviso, doc);
 }
 
@@ -117,5 +140,5 @@ export async function pintarResumenTrabajo(App, id) {
   for (const f of fichas) doc.append(h('div', { class: 'ficha-resumen' }, ...(await nodosFicha(App, f, trabajo, AJ))));
   if (!fichas.length) doc.append(h('p', { class: 'vacio' }, 'Este trabajo aún no tiene fichas.'));
   doc.append(h('footer', {}, 'Libreta Taller'));
-  main.append(acciones({ doc, titulo: trabajo.nombre || 'Trabajo', aviso, texto: () => textoTrabajo({ trabajo, fichas, ajustes: AJ }), editar: () => App.ir('#/trabajo/' + id) }), aviso, doc);
+  main.append(acciones({ doc, titulo: tituloLargo(trabajo.nombre ? trabajo : Object.assign({}, trabajo, { nombre: 'Trabajo' }), 'Medidas'), aviso, texto: () => textoTrabajo({ trabajo, fichas, ajustes: AJ }), editar: () => App.ir('#/trabajo/' + id) }), aviso, doc);
 }

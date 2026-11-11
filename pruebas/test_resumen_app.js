@@ -53,6 +53,27 @@ prueba('enviar como texto comparte el texto o abre WhatsApp', con({}, async a =>
   await a.page.click('[data-acc="enviar-texto"]'); await a.page.waitForFunction(() => window.__url);
   afirma(/^https:\/\/wa\.me\/\?text=/.test(await a.page.evaluate(() => window.__url)));
 }));
+prueba('la cabecera del resumen es clara y legible, también al imprimir', con({}, async a => {
+  await nueva(a, 'nota'); await a.page.click('[data-acc="anadir-nota"]'); await a.page.fill('[data-acc="nota"]', 'Hola'); await terminar(a);
+  const ver = () => a.page.$eval('.resumen-doc header', e => { const s = getComputedStyle(e), p = getComputedStyle(e.querySelector('p')); return [s.backgroundColor, s.display, s.position, p.color].join('|'); });
+  igual(await ver(), 'rgba(0, 0, 0, 0)|block|static|rgb(55, 65, 81)');
+  await a.page.emulateMedia({ media: 'print' });
+  afirma((await ver()).includes('|block|'), await ver());
+  igual(await a.page.$eval('body > * > header:not(.resumen-doc header)', e => getComputedStyle(e).display), 'none');
+}));
+prueba('descargar PDF baja el archivo con nombre, cliente y fecha', con({}, async a => {
+  await nueva(a, 'puerta'); await a.page.click(P + '[data-c="ancho"] [data-acc="rapido"][data-v="820"]'); await terminar(a);
+  const [d] = await Promise.all([a.page.waitForEvent('download', { timeout: 20000 }), a.page.click('[data-acc="descargar-pdf"]')]);
+  afirma(/^Reforma Sol - .*Juan - \d{2}-\d{2}-\d{4}\.pdf$/.test(d.suggestedFilename()), d.suggestedFilename());
+}));
+prueba('al imprimir el título de la página lleva los datos del trabajo y luego vuelve', con({}, async a => {
+  await nueva(a, 'nota'); await a.page.click('[data-acc="anadir-nota"]'); await a.page.fill('[data-acc="nota"]', 'Hola'); await terminar(a);
+  const antes = await a.page.title();
+  await a.page.evaluate(() => { window.print = () => { window.__titulo = document.title; }; });
+  await a.page.click('[data-acc="imprimir"]');
+  afirma(/Reforma Sol.*Juan/.test(await a.page.evaluate(() => window.__titulo)), await a.page.evaluate(() => window.__titulo));
+  await a.page.waitForFunction(t => document.title === t, antes, { timeout: 5000 });
+}));
 prueba('en el móvil el resumen cabe', con({ ancho: 360 }, async a => {
   await nueva(a, 'cocina'); await a.page.fill('[data-pared="A"] > [data-c="largo"] input', '3'); await terminar(a);
   igual(await a.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
