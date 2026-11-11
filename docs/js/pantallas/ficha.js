@@ -233,7 +233,7 @@ export async function pintarFicha(App, id) {
     return [h('div', { class: 'cab' }, h('h2', {}, 'Habitación'),
       segmentado({ acc: 'ud-paredes', opciones: [[false, unidad], [true, 'm']], valor: !!enM(), alCambiar: v => { d.paredes_m = v; App.cambiarParedesM(v); cambio(); pintarAlto(); repintar(); } })),
     h('div', { class: 'tarjeta' }, zonaAlto),
-    h('div', { class: 'tarjeta' }, h('div', { class: 'cab' }, h('b', {}, 'Planta'),
+    h('div', { class: 'tarjeta tarjeta-planta' }, h('div', { class: 'cab' }, h('b', {}, 'Planta'),
       botonForma), zonaPlanta),
     h('h2', {}, 'Paredes'),
     zona,
