@@ -1,8 +1,8 @@
 // Resumen de una ficha como texto para WhatsApp (*negrita*), con las medidas en su unidad.
 import { verMedida } from './unidades.js';
 import { tituloFicha } from './util.js';
-import { resumenPuerta, nombreElemento, camposDeElemento, textoAzulejo, extraPilar } from './modelo.js';
-import { nombreModulo, cuadreBajos, cuadreAltos, cuadreCuerposPared, textoCuadre, nombreLineal, nombreInterior, textoElectro } from './modulos.js';
+import { resumenPuerta, nombreElemento, camposDeElemento, textoAzulejo, extraPilar, tamanoHumos } from './modelo.js';
+import { textoModulo, cuadreBajos, cuadreAltos, cuadreCuerposPared, textoCuadre, nombreLineal, nombreInterior, textoElectro, paredesVecinas } from './modulos.js';
 
 const hay = v => v !== null && v !== undefined && v !== '';
 const unir = (partes, sep = ' · ') => partes.filter(hay).join(sep);
@@ -22,12 +22,22 @@ function lineaElemento(e, u, delPilar = false) {
   if (c.alto && e.techo) partes.push('hasta el techo');
   else if (c.alto && hay(e.alto)) partes.push('alto ' + v(e.alto));
   if (c.fondo && hay(e.fondo)) partes.push('sobresale ' + v(e.fondo));
+  if (e.tipo === 'humos' && tamanoHumos(e)) partes.unshift(tamanoHumos(e));
   return '- ' + nombreElemento(e) + (partes.length ? ': ' + partes.join(', ') : '');
+}
+
+function lineaIsla(x, u) {
+  const v = mm => verMedida(mm, u) + ' ' + u, lado = x.ref === 'der' ? 'derecha' : 'izquierda';
+  const tam = hay(x.largo) && hay(x.fondo) ? verMedida(x.largo, u) + ' × ' + verMedida(x.fondo, u) + ' ' + u : hay(x.largo) ? 'largo ' + v(x.largo) : hay(x.fondo) ? 'fondo ' + v(x.fondo) : null;
+  const partes = x.tipo === 'peninsula'
+    ? [tam, x.pared ? 'sale de la pared ' + x.pared : null, hay(x.distancia) ? 'a ' + v(x.distancia) + ' desde la ' + lado : null]
+    : [tam, x.pared ? 'paralela a la pared ' + x.pared : null, hay(x.separacion) ? 'separada ' + v(x.separacion) : null, hay(x.distancia) ? 'a ' + v(x.distancia) + ' desde la ' + lado : null];
+  return '- ' + (x.tipo === 'peninsula' ? 'Península' : 'Isla') + ': ' + partes.filter(Boolean).join(', ');
 }
 
 function lineaModulos(nombre, lista, cuadre) {
   if (!lista || !lista.length) return null;
-  const t = lista.map(m => nombreModulo(m) + (hay(m.ancho) ? ' ' + verMedida(m.ancho, 'cm') : '')).join(', ');
+  const t = lista.map(m => textoModulo(m) + (m.sigue ? ' (sigue en ' + m.sigue + ')' : '')).join(', ');
   const c = textoCuadre(cuadre, 'cm');
   return '- ' + nombre + ': ' + t + (c ? ' (' + c.charAt(0).toLowerCase() + c.slice(1) + ')' : '');
 }
@@ -41,7 +51,9 @@ function bloquePared(p, ud, u, ajustes, d) {
     l.push('- Cuerpos: ' + p.cuerpos.map(x => textoCuerpo(x, ajustes)).join(', ') + (c ? ' (' + c.charAt(0).toLowerCase() + c.slice(1) + ')' : ''));
   }
   (p.elementos || []).forEach(e => l.push(lineaElemento(e, u, extraPilar(d, p, e) > 0)));
-  l.push(lineaModulos('Bajos', p.bajos, cuadreBajos(p)), (p.altos || []).length ? lineaModulos('Altos', p.altos, cuadreAltos(p)) : null);
+  // El rinconero dice en qué pared sigue.
+  const v = paredesVecinas(d, p), bajos = (p.bajos || []).map(m => (m.tipo === 'rinconero' && v[m.gira === 'izq' ? 'izq' : 'der'] ? Object.assign({}, m, { sigue: v[m.gira === 'izq' ? 'izq' : 'der'].letra }) : m));
+  l.push(lineaModulos('Bajos', bajos, cuadreBajos(p, d)), (p.altos || []).length ? lineaModulos('Altos', p.altos, cuadreAltos(p)) : null);
   return l.filter(hay);
 }
 
@@ -73,6 +85,8 @@ export function bloquesResumen({ ficha, trabajo, ajustes }) {
     (d.electro || []).forEach(e => cab.push(textoElectro(e)));
     bloques.push(cab);
     (d.paredes || []).forEach(p => bloques.push(bloquePared(p, pared, u, ajustes, d)));
+    const islas = (d.islas || []).filter(x => hay(x.largo) || hay(x.fondo) || hay(x.distancia));
+    if (islas.length) bloques.push(['*Islas y penínsulas*', ...islas.map(x => lineaIsla(x, u))]);
   } else {
     bloques.push(cab);
   }

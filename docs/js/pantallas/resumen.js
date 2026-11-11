@@ -1,7 +1,9 @@
 // Resumen de una ficha terminada, o de un trabajo entero: presentación limpia para ver, imprimir o enviar (PDF o texto por WhatsApp).
 import { h, tituloFicha, vivos, botonBarra } from '../util.js';
 import { verMedida } from '../unidades.js';
-import { normalizarFicha, textoTipoPuerta } from '../modelo.js';
+import { normalizarFicha, textoTipoPuerta, nombreElemento, extraPilar, tamanoHumos } from '../modelo.js';
+import { EMPRESA, COPYRIGHT } from '../config.js';
+import { paredesVecinas } from '../modulos.js';
 const mayus = t => (t ? t[0].toUpperCase() + t.slice(1) : '');
 import { bloquesResumen, textoResumen, unidadesDe, urlWhatsapp } from '../resumen.js';
 import { recuentoPuertas, textoTrabajo } from '../trabajos.js';
@@ -26,9 +28,34 @@ function linea(t) {
 }
 
 const cabecera = trabajo => h('header', {},
+  h('p', { class: 'empresa' }, EMPRESA),
   h('h1', {}, trabajo ? trabajo.nombre || 'Trabajo' : 'Nota suelta'),
   trabajo && (trabajo.cliente || trabajo.direccion) ? h('p', {}, [trabajo.cliente, trabajo.direccion].filter(Boolean).join(' · ')) : null,
   h('p', { class: 'fecha' }, new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })));
+
+// Tomas, desagües, salidas de humos y enchufes en una tabla: dónde va cada uno y a qué altura.
+// Es lo que necesita el albañil, el fontanero o el electricista si aún no están sacadas.
+const INSTALACIONES = ['humos', 'desague', 'toma', 'agua', 'gas', 'enchufe'];
+function tablaInstalaciones(d, u) {
+  const filas = [];
+  (d.paredes || []).forEach(p => {
+    const vec = paredesVecinas(d, p);
+    (p.elementos || []).filter(e => INSTALACIONES.includes(e.tipo)).forEach(e => {
+      const lado = e.ref === 'der' ? 'der' : 'izq', pared = vec[lado];
+      let donde = '';
+      if (e.distancia !== null && e.distancia !== undefined) {
+        const desde = extraPilar(d, p, e) > 0 ? 'del pilar (' + (lado === 'der' ? 'dcha.' : 'izq.') + ')' : pared ? 'de la pared ' + pared.letra : 'desde la ' + (lado === 'der' ? 'derecha' : 'izquierda');
+        donde = 'a ' + verMedida(e.distancia, u) + ' ' + u + ' ' + desde;
+      }
+      const que = e.tipo === 'humos' && e.humos_forma === 'recirculacion' ? 'Campana de recirculación (sin salida de humos)' : nombreElemento(e) + (e.tipo === 'humos' && tamanoHumos(e) ? ' ' + tamanoHumos(e) : '');
+      filas.push([p.letra, que, donde, e.altura !== null && e.altura !== undefined ? verMedida(e.altura, u) + ' ' + u : '']);
+    });
+  });
+  if (!filas.length) return null;
+  return h('section', { class: 'instalaciones' }, h('h3', {}, 'Tomas e instalaciones'),
+    h('table', {}, h('thead', {}, h('tr', {}, ['Pared', 'Qué', 'Dónde (al centro)', 'Altura del suelo'].map(t => h('th', {}, t)))),
+      h('tbody', {}, filas.map(f => h('tr', {}, f.map(t => h('td', {}, t)))))));
+}
 
 // Lo de una ficha: título, tabla de puertas, planta, el resto en bloques y las fotos.
 async function nodosFicha(App, ficha, trabajo, AJ) {
@@ -43,6 +70,8 @@ async function nodosFicha(App, ficha, trabajo, AJ) {
   if ((d.paredes || []).length) {
     const g = geometriaPlanta(d, { margen: AJ.margen, unidad: u });
     if (g.paredes.length) nodos.push(h('div', { class: 'planta-resumen' }, svgPlanta(g)));
+    const t = tablaInstalaciones(d, u);
+    if (t) nodos.push(t);
   }
   // El resto, con los mismos bloques que el texto de WhatsApp (sin la cabecera del trabajo ni el título).
   const bloques = bloquesResumen({ ficha, trabajo, ajustes: AJ }).slice(trabajo ? 1 : 0);
@@ -116,7 +145,7 @@ export async function pintarResumen(App, id) {
   const titulo = tituloLargo(trabajo, tituloFicha(ficha));
   const main = App.marco('resumen', tituloFicha(ficha), trabajo ? '#/trabajo/' + trabajo.id : '#/sueltas',
     acciones({ doc, titulo, aviso, texto: () => textoResumen({ ficha, trabajo, ajustes: AJ }), editar: () => App.ir('#/ficha/' + id) }));
-  doc.append(cabecera(trabajo), ...(await nodosFicha(App, ficha, trabajo, AJ)), h('footer', {}, 'Libreta Taller'));
+  doc.append(cabecera(trabajo), ...(await nodosFicha(App, ficha, trabajo, AJ)), h('footer', {}, COPYRIGHT));
   main.append(aviso, doc);
 }
 
@@ -134,6 +163,6 @@ export async function pintarResumenTrabajo(App, id) {
   if (r.total) doc.append(h('section', { class: 'recuento' }, h('p', { class: 'tit' }, h('b', {}, 'Puertas: ' + r.total)), ...r.lineas.map(t => h('p', {}, t))));
   for (const f of fichas) doc.append(h('div', { class: 'ficha-resumen' }, ...(await nodosFicha(App, f, trabajo, AJ))));
   if (!fichas.length) doc.append(h('p', { class: 'vacio' }, 'Este trabajo aún no tiene fichas.'));
-  doc.append(h('footer', {}, 'Libreta Taller'));
+  doc.append(h('footer', {}, COPYRIGHT));
   main.append(aviso, doc);
 }

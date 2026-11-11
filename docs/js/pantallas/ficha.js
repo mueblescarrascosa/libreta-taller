@@ -1,12 +1,12 @@
 // Una ficha: sus huecos según el tipo y, en todas, medidas libres, notas, croquis y fotos.
 import { h, segmentado, tituloFicha, vivos, icono } from '../util.js';
 import { unidadDe } from '../unidades.js';
-import { avisos, camposDeElemento, elementoNuevo, paredNueva, puertaNueva, normalizarFicha, resumenPuerta, limpiarDatos, tieneInformacion,
+import { CORTO_ELEMENTO, HUMOS_DIAMETROS, HUMOS_RECTANGULARES, islaNueva, avisos, camposDeElemento, elementoNuevo, paredNueva, puertaNueva, normalizarFicha, resumenPuerta, limpiarDatos, tieneInformacion,
   TIPOS_ELEMENTO, NOMBRE_ELEMENTO, RAPIDAS_PUERTA, USOS, nombreElemento, tiposPuertaPara, otraHoja, anchoFijo, pilarEnPunta } from '../modelo.js';
 import { duplicarFicha } from '../trabajos.js';
 import { campoMedida, campoEntero } from '../campos.js';
 import { verMedida } from '../unidades.js';
-import { TIPOS_MODULO, NOMBRE_MODULO, moduloNuevo, nombreModulo, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, textoCuadre, lineaNueva, nombreLineal, nombreInterior, acabadosNuevos, ELECTRO, datosElectro, electroNuevo } from '../modulos.js';
+import { TIPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, medidasModulo, anchosDe, FORMAS_RINCONERO, LADOS_RINCONERO, paredesVecinas, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, textoCuadre, lineaNueva, nombreLineal, nombreInterior, acabadosNuevos, ELECTRO, datosElectro, electroNuevo } from '../modulos.js';
 import { seccionAdjuntos } from './adjuntos.js';
 import { textoResumen, urlWhatsapp } from '../resumen.js';
 import { huella } from '../sincro.js';
@@ -92,16 +92,22 @@ export async function pintarFicha(App, id) {
         h('input', { 'data-acc': 'nombre-puerta', placeholder: 'Nombre (por ejemplo, Dormitorio 1)', value: p.nombre, oninput: ev => { p.nombre = ev.target.value; cambio(); } }),
         medida(p, 'ancho', 'Ancho', { rapidos: AJ.puerta_anchos, aviso: null }),
         medida(p, 'alto', 'Alto', { rapidos: AJ.puerta_altos, aviso: null }),
-        medida(p, 'tabique', 'Grosor de tabique', { rapidos: AJ.puerta_tabiques, aviso: null }),
+        medida(p, 'tabique', 'Tabique', { rapidos: AJ.puerta_tabiques, aviso: null }),
         h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Tipo'),
           segmentado({ acc: 'tipo-puerta', opciones: tiposPuertaPara(p), valor: p.tipo || null, permitirVacio: true, alCambiar: v => { p.tipo = v; if (v === 'doble' || v === 'corredera') quitarFijo(p); cambio(); repintar(); } })),
         ...extrasPuerta(p),
-        h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Abre a (mirando desde el pasillo)'),
-          segmentado({ acc: 'mano', opciones: [['izq', 'Izquierda'], ['der', 'Derecha']], valor: p.mano, permitirVacio: true, alCambiar: v => { p.mano = v; cambio(); } })),
-        h('div', { class: 'dos' }, siNo(p, 'condena', 'Condena'), siNo(p, 'vidriera', 'Vidriera')),
+        h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Abre a (desde el pasillo)'),
+          segmentado({ acc: 'mano', opciones: [['izq', '← Izquierda'], ['der', 'Derecha →']], valor: p.mano, permitirVacio: true, alCambiar: v => { p.mano = v; cambio(); } })),
+        // Lo que lleva o no lleva: un toque lo marca (verde) y otro lo quita.
+        h('div', { class: 'chips interruptores' },
+          interruptor(p, 'condena', 'Condena'), interruptor(p, 'vidriera', 'Vidriera'), ...botonFijo(p)),
         h('div', { class: 'avisos', 'data-avisos': 'puerta.' + p.id }));
     }
     const quitarFijo = p => { ['fijo', 'puerta_ancho', 'fijo_lado'].forEach(k => delete p[k]); if (p.mal) delete p.mal.puerta_ancho; };
+    const interruptor = (obj, k, texto) => h('button', { type: 'button', 'data-acc': k, 'data-v': 'true', class: obj[k] ? 'on si' : '', 'aria-pressed': obj[k] ? 'true' : 'false',
+      onclick: ev => { obj[k] = !obj[k]; ev.currentTarget.classList.toggle('on', obj[k]); ev.currentTarget.classList.toggle('si', obj[k]); ev.currentTarget.setAttribute('aria-pressed', String(obj[k])); cambio(); } }, (obj[k] ? '✓ ' : '') + texto);
+    const botonFijo = p => (p.tipo === 'doble' || p.tipo === 'corredera' || p.tipo === 'fija' || p.fijo ? []
+      : [h('button', { type: 'button', 'data-acc': 'fijo', onclick: () => { p.fijo = true; cambio(); repintar(); } }, '＋ Paño fijo')]);
     // Doble: ¿hojas iguales? Si no, el ancho de cada una. Paño fijo en cualquier puerta: ancho y lado.
     function extrasPuerta(p) {
       const n = [];
@@ -115,12 +121,8 @@ export async function pintarFicha(App, id) {
           n.push(medida(p, 'hoja1', 'Ancho de la hoja que abre', { aviso: null }), otra);
         }
       }
-      // Paño fijo: poco frecuente y solo en abatibles; un botón pequeño que abre sus campos.
-      if (p.tipo === 'doble' || p.tipo === 'corredera' || p.tipo === 'fija') return n;
-      if (!p.fijo) {
-        n.push(h('button', { type: 'button', class: 'mini enlace-fijo', 'data-acc': 'fijo', onclick: () => { p.fijo = true; cambio(); repintar(); } }, '+ Paño fijo'));
-        return n;
-      }
+      // Paño fijo: poco frecuente y solo en abatibles; su botón va con condena y vidriera, y aquí sus campos.
+      if (p.tipo === 'doble' || p.tipo === 'corredera' || p.tipo === 'fija' || !p.fijo) return n;
       {
         n.push(h('div', { class: 'cab' }, h('label', { class: 'et' }, 'Paño fijo al lado'),
           h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-fijo', onclick: () => { quitarFijo(p); cambio(); repintar(); } }, 'Quitar paño')));
@@ -178,6 +180,27 @@ export async function pintarFicha(App, id) {
     pintar(); refrescos.push(() => { if (zona.isConnected) pintar(); });
     return zona;
   }
+  // Salida de humos: redonda (diámetro en mm) o rectangular (ancho × alto en cm), con las medidas habituales a un toque.
+  function tamanoHumosEditor(e) {
+    const zona = h('div', { class: 'campo humos' });
+    const pintar = () => {
+      const n = [h('label', { class: 'et' }, 'Salida'),
+        segmentado({ acc: 'humos-forma', opciones: [['redonda', 'Redonda'], ['rectangular', 'Rectangular'], ['recirculacion', 'Recirculación']], valor: e.humos_forma || null, permitirVacio: true,
+          alCambiar: v => { e.humos_forma = v; cambio(); pintar(); } })];
+      if (e.humos_forma === 'redonda') n.push(campoMedida({ etiqueta: 'Diámetro', acc: 'diametro', valor: e.diametro, mal: e.mal && e.mal.diametro, unidad: 'mm', rapidos: HUMOS_DIAMETROS,
+        alCambiar: (v, t) => { anotarMedida(e, 'diametro', v, t); cambio(); } }));
+      if (e.humos_forma === 'rectangular') {
+        n.push(h('div', { class: 'chips' }, HUMOS_RECTANGULARES.map(([an, al]) => h('button', { type: 'button', 'data-acc': 'humos-rapido', 'data-v': an + 'x' + al,
+          class: e.rect_ancho === an && e.rect_alto === al ? 'on' : '', onclick: () => { e.rect_ancho = an; e.rect_alto = al; cambio(); pintar(); } }, verMedida(an, 'cm') + '×' + verMedida(al, 'cm')))),
+          h('div', { class: 'dos' },
+            campoMedida({ etiqueta: 'Ancho', acc: 'rect_ancho', valor: e.rect_ancho, mal: e.mal && e.mal.rect_ancho, unidad: 'cm', alCambiar: (v, t) => { anotarMedida(e, 'rect_ancho', v, t); cambio(); } }),
+            campoMedida({ etiqueta: 'Alto', acc: 'rect_alto', valor: e.rect_alto, mal: e.mal && e.mal.rect_alto, unidad: 'cm', alCambiar: (v, t) => { anotarMedida(e, 'rect_alto', v, t); cambio(); } })));
+      }
+      zona.replaceChildren(...n);
+    };
+    pintar();
+    return zona;
+  }
   function elemento(e, lista, repintar, pared) {
     const c = camposDeElemento(e.tipo);
     // Las mochetas (pilares) se miden siempre en centímetros.
@@ -187,6 +210,7 @@ export async function pintarFicha(App, id) {
       h('div', { class: 'cab' }, h('b', { 'data-acc': 'nombre-elemento-titulo' }, nombreElemento(e)), h('small', {}, c.punto === 'centro' ? 'medido al centro' : 'medido al borde'),
         h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-elemento', onclick: () => { if (confirmarQuitar(nombreElemento(e).toLowerCase())) { lista.splice(lista.indexOf(e), 1); cambio(); repintar(); } } }, 'Quitar')),
       usosDe(e.tipo).length ? h('div', { class: 'chips usos' }, segmentadoChips(e)) : null,
+      e.tipo === 'humos' ? tamanoHumosEditor(e) : null,
       e.tipo === 'otro' || e.tipo === 'zona' ? h('input', { 'data-acc': 'nombre-elemento', placeholder: e.tipo === 'zona' ? '¿Qué zona? (campana, fregadero…)' : '¿Qué es?', value: e.nombre, oninput: ev => { e.nombre = ev.target.value; cambio(); } }) : null,
       h('div', { class: 'dos' }, medida(e, 'distancia', 'Distancia', refExtra), c.altura ? medida(e, 'altura', e.tipo === 'ventana' ? 'Alféizar (altura del suelo)' : 'Altura del suelo', { aviso: null }) : null),
       medidoDesde(e, pared),
@@ -208,7 +232,7 @@ export async function pintarFicha(App, id) {
     // La altura es una para toda la habitación; lo especial (vigas, buhardillas) va en notas.
     const zonaAlto = h('div', {});
     const pintarAlto = () => zonaAlto.replaceChildren(medida(d, 'alto_techo', 'Altura de suelo a techo', { unidad: enM() ? 'm' : unidad }),
-      h('small', { class: 'ayuda' }, 'Si hay algo especial (una viga, una buhardilla, un techo inclinado), apúntalo en Notas.'));
+      h('small', { class: 'ayuda' }, 'Vigas, buhardillas o techos inclinados: en una nota.'));
     pintarAlto();
     // Planta dibujada con las medidas: se rehace con cada cambio.
     const zonaPlanta = h('div', { class: 'zona-planta' });
@@ -232,9 +256,11 @@ export async function pintarFicha(App, id) {
     const botonForma = h('button', { type: 'button', class: 'mini', 'data-acc': 'dibujar-planta', onclick: dibujar }, d.plano ? 'Editar la forma' : 'Dibujar la forma');
     return [h('div', { class: 'cab' }, h('h2', {}, 'Habitación'),
       segmentado({ acc: 'ud-paredes', opciones: [[false, unidad], [true, 'm']], valor: !!enM(), alCambiar: v => { d.paredes_m = v; App.cambiarParedesM(v); cambio(); pintarAlto(); repintar(); } })),
-    h('div', { class: 'tarjeta' }, zonaAlto),
-    h('div', { class: 'tarjeta tarjeta-planta' }, h('div', { class: 'cab' }, h('b', {}, 'Planta'),
-      botonForma), zonaPlanta),
+    // Altura y planta juntas: en el ordenador van a la derecha y se quedan fijas al bajar.
+    h('div', { class: 'lateral' },
+      h('div', { class: 'tarjeta' }, zonaAlto),
+      h('div', { class: 'tarjeta tarjeta-planta' }, h('div', { class: 'cab' }, h('b', {}, 'Planta'),
+        botonForma), zonaPlanta)),
     h('h2', {}, 'Paredes'),
     zona,
     h('button', { type: 'button', class: 'ancho', 'data-acc': 'anadir-pared', onclick: () => { d.paredes.push(paredNueva(d.paredes)); cambio(); repintar(); } }, '+ Añadir pared')];
@@ -279,7 +305,7 @@ export async function pintarFicha(App, id) {
       ficha.subtipo === 'vestidor' ? h('div', { class: 'campo' }, ...cuerpos(p, () => cuadreCuerposPared(p), false)) : null,
       zonaEl,
       h('label', { class: 'et' }, 'Añadir'),
-      h('div', { class: 'chips' }, tipos.map(t => h('button', { type: 'button', 'data-acc': 'anadir-elemento', 'data-v': t, onclick: () => { p.elementos.push(elementoNuevo(t, d.ref_ultima)); cambio(); repintar(); } }, NOMBRE_ELEMENTO[t]))));
+      h('div', { class: 'chips' }, tipos.map(t => h('button', { type: 'button', 'data-acc': 'anadir-elemento', 'data-v': t, onclick: () => { p.elementos.push(elementoNuevo(t, d.ref_ultima)); cambio(); repintar(); } }, CORTO_ELEMENTO[t] || NOMBRE_ELEMENTO[t]))));
   }
 
   function enchufes() {
@@ -299,19 +325,68 @@ export async function pintarFicha(App, id) {
     } }, '+ Añadir enchufe')];
   }
 
+  // ── Islas y penínsulas: su pared, su tamaño y las cotas al suelo ──
+  function islas() {
+    if (!d.islas) d.islas = [];
+    const zona = h('div', { class: 'lista' });
+    function tarjeta(x) {
+      const peninsula = x.tipo === 'peninsula', nombre = peninsula ? 'Península' : 'Isla';
+      return h('div', { class: 'tarjeta', 'data-isla': x.tipo },
+        h('div', { class: 'cab' }, h('b', {}, nombre),
+          h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-isla', onclick: () => { if (confirmarQuitar('la ' + nombre.toLowerCase())) { d.islas.splice(d.islas.indexOf(x), 1); cambio(); repintar(); } } }, 'Quitar')),
+        h('div', { class: 'campo' }, h('label', { class: 'et' }, peninsula ? 'Sale de la pared' : 'Paralela a la pared'),
+          segmentado({ acc: 'isla-pared', opciones: d.paredes.map(p => [p.letra, p.letra]), valor: x.pared, alCambiar: v => { x.pared = v; cambio(); } })),
+        h('div', { class: 'dos' }, medida(x, 'largo', peninsula ? 'Largo (lo que sale)' : 'Largo', { aviso: null }), medida(x, 'fondo', 'Fondo', { aviso: null })),
+        peninsula ? null : medida(x, 'separacion', 'Separación de la pared', { aviso: null }),
+        medida(x, 'distancia', 'Distancia desde la esquina', { ref: x.ref, alCambiarRef: r => { x.ref = r; cambio(); }, aviso: null }),
+        h('small', { class: 'ayuda' }, peninsula ? 'Desde la esquina de la pared hasta el lado de la península.' : 'Desde la esquina de la pared hasta el lado de la isla, a lo largo de la pared.'));
+    }
+    const repintar = () => { zona.replaceChildren(...d.islas.map(tarjeta)); refrescarAvisos(); };
+    repintar();
+    const nueva = tipo => () => { d.islas.push(islaNueva(tipo, d.paredes[0] && d.paredes[0].letra)); cambio(); repintar(); };
+    return [h('h2', {}, 'Islas y penínsulas'), zona,
+      h('div', { class: 'dos' }, h('button', { type: 'button', 'data-acc': 'anadir-isla', onclick: nueva('isla') }, '+ Isla'),
+        h('button', { type: 'button', 'data-acc': 'anadir-peninsula', onclick: nueva('peninsula') }, '+ Península'))];
+  }
+
   // ── Listas de izquierda a derecha (módulos de una fila, cuerpos de armario): una abierta, las demás resumidas ──
-  function listaOrdenada({ lista, atributo, abierto, alAbrir, editor, resumen, repintar }) {
+  function listaOrdenada({ lista, atributo, abierto, alAbrir, editor, resumen, repintar, detalle = m => (m.ancho ? ' · ' + verMedida(m.ancho, 'cm') : '') }) {
     return lista.map((m, i) => {
       const subir = h('button', { type: 'button', class: 'mini', 'data-acc': 'subir-modulo', 'aria-label': 'Mover a la izquierda', disabled: i === 0, onclick: () => { [lista[i - 1], lista[i]] = [lista[i], lista[i - 1]]; cambio(); repintar(); } }, '←');
       const quitar = h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-modulo', 'aria-label': 'Quitar', onclick: () => { if (confirmarQuitar(resumen(m).toLowerCase())) { lista.splice(i, 1); cambio(); repintar(); } } }, '✕');
-      if (m.id === abierto()) return h('div', { class: 'modulo abierto', [atributo]: m.tipo || '' }, h('div', { class: 'cab' }, h('b', {}, resumen(m)), h('span', {}, subir, quitar)), editor(m));
+      // Abierto: tocar el título lo cierra.
+      if (m.id === abierto()) return h('div', { class: 'modulo abierto', [atributo]: m.tipo || '' },
+        h('div', { class: 'cab' }, h('button', { type: 'button', class: 'resumen titulo-modulo', 'data-acc': 'cerrar-modulo', title: 'Cerrar', onclick: () => { alAbrir(null); repintar(); } }, h('b', {}, resumen(m) + ' ▴')), h('span', {}, subir, quitar)), editor(m));
       return h('div', { class: 'modulo', [atributo]: m.tipo || '' },
-        h('button', { type: 'button', class: 'resumen', onclick: () => { alAbrir(m.id); repintar(); } }, resumen(m) + (m.ancho ? ' · ' + verMedida(m.ancho, 'cm') : '')), subir, quitar);
+        h('button', { type: 'button', class: 'resumen', 'data-acc': 'abrir-modulo', onclick: () => { alAbrir(m.id); repintar(); } }, resumen(m) + detalle(m)), subir, quitar);
     });
   }
 
   // Módulos de una pared: bajos y altos, de izquierda a derecha, en cm, con el cuadre contra el largo.
   function muebles(p) {
+    // Un módulo abierto: su tipo (se puede cambiar), su ancho con las medidas habituales y lo propio de cada tipo.
+    function editorModulo(m, nombre, repintar, pintarCuadre) {
+      const med = (k, etiqueta, rapidos) => campoMedida({ etiqueta, acc: k, valor: m[k], mal: m.mal && m.mal[k], unidad: 'cm', rapidos,
+        alCambiar: (v, t) => { anotarMedida(m, k, v, t); cambio(); pintarCuadre(); } });
+      const sel = h('select', { class: 'select-tipo', 'data-acc': 'tipo-modulo', 'aria-label': 'Tipo de mueble', onchange: () => {
+        const t = sel.value; m.tipo = t; if (t === 'rinconero' && !m.forma) Object.assign(m, { forma: 'L', lado2: null, gira: 'der' }); cambio(); repintar(); } },
+        TIPOS_MODULO[nombre].map(t => h('option', { value: t }, NOMBRE_MODULO[t])));
+      sel.value = m.tipo;
+      const n = [sel];
+      if (m.tipo === 'otro') n.push(h('input', { 'data-acc': 'nombre-modulo', placeholder: '¿Qué módulo?', value: m.nombre, oninput: ev => { m.nombre = ev.target.value; cambio(); } }));
+      if (m.tipo === 'rinconero') {
+        n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Forma'),
+          segmentado({ acc: 'forma-rinconero', opciones: FORMAS_RINCONERO, valor: m.forma || 'L', alCambiar: v => { m.forma = v; cambio(); repintar(); } })));
+        if (m.forma === 'recto') n.push(med('ancho', 'Largo (fondo 60)', anchosDe(m, AJ.modulo_anchos)));
+        else n.push(h('div', { class: 'dos' }, med('ancho', 'Lado en esta pared', LADOS_RINCONERO), med('lado2', 'Lado en la otra pared', LADOS_RINCONERO)));
+        const v = paredesVecinas(d, p), opciones = [['izq', v.izq ? 'Pared ' + v.izq.letra + ' (izq.)' : 'A la izquierda'], ['der', v.der ? 'Pared ' + v.der.letra + ' (dcha.)' : 'A la derecha']];
+        n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Sigue en'),
+          segmentado({ acc: 'gira-rinconero', opciones, valor: m.gira === 'izq' ? 'izq' : 'der', alCambiar: x => { m.gira = x; cambio(); refrescarAvisos(); } })));
+      } else n.push(med('ancho', 'Ancho', anchosDe(m, AJ.modulo_anchos)));
+      if (m.tipo === 'placa') n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Horno debajo'),
+        segmentado({ acc: 'placa-horno', opciones: SI_NO, valor: m.horno ?? null, permitirVacio: true, alCambiar: x => { m.horno = x; cambio(); repintar(); } })));
+      return n;
+    }
     if (!p.bajos) p.bajos = [];
     if (!p.altos) p.altos = [];
     const caja = h('div', { class: 'campo' });
@@ -319,12 +394,11 @@ export async function pintarFicha(App, id) {
     function fila(nombre, titulo) {
       const zona = h('div', { class: 'modulos' }), cuadre = h('small', { class: 'cuadre', 'data-acc': 'cuadre-' + nombre });
       // Arriba solo se cuadra si hay altos: las columnas solas no son una fila de altos.
-      const pintarCuadre = () => { cuadre.textContent = nombre === 'altos' && !p.altos.length ? '' : textoCuadre(nombre === 'bajos' ? cuadreBajos(p) : cuadreAltos(p), 'cm'); };
+      const pintarCuadre = () => { cuadre.textContent = nombre === 'altos' && !p.altos.length ? '' : textoCuadre(nombre === 'bajos' ? cuadreBajos(p, d) : cuadreAltos(p), 'cm'); };
       const repintar = () => {
         zona.replaceChildren(...listaOrdenada({ lista: p[nombre], atributo: 'data-modulo', abierto: () => abiertos[nombre], alAbrir: idm => { abiertos[nombre] = idm; }, repintar,
-          resumen: nombreModulo,
-          editor: m => [m.tipo === 'otro' ? h('input', { 'data-acc': 'nombre-modulo', placeholder: '¿Qué módulo?', value: m.nombre, oninput: ev => { m.nombre = ev.target.value; cambio(); } }) : null,
-            campoMedida({ etiqueta: 'Ancho', acc: 'ancho', valor: m.ancho, mal: m.mal && m.mal.ancho, unidad: 'cm', rapidos: AJ.modulo_anchos, alCambiar: (v, t) => { anotarMedida(m, 'ancho', v, t); cambio(); pintarCuadre(); } })] }));
+          resumen: nombreModulo, detalle: m => (m.ancho ? ' · ' + medidasModulo(m) : ''),
+          editor: m => editorModulo(m, nombre, repintar, pintarCuadre) }));
         pintarCuadre(); refrescarAvisos();
       };
       refrescos.push(pintarCuadre);
@@ -332,7 +406,7 @@ export async function pintarFicha(App, id) {
       return h('div', { 'data-fila': nombre }, h('label', { class: 'et' }, titulo), zona, cuadre,
         h('div', { class: 'chips' }, TIPOS_MODULO[nombre].map(t => h('button', { type: 'button', 'data-acc': 'anadir-modulo', 'data-v': t, onclick: () => {
           const m = moduloNuevo(t); p[nombre].push(m); abiertos[nombre] = m.id; cambio(); repintar();
-        } }, NOMBRE_MODULO[t]))));
+        } }, CORTO_MODULO[t] || NOMBRE_MODULO[t]))));
     }
     caja.append(h('label', { class: 'et' }, 'Muebles, de izquierda a derecha'), fila('bajos', 'Bajos y columnas'), fila('altos', 'Altos'));
     return caja;
@@ -365,6 +439,22 @@ export async function pintarFicha(App, id) {
   const texto = (obj, k, acc, ph) => h('input', { 'data-acc': acc, placeholder: ph, value: obj[k] || '', oninput: ev => { obj[k] = ev.target.value; cambio(); } });
 
   // Acabados de cocina: modelo y color (o por separado altos y bajos si es bitono), encimera y lineales.
+  // Sección plegada: el título con un resumen de lo que tiene; un toque la abre.
+  function plegable(acc, titulo, contenido, resumen) {
+    const res = h('small', { class: 'res-plegable' });
+    const pintarRes = () => { res.textContent = resumen() || 'sin apuntar'; };
+    const det = h('details', { class: 'plegable', 'data-acc': 'plegable-' + acc }, h('summary', { 'data-acc': 'abrir-' + acc }, h('b', {}, titulo), res), contenido);
+    pintarRes(); refrescos.push(pintarRes);
+    return det;
+  }
+  const resumenAcabados = () => {
+    const ac = d.acabados || {}, t = [];
+    if (ac.bitono) t.push('bitono'); if (ac.modelo || ac.color) t.push([ac.modelo, ac.color].filter(Boolean).join(' '));
+    if (ac.encimera && (ac.encimera.material || ac.encimera.color)) t.push('encimera ' + [ac.encimera.material, ac.encimera.color].filter(Boolean).join(' '));
+    if ((ac.lineales || []).length) t.push(ac.lineales.length + ' lineal' + (ac.lineales.length > 1 ? 'es' : ''));
+    return t.join(' · ');
+  };
+  const resumenElectro = () => (d.electro || []).map(e => (e.clave === 'otro' ? e.nombre || 'otro' : datosElectro(e.clave)[1].toLowerCase())).join(', ');
   function acabados() {
     if (!d.acabados) d.acabados = acabadosNuevos();
     const ac = d.acabados, caja = h('div', { class: 'tarjeta' }), zonaLin = h('div', { class: 'lista' });
@@ -373,7 +463,7 @@ export async function pintarFicha(App, id) {
       texto(l, 'modelo', 'lineal-modelo', 'Modelo o color'),
       h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-lineal', onclick: () => { if (confirmarQuitar(nombreLineal(l, AJ).toLowerCase())) { ac.lineales.splice(ac.lineales.indexOf(l), 1); cambio(); pintarLineales(); } } }, '✕'))));
     const pintar = () => {
-      caja.replaceChildren(h('b', {}, 'Acabados'),
+      caja.replaceChildren(
         h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Bitono (altos y bajos distintos)'),
           segmentado({ acc: 'bitono', opciones: SI_NO, valor: ac.bitono, permitirVacio: true, alCambiar: v => { ac.bitono = v; cambio(); pintar(); } })),
         ...(ac.bitono
@@ -435,27 +525,26 @@ export async function pintarFicha(App, id) {
 
   function propios() {
     if (ficha.tipo === 'puerta') return [h('div', { class: 'tarjeta' }, h('b', {}, 'Para todas las puertas'), h('div', { class: 'dos' }, texto(d, 'modelo', 'puertas-modelo', 'Modelo'), texto(d, 'color', 'puertas-color', 'Color'))), ...puertas()];
-    if (ficha.tipo === 'cocina') return [acabados(), electro(), ...paredes(TIPOS_ELEMENTO.cocina)];
+    if (ficha.tipo === 'cocina') return [...paredes(TIPOS_ELEMENTO.cocina), ...islas(), plegable('acabados', 'Acabados', acabados(), resumenAcabados), plegable('electro', 'Electrodomésticos', electro(), resumenElectro)];
     if (ficha.tipo === 'armario') {
       // El vestidor se mide por paredes: el hueco y la lista general de cuerpos solo se ven si ya tenía datos de antes.
       const ves = ficha.subtipo === 'vestidor';
       const huecoViejo = ['ancho_arriba', 'ancho_medio', 'ancho_abajo', 'alto_izq', 'alto_der', 'diag_1', 'diag_2', 'fondo', 'rodapie_alto', 'rodapie_grosor'].some(k => d[k] !== null && d[k] !== undefined);
       const r = ves && !huecoViejo ? [] : [h('div', { class: 'tarjeta' },
-        h('label', { class: 'et' }, 'Ancho del hueco'),
-        h('small', { class: 'ayuda' }, 'Mídelo arriba, en medio y abajo. Si no coinciden, las paredes no están rectas y se avisa.'),
-        h('div', { class: 'dos' }, medida(d, 'ancho_arriba', 'Arriba'), medida(d, 'ancho_medio', 'En medio')), medida(d, 'ancho_abajo', 'Abajo'),
+        h('label', { class: 'et titulo-grupo' }, 'Ancho del hueco ', h('small', { class: 'ayuda' }, '(si no coinciden, avisa)')),
+        h('div', { class: 'tres' }, medida(d, 'ancho_arriba', 'Arriba'), medida(d, 'ancho_medio', 'Medio'), medida(d, 'ancho_abajo', 'Abajo')),
         h('div', { class: 'avisos', 'data-avisos': 'anchos' }),
-        h('label', { class: 'et' }, 'Alto del hueco'),
-        h('small', { class: 'ayuda' }, 'Mídelo en el lado izquierdo y en el lado derecho. Si no coinciden, el suelo o el techo no están a nivel.'),
-        h('div', { class: 'dos' }, medida(d, 'alto_izq', 'Lado izquierdo'), medida(d, 'alto_der', 'Lado derecho')),
+        h('label', { class: 'et titulo-grupo' }, 'Alto del hueco ', h('small', { class: 'ayuda' }, '(a cada lado)')),
+        h('div', { class: 'dos' }, medida(d, 'alto_izq', 'Izquierda'), medida(d, 'alto_der', 'Derecha')),
         h('div', { class: 'avisos', 'data-avisos': 'altos' }),
-        h('label', { class: 'et' }, 'Diagonales del hueco'),
-        h('small', { class: 'ayuda' }, 'De una esquina a la contraria, en las dos direcciones. Si no coinciden, el hueco no está a escuadra.'),
-        h('div', { class: 'dos' }, medida(d, 'diag_1', 'Diagonal 1', { aviso: null }), medida(d, 'diag_2', 'Diagonal 2', { aviso: null })),
+        h('label', { class: 'et titulo-grupo' }, 'Diagonales ', h('small', { class: 'ayuda' }, '(de esquina a esquina: escuadra)')),
+        h('div', { class: 'dos' }, medida(d, 'diag_1', '↘ Diagonal 1', { aviso: null }), medida(d, 'diag_2', '↙ Diagonal 2', { aviso: null })),
         h('div', { class: 'avisos', 'data-avisos': 'diagonales' }),
         medida(d, 'fondo', 'Fondo del hueco'),
-        h('div', { class: 'dos' }, medida(d, 'rodapie_alto', 'Alto de rodapié'), medida(d, 'rodapie_grosor', 'Grosor de rodapié')),
-        ficha.subtipo === 'corredera' ? campoEntero({ etiqueta: 'Número de hojas', acc: 'hojas', valor: d.hojas, alCambiar: v => { d.hojas = v; cambio(); } }) : null,
+        h('div', { class: 'dos' }, medida(d, 'rodapie_alto', 'Rodapié alto'), medida(d, 'rodapie_grosor', 'Rodapié grueso')),
+        ficha.subtipo === 'corredera' ? h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Hojas'),
+          segmentado({ acc: 'hojas-rapido', opciones: [[2, '2'], [3, '3'], [4, '4']], valor: d.hojas, permitirVacio: true, alCambiar: v => { d.hojas = v; cambio(); const c = main.querySelector('[data-acc="hojas"]'); if (c) c.value = v ?? ''; } }),
+          campoEntero({ acc: 'hojas', valor: d.hojas, alCambiar: v => { d.hojas = v; cambio(); } })) : null,
         ficha.subtipo === 'abatible' ? campoEntero({ etiqueta: 'Número de puertas', acc: 'puertas', valor: d.puertas, alCambiar: v => { d.puertas = v; cambio(); } }) : null)];
       if (!ves || (d.cuerpos || []).length) r.push(...cuerpos());
       // En el vestidor los enchufes van en sus paredes; la lista aparte solo se ve si ya tenía alguno.
@@ -466,25 +555,26 @@ export async function pintarFicha(App, id) {
     return [];
   }
 
-  const zonaLibres = h('div', { class: 'tarjeta' });
+  const zonaLibres = h('div', { class: 'tarjeta' }), tituloLibres = h('h2', {}, 'Otras medidas');
+  const nuevaLibre = () => { d.libres.push({ id: nuevoId(), nombre: '', mm: null }); cambio(); repintarLibres(); zonaLibres.querySelectorAll('[data-acc="libre-nombre"]')[d.libres.length - 1].focus(); };
   function repintarLibres() {
+    zonaLibres.hidden = tituloLibres.hidden = !d.libres.length;
     zonaLibres.replaceChildren(...d.libres.map(m => h('div', { class: 'libre', 'data-libre': '' },
       h('input', { 'data-acc': 'libre-nombre', placeholder: 'Nombre', value: m.nombre, oninput: ev => { m.nombre = ev.target.value; cambio(); } }),
       campoMedida({ acc: 'libre-valor', valor: m.mm, mal: m.mal && m.mal.mm, unidad, aviso: 'libre.' + m.id, alCambiar: (v, textoMal) => { anotarMedida(m, 'mm', v, textoMal); cambio(); } }),
-      h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-libre', onclick: () => { if (confirmarQuitar('la medida')) { d.libres.splice(d.libres.indexOf(m), 1); cambio(); repintarLibres(); } } }, '✕'))),
-      h('button', { type: 'button', 'data-acc': 'anadir-libre', onclick: () => { d.libres.push({ id: nuevoId(), nombre: '', mm: null }); cambio(); repintarLibres(); zonaLibres.querySelectorAll('[data-acc="libre-nombre"]')[d.libres.length - 1].focus(); } }, '+ Añadir medida'));
+      h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-libre', onclick: () => { if (confirmarQuitar('la medida')) { d.libres.splice(d.libres.indexOf(m), 1); cambio(); repintarLibres(); } } }, '✕'))));
     refrescarAvisos();
   }
 
-  function notas() {
-    const zona = h('div', { class: 'tarjeta' });
-    const repintar = () => zona.replaceChildren(...d.notas.map(n => h('div', { class: 'campo' },
+  const zonaNotas = h('div', { class: 'tarjeta' }), tituloNotas = h('h2', {}, 'Notas');
+  function repintarNotas() {
+    zonaNotas.hidden = tituloNotas.hidden = !d.notas.length;
+    zonaNotas.replaceChildren(...d.notas.map(n => h('div', { class: 'campo' },
       h('textarea', { 'data-acc': 'nota', placeholder: 'Nota', oninput: ev => { n.texto = ev.target.value; cambio(); } }, n.texto),
-      h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-nota', onclick: () => { if (confirmarQuitar('la nota')) { d.notas.splice(d.notas.indexOf(n), 1); cambio(); repintar(); } } }, 'Quitar nota'))),
-      h('button', { type: 'button', 'data-acc': 'anadir-nota', onclick: () => { d.notas.push({ id: nuevoId(), texto: '' }); cambio(); repintar(); const t = zona.querySelectorAll('textarea'); t[t.length - 1].focus(); } }, '+ Añadir nota'));
-    repintar();
-    return [h('h2', {}, 'Notas'), zona];
+      h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-nota', onclick: () => { if (confirmarQuitar('la nota')) { d.notas.splice(d.notas.indexOf(n), 1); cambio(); repintarNotas(); } } }, 'Quitar nota'))));
   }
+  const nuevaNota = () => { d.notas.push({ id: nuevoId(), texto: '' }); cambio(); repintarNotas(); const t = zonaNotas.querySelectorAll('textarea'); t[t.length - 1].focus(); };
+  function notas() { repintarNotas(); return [tituloNotas, zonaNotas]; }
 
   // Las líneas medidas con la regla en fotos y croquis pasan a «Otras medidas».
   async function anadirCotas(cotas) {
@@ -499,8 +589,13 @@ export async function pintarFicha(App, id) {
   main.append(
     general,
     ...(ficha.tipo === 'puerta' ? [] : [h('input', { 'data-acc': 'nombre-ficha', placeholder: 'Nombre', value: ficha.nombre, oninput: ev => { ficha.nombre = ev.target.value; cambio(); } })]),
-    ...propios(), h('h2', {}, 'Otras medidas'), zonaLibres, ...notas(),
+    ...propios(), tituloLibres, zonaLibres, ...notas(),
     ...adjuntos.nodos,
+    // Lo que se puede añadir a cualquier ficha, en una sola fila.
+    h('div', { class: 'barra-extras' },
+      h('button', { type: 'button', 'data-acc': 'anadir-libre', onclick: nuevaLibre }, '＋ Medida'),
+      h('button', { type: 'button', 'data-acc': 'anadir-nota', onclick: nuevaNota }, '＋ Nota'),
+      ...adjuntos.botones),
     h('button', { type: 'button', class: 'prin ancho', 'data-acc': 'terminar', onclick: async () => { await guardarYa(); App.ir('#/resumen/' + id); } }, 'Terminar y ver resumen'),
     h('div', { class: 'dos' },
       h('button', { type: 'button', 'data-acc': 'duplicar-ficha', onclick: duplicar }, 'Duplicar'),

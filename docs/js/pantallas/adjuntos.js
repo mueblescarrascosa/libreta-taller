@@ -102,10 +102,13 @@ export async function seccionAdjuntos(App, ficha, { unidad = 'mm', anadirCotas =
   foto.setAttribute('capture', 'environment');
 
   await pintar();
-  return { pintar, nodos: [h('h2', {}, 'Croquis y fotos'), zona,
-    h('div', { class: 'tipos' },
-      h('button', { type: 'button', 'data-acc': 'croquis', onclick: async () => { const b = await dibujar({ titulo: 'Croquis' }); if (b) await guardar(b, 'croquis'); } }, 'Croquis'),
-      h('button', { type: 'button', 'data-acc': 'foto', onclick: () => foto.click() }, 'Foto'),
-      h('button', { type: 'button', 'data-acc': 'cotas', onclick: () => cotas.click() }, 'Cotas sobre foto')),
-    foto, cotas] };
+  // El título solo se ve si hay croquis o fotos; los botones van en la barra de abajo de la ficha.
+  const titulo = h('h2', {}, 'Croquis y fotos');
+  const verTitulo = () => { titulo.hidden = !zona.childElementCount; };
+  new MutationObserver(verTitulo).observe(zona, { childList: true }); verTitulo();
+  const botones = [
+    h('button', { type: 'button', 'data-acc': 'croquis', onclick: async () => { const b = await dibujar({ titulo: 'Croquis' }); if (b) await guardar(b, 'croquis'); } }, '✏️ Croquis'),
+    h('button', { type: 'button', 'data-acc': 'foto', onclick: () => foto.click() }, '📷 Foto'),
+    h('button', { type: 'button', 'data-acc': 'cotas', onclick: () => cotas.click() }, '📐 Cotas')];
+  return { pintar, botones, nodos: [titulo, zona, foto, cotas] };
 }

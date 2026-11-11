@@ -1,5 +1,6 @@
 :root { --fondo: #f3f4f6; --tarjeta: #fff; --texto: #111827; --tenue: #6b7280; --borde: #d1d5db; --acento: #b45309; --oscuro: #1f2937; --rojo: #b91c1c; }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; background: var(--fondo); color: var(--texto); font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 body { overflow-x: hidden; }
 body.sin-scroll { overflow: hidden; }
@@ -12,6 +13,43 @@ header a { color: #fff; text-decoration: none; font-size: 22px; padding: 2px 6px
 .botones-fila { display: flex; gap: 6px; flex: none; padding-right: 10px; }
 .boton-fila { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid var(--borde); background: #fff; color: inherit; text-decoration: none; }
 .boton-fila.wa { background: #25d366; border-color: #25d366; color: #fff; }
+.titulo-modulo { width: auto; flex: 1 1 auto; }
+.chips.tipo-modulo button.on { background: var(--oscuro); border-color: var(--oscuro); color: #fff; }
+.barra-extras { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; margin: 14px 0 6px; }
+.barra-extras button { min-height: 44px; padding: 4px 2px; font-size: 12.5px; line-height: 1.15; }
+.select-tipo { padding: 6px 8px; font-weight: 600; }
+.tres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.tres .med { gap: 3px; }
+.tres .med .ud { display: none; }
+.titulo-grupo { font-weight: 600; color: var(--texto); }
+.titulo-grupo .ayuda { font-weight: 400; }
+.chips.interruptores button.on.si { background: #dcfce7; border-color: #16a34a; color: #14532d; font-weight: 600; }
+details.plegable { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 10px; margin: 10px 0; box-shadow: 0 1px 2px rgba(60, 45, 20, .08), inset 3px 0 0 var(--margen); }
+details.plegable > summary { list-style: none; cursor: pointer; padding: 12px 12px 12px 16px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+details.plegable > summary::-webkit-details-marker { display: none; }
+details.plegable > summary::after { content: '▾'; margin-left: auto; color: var(--tenue); }
+details.plegable[open] > summary::after { content: '▴'; }
+details.plegable .res-plegable { color: var(--tenue); overflow-wrap: anywhere; }
+details.plegable > .tarjeta, details.plegable > .lista, details.plegable > div { margin: 0 10px 10px; box-shadow: none; border: 0; padding-left: 6px; }
+.datos-plegados { gap: 6px; }
+.datos-plegados .resumen span { font-weight: 600; }
+.datos-plegados .editar-datos { color: var(--acento); }
+.acciones-cliente { display: flex; gap: 6px; flex-wrap: wrap; }
+.mini-enlace { min-height: 36px; padding: 4px 12px; font-size: 14px; }
+/* Botones de añadir más compactos: caben más por línea y se baja menos. */
+.chips button { min-height: 36px; padding: 3px 9px; font-size: 13.5px; }
+.rapidos button { min-width: 46px; }
+/* Cada tipo de ficha con su color en la lista del trabajo. */
+.fila.con-botones:has([data-tipo="puerta"]) { box-shadow: 0 1px 2px rgba(60,45,20,.08), inset 4px 0 0 #b45309; }
+.fila.con-botones:has([data-tipo="cocina"]) { box-shadow: 0 1px 2px rgba(60,45,20,.08), inset 4px 0 0 #16a34a; }
+.fila.con-botones:has([data-tipo="armario"]) { box-shadow: 0 1px 2px rgba(60,45,20,.08), inset 4px 0 0 #2563eb; }
+.fila.con-botones:has([data-tipo="nota"]) { box-shadow: 0 1px 2px rgba(60,45,20,.08), inset 4px 0 0 #6b7280; }
+.tipos button[data-v="puerta"] { border-left: 4px solid #b45309; }
+.tipos button[data-v="cocina"] { border-left: 4px solid #16a34a; }
+.tipos button[data-v="armario"] { border-left: 4px solid #2563eb; }
+.tipos button[data-v="nota"] { border-left: 4px solid #6b7280; }
+.tipos { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.tipos button { min-height: 44px; padding: 6px 4px; font-size: 14.5px; }
 .enlace-fijo { justify-self: start; align-self: flex-start; }
 header:has(.barra-acciones) { flex-wrap: wrap; row-gap: 4px; }
 .barra-acciones { order: 9; flex: 1 0 100%; display: flex; justify-content: space-around; gap: 4px; border-top: 1px solid rgba(255,255,255,.15); padding-top: 4px; }
@@ -158,6 +196,8 @@ button.mini { min-height: 36px; padding: 4px 10px; font-size: 14px; }
 /* La cabecera del documento no es la barra oscura de la app: fondo claro, texto oscuro y sin quedarse fija. */
 .resumen-doc header { position: static; display: block; z-index: auto; background: transparent; color: inherit; padding: 0 0 8px; border-bottom: 3px solid var(--acento); margin-bottom: 10px; }
 .resumen-doc h1 { font-size: 22px; margin: 0; }
+.resumen-doc .empresa { margin: 0 0 4px; font-size: 13px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #92400e; }
+.resumen-doc .instalaciones h3 { margin-top: 8px; }
 .resumen-doc header p { margin: 2px 0; color: #374151; }
 .resumen-doc .fecha { color: var(--tenue); font-size: 13px; }
 .resumen-doc h2 { font-size: 18px; margin: 12px 0 8px; color: #78350f; }
@@ -237,9 +277,10 @@ button { background: #fffef9; border-color: var(--borde); }
   main { max-width: 1280px; }
   main[data-pantalla="inicio"] .lista, main[data-pantalla="trabajo"] .lista { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   /* Ficha de cocina o vestidor: el formulario a la izquierda y la planta fija a la derecha mientras se baja. */
-  main[data-pantalla="ficha"]:has(.tarjeta-planta) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, 46%); column-gap: 24px; row-gap: 0; align-items: start; }
-  main[data-pantalla="ficha"]:has(.tarjeta-planta) > * { grid-column: 1; }
-  main[data-pantalla="ficha"] > .tarjeta-planta { grid-column: 2; grid-row: 1 / span 60; position: sticky; top: 72px; margin-top: 10px; }
-  main[data-pantalla="ficha"] .tarjeta-planta svg.planta { max-height: calc(100vh - 140px); }
+  main[data-pantalla="ficha"]:has(> .lateral) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, 46%); column-gap: 24px; row-gap: 0; align-items: start; }
+  main[data-pantalla="ficha"]:has(> .lateral) > * { grid-column: 1; }
+  main[data-pantalla="ficha"] > .lateral { grid-column: 2; grid-row: 1 / span 80; position: sticky; top: 72px; }
+  main[data-pantalla="ficha"] > .lateral .tarjeta:first-child { margin-top: 10px; }
+  main[data-pantalla="ficha"] .tarjeta-planta svg.planta { max-height: calc(100vh - 260px); }
 }
 @media print { html, body { background: #fff !important; } .resumen-doc { box-shadow: none; } }

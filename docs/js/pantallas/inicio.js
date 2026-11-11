@@ -3,6 +3,7 @@ import { h, segmentado, tituloFicha, vivos } from '../util.js';
 import { buscar, trabajoNuevo } from '../modelo.js';
 import { actividad, fichasDePlantilla } from '../trabajos.js';
 import { NOMBRE_ESTADO } from './trabajo.js';
+import { COPYRIGHT, CREDITO } from '../config.js';
 
 const porFecha = (a, b) => String(b.creado_at).localeCompare(String(a.creado_at));
 const ARMARIOS = [['corredera', 'Armario corredera'], ['abatible', 'Armario abatible'], ['vestidor', 'Vestidor']];
@@ -82,5 +83,6 @@ export async function pintarInicio(App) {
     zonaForm, lista,
     h('a', { class: 'enlace-papelera', href: '#/papelera', 'data-acc': 'papelera' }, 'Papelera'));
   App.refrescar = cargar;
+  main.append(h('small', { class: 'version' }, COPYRIGHT + ' · ' + CREDITO));
   await cargar();
 }

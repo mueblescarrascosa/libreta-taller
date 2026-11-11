@@ -1,6 +1,6 @@
 // Ajustes compartidos entre dispositivos: unidades, margen de aviso y listas (botones rápidos, usos, lineales…).
 import { h, segmentado } from '../util.js';
-import { VERSION } from '../config.js';
+import { VERSION, COPYRIGHT, CREDITO } from '../config.js';
 import { AJUSTES_FABRICA, claveDe } from '../modelo.js';
 import { leerMedida, verMedida } from '../unidades.js';
 import { copiaSeguridad } from '../trabajos.js';
@@ -97,5 +97,5 @@ export async function pintarAjustes(App) {
         if (n && !confirm('Hay ' + n + ' cambios sin subir. Se quedan en este dispositivo y subirán cuando vuelvas a entrar. ¿Salir?')) return;
         App.salirDeCuenta();
       } }, 'Salir de la cuenta')),
-    h('small', { class: 'version' }, 'Versión ' + VERSION));
+    h('small', { class: 'version' }, 'Versión ' + VERSION + ' · ' + COPYRIGHT + ' · ' + CREDITO));
 }

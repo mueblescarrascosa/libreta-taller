@@ -39,7 +39,7 @@ prueba('pasarse del largo avisa; subir y quitar módulos', con({}, async a => {
   igual((await ficha(a)).datos.paredes[0].bajos.length, 1);
 }));
 prueba('acabados de cocina: bitono, encimera y lineales', con({}, async a => {
-  await nueva(a, 'cocina');
+  await nueva(a, 'cocina'); await a.page.click('[data-acc="abrir-acabados"]');
   await a.page.fill('[data-acc="acab-modelo"]', 'Alpha'); await a.page.fill('[data-acc="acab-color"]', 'Blanco');
   await a.page.click('[data-acc="bitono"][data-v="true"]');
   afirma(!(await a.page.$('[data-acc="acab-modelo"]')), 'sigue el modelo único');
@@ -61,6 +61,23 @@ prueba('cuerpos de armario con interior y cuadre con el hueco', con({}, async a 
 prueba('puertas: modelo y color para todas', con({}, async a => {
   await nueva(a, 'puerta'); await a.page.fill('[data-acc="puertas-modelo"]', 'Lisa lacada'); await a.page.fill('[data-acc="puertas-color"]', 'Blanco');
   await recargar(a); const d = (await ficha(a)).datos; igual([d.modelo, d.color], ['Lisa lacada', 'Blanco']);
+}));
+prueba('módulo abierto: cambiar el tipo, medidas habituales del tipo, cerrar tocando el título; rinconero', con({}, async a => {
+  await nueva(a, 'cocina');
+  const F = A + '[data-fila="bajos"] ';
+  await a.page.click(F + '[data-acc="anadir-modulo"][data-v="bajo"]');
+  await a.page.selectOption(F + '.modulo.abierto [data-acc="tipo-modulo"]', 'lavavajillas');
+  igual(await a.page.$$eval(F + '.modulo.abierto [data-acc="rapido"]', bs => bs.map(b => b.dataset.v)), ['450', '600']);
+  await a.page.click(F + '.modulo.abierto [data-acc="rapido"][data-v="600"]');
+  await a.page.click(F + '[data-acc="cerrar-modulo"]');
+  igual((await a.page.$$(F + '.modulo.abierto')).length, 0, 'no se cierra');
+  afirma((await a.page.innerText(F + '.modulo')).includes('Lavavajillas · 60'));
+  await a.page.click(F + '[data-acc="anadir-modulo"][data-v="rinconero"]');
+  await a.page.click(F + '.modulo.abierto [data-acc="forma-rinconero"][data-v="recto"]');
+  igual(await a.page.$$eval(F + '.modulo.abierto [data-acc="rapido"]', bs => bs.map(b => b.dataset.v)), ['900', '1000', '1200']);
+  afirma(await a.page.$(F + '.modulo.abierto [data-acc="gira-rinconero"][data-v="der"]'));
+  await a.page.waitForTimeout(400); const f = await ficha(a);
+  igual(f.datos.paredes[0].bajos.map(m => [m.tipo, m.ancho, m.forma || null]), [['lavavajillas', 600, null], ['rinconero', null, 'recto']]);
 }));
 prueba('las listas de módulos, lineales e interiores se ajustan en Ajustes', con({}, async a => {
   await a.page.evaluate(() => { location.hash = '#/ajustes'; }); await a.page.waitForSelector('[data-pantalla="ajustes"]');

@@ -62,7 +62,7 @@ prueba('resumen: todos los botones en la barra de arriba, en una fila que cabe e
 }));
 prueba('la cabecera del resumen es clara y legible, también al imprimir', con({}, async a => {
   await nueva(a, 'nota'); await a.page.click('[data-acc="anadir-nota"]'); await a.page.fill('[data-acc="nota"]', 'Hola'); await terminar(a);
-  const ver = () => a.page.$eval('.resumen-doc header', e => { const s = getComputedStyle(e), p = getComputedStyle(e.querySelector('p')); return [s.backgroundColor, s.display, s.position, p.color].join('|'); });
+  const ver = () => a.page.$eval('.resumen-doc header', e => { const s = getComputedStyle(e), p = getComputedStyle(e.querySelector('p:not(.empresa)')); return [s.backgroundColor, s.display, s.position, p.color].join('|'); });
   igual(await ver(), 'rgba(0, 0, 0, 0)|block|static|rgb(55, 65, 81)');
   await a.page.emulateMedia({ media: 'print' });
   afirma((await ver()).includes('|block|'), await ver());

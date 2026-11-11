@@ -48,12 +48,25 @@ export const NOMBRE_ELEMENTO = {
   enchufe_frigo: 'Enchufe frigorífico', enchufe_lavavajillas: 'Enchufe lavavajillas', enchufe: 'Enchufe', ventana: 'Ventana', puerta: 'Puerta', pilar: 'Mocheta (pilar)', zona: 'Zona azulejada', otro: 'Otro',
 };
 
+// Nombre corto para los botones de añadir.
+export const CORTO_ELEMENTO = { humos: 'Humos', pilar: 'Pilar', zona: 'Zona azulejo' };
 export function nombreElemento(e) {
   if (e.tipo === 'otro') return e.nombre || 'Otro';
   if (e.tipo === 'zona') return 'Zona azulejada' + (e.nombre ? ' (' + e.nombre + ')' : '');
   const uso = USOS[e.tipo] && USOS[e.tipo].find(u => u[0] === e.para), texto = e.para_nombre || (uso && uso[1]);
   if (texto && (e.tipo === 'toma' || e.tipo === 'enchufe')) return e.tipo === 'toma' ? 'Toma de ' + texto.toLowerCase() : 'Enchufe ' + texto;
   return NOMBRE_ELEMENTO[e.tipo] || e.tipo;
+}
+
+// Salida de humos: redonda (diámetro, en mm: 125 o 150) o rectangular (en cm: 20×10 o 17×8). Siempre se puede escribir otra.
+export const HUMOS_DIAMETROS = [125, 150];
+export const HUMOS_RECTANGULARES = [[200, 100], [170, 80]];
+export function tamanoHumos(e) {
+  const n = v => v !== null && v !== undefined;
+  if (e.humos_forma === 'recirculacion') return 'sin salida (recirculación)';
+  if (e.humos_forma === 'redonda') return n(e.diametro) ? 'Ø' + e.diametro + ' mm' : 'redonda';
+  if (e.humos_forma === 'rectangular') return n(e.rect_ancho) && n(e.rect_alto) ? verMedida(e.rect_ancho, 'cm') + '×' + verMedida(e.rect_alto, 'cm') + ' cm' : 'rectangular';
+  return '';
 }
 
 // Azulejo de una pared, en una frase: «azulejo desde 0,9 hasta el techo».
@@ -100,6 +113,9 @@ export function limpiarDatos(d) {
     libres: (d.libres || []).filter(m => tieneInformacion(m)),
   });
 }
+
+// Isla (paralela a una pared, separada de ella) o península (sale de una pared). Medidas en mm.
+export const islaNueva = (tipo, pared) => ({ id: id(), tipo, pared: pared || null, ref: 'izq', distancia: null, separacion: null, largo: null, fondo: null });
 
 export function trabajoNuevo(nombre, unidad) {
   return { id: id(), nombre, cliente: '', direccion: '', unidad, creado_at: ahora(), updated_at: null, borrado_at: null };

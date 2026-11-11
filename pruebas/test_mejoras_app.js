@@ -176,10 +176,10 @@ prueba('la ficha de puertas no enseña «null» ni repite el tipo en la lista', 
 prueba('puertas: tipo y aclaración del lado', con({}, async a => {
   await nueva(a, 'puerta'); await a.page.click(P + '[data-acc="tipo-puerta"][data-v="corredera"]'); await a.page.waitForTimeout(400);
   igual((await fichaActual(a)).datos.puertas[0].tipo, 'corredera');
-  afirma(/mirando desde el pasillo/i.test(await texto(a, P)));
+  afirma(/desde el pasillo/i.test(await texto(a, P)));
 }));
 prueba('cocina: electrodomésticos; ventana con alféizar', con({}, async a => {
-  await nueva(a, 'cocina'); await a.page.click('[data-acc="anadir-electro"][data-v="frigo"]');
+  await nueva(a, 'cocina'); await a.page.click('[data-acc="abrir-electro"]'); await a.page.click('[data-acc="anadir-electro"][data-v="frigo"]');
   await a.page.click('[data-electro="frigo"] [data-acc="electro-tipo"][data-v="integrable"]');
   await a.page.fill('[data-electro="frigo"] [data-acc="ancho"]', '60'); await a.page.fill('[data-electro="frigo"] [data-acc="electro-modelo"]', 'Bosch');
   await a.page.waitForTimeout(400);

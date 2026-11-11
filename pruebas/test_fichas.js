@@ -18,10 +18,11 @@ const P = '[data-puerta].abierta ';
 prueba('puertas: medidas y botones se guardan; no hay hacia dentro o fuera', con({}, async a => {
   await nueva(a, 'puerta');
   await a.page.fill(P + '[data-acc="ancho"]', '825'); await a.page.fill(P + '[data-acc="alto"]', '2030'); await a.page.fill(P + '[data-acc="tabique"]', '90');
-  await a.page.click(P + '[data-acc="mano"][data-v="izq"]'); await a.page.click(P + '[data-acc="condena"][data-v="true"]'); await a.page.click(P + '[data-acc="vidriera"][data-v="false"]');
+  await a.page.click(P + '[data-acc="mano"][data-v="izq"]'); await a.page.click(P + '[data-acc="condena"]'); await a.page.click(P + '[data-acc="vidriera"]'); await a.page.click(P + '[data-acc="vidriera"]');
   await recargar(a);
   igual([await val(a, P + '[data-acc="ancho"]'), await val(a, P + '[data-acc="alto"]'), await val(a, P + '[data-acc="tabique"]')], ['825', '2030', '90']);
-  afirma(await on(a, P + '[data-acc="mano"][data-v="izq"]') && await on(a, P + '[data-acc="condena"][data-v="true"]') && await on(a, P + '[data-acc="vidriera"][data-v="false"]'));
+  afirma(await on(a, P + '[data-acc="mano"][data-v="izq"]') && await on(a, P + '[data-acc="condena"]') && !(await on(a, P + '[data-acc="vidriera"]')));
+  igual([(await ficha(a)).datos.puertas[0].condena, (await ficha(a)).datos.puertas[0].vidriera], [true, false]);
   afirma(!/dentro|fuera/i.test(await a.page.evaluate(() => document.querySelector('main').innerText)));
 }));
 prueba('botones rápidos de puerta en cm y otra medida a mano', con({}, async a => {
@@ -71,8 +72,8 @@ prueba('una ficha de puerta antigua se abre con su puerta dentro', con({}, async
   const f = await ficha(a); igual(f.datos.puertas.length, 1); igual(f.datos.puertas[0].alto, 2110); afirma(!('ancho' in f.datos));
 }));
 prueba('tocar el botón marcado lo desmarca', con({}, async a => {
-  await nueva(a, 'puerta'); await a.page.fill(P + '[data-acc="ancho"]', '800'); await a.page.click(P + '[data-acc="condena"][data-v="true"]'); await a.page.click(P + '[data-acc="condena"][data-v="true"]');
-  await recargar(a); igual((await ficha(a)).datos.puertas[0].condena, null);
+  await nueva(a, 'puerta'); await a.page.fill(P + '[data-acc="ancho"]', '800'); await a.page.click(P + '[data-acc="condena"]'); await a.page.click(P + '[data-acc="condena"]');
+  await recargar(a); igual((await ficha(a)).datos.puertas[0].condena, false);
 }));
 prueba('cocina: altura general en metros, pared A preparada solo con largo, elementos, referencia y puntos de medida', con({}, async a => {
   await nueva(a, 'cocina');
@@ -95,7 +96,7 @@ prueba('cocina: altura general en metros, pared A preparada solo con largo, elem
 prueba('armario: etiquetas que explican qué medir', con({}, async a => {
   await nueva(a, 'armario', 'corredera');
   const t = await a.page.evaluate(() => document.querySelector('main').innerText);
-  afirma(/arriba, en medio y abajo/i.test(t) && /lado izquierdo/i.test(t) && /lado derecho/i.test(t), t.slice(0, 300));
+  afirma(/ancho del hueco/i.test(t) && /arriba/i.test(t) && /medio/i.test(t) && /abajo/i.test(t) && /izquierda/i.test(t) && /derecha/i.test(t) && /diagonal/i.test(t), t.slice(0, 300));
 }));
 prueba('armario corredera, abatible y vestidor muestran lo suyo', con({}, async a => {
   await nueva(a, 'armario', 'corredera'); afirma(await a.page.$('[data-acc="hojas"]') && !(await a.page.$('[data-acc="puertas"]')), 'corredera');
@@ -117,7 +118,7 @@ prueba('unidades: cm admite un decimal, guarda mm y no guarda lo mal tecleado', 
   await a.page.waitForTimeout(400); igual((await ficha(a)).datos.puertas[0].ancho, null); igual((await ficha(a)).datos.puertas[0].mal, { ancho: '245,55' });
   await a.page.fill(P + '[data-acc="ancho"]', '245,5'); await a.page.waitForTimeout(400);
   await a.page.evaluate(() => history.back()); await a.page.waitForSelector('[data-pantalla="trabajo"]');
-  await a.page.click('[data-acc="unidad"][data-v="mm"]'); await a.page.click('[data-acc="abrir-ficha"]'); await a.page.click('header [data-acc="editar"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
+  await a.page.click('[data-acc="editar-datos"]'); await a.page.click('[data-acc="unidad"][data-v="mm"]'); await a.page.click('[data-acc="abrir-ficha"]'); await a.page.click('header [data-acc="editar"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
   igual(await val(a, P + '[data-acc="ancho"]'), '2455'); igual(await a.page.getAttribute(P + '[data-acc="ancho"]', 'inputmode'), 'numeric');
 }));
 prueba('tecla a tecla, lo mal escrito no deja guardado un trozo y sigue avisando al volver', con({}, async a => {

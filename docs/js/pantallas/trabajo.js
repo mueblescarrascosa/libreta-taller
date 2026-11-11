@@ -64,6 +64,7 @@ export async function pintarTrabajo(App, id) {
   }
 
   if (trabajo) {
+    const nFichas = vivos(await App.almacen.todos('fichas')).filter(f => f.trabajo_id === id).length;
     let espera = null;
     const pendiente = () => { clearTimeout(espera); espera = null; return App.guardarFila('trabajos', trabajo); };
     const cambio = () => { clearTimeout(espera); espera = setTimeout(pendiente, RETARDO); };
@@ -72,7 +73,7 @@ export async function pintarTrabajo(App, id) {
     const mapa = h('a', { class: 'boton-enlace', 'data-acc': 'mapa', target: '_blank', rel: 'noopener' }, 'Abrir en Maps');
     const pintarMapa = () => { const d = String(trabajo.direccion || '').trim(); mapa.hidden = !d; mapa.href = d ? urlMapa(d) : ''; };
     pintarMapa();
-    const tarjeta = h('div', { class: 'tarjeta' },
+    const tarjeta = h('div', { class: 'tarjeta', 'data-acc': 'datos-trabajo' },
       campo('nombre', 'nombre', 'Nombre del trabajo'), campo('cliente', 'cliente', 'Cliente'),
       h('div', { class: 'con-boton' }, campo('direccion', 'direccion', 'Dirección', pintarMapa), mapa));
 
@@ -91,7 +92,20 @@ export async function pintarTrabajo(App, id) {
     }
     tarjeta.append(h('label', { class: 'et' }, 'Unidad de este trabajo'),
       segmentado({ acc: 'unidad', opciones: [['mm', 'Milímetros'], ['cm', 'Centímetros']], valor: trabajo.unidad, alCambiar: v => { trabajo.unidad = v; App.guardarFila('trabajos', trabajo); } }));
-    main.append(tarjeta);
+    // Con fichas ya hechas, los datos del cliente se pliegan en una línea con sus botones; tocarla los abre.
+    if (nFichas) {
+      const td = trabajo.datos || {}, enlace = (acc, href, texto) => h('a', { class: 'boton-enlace mini-enlace', 'data-acc': acc, href, target: '_blank', rel: 'noopener' }, texto);
+      const tel = telLlamar(td.telefono), dir = String(trabajo.direccion || '').trim();
+      const linea = [trabajo.cliente, trabajo.direccion].filter(Boolean).join(' · ') || 'Sin datos del cliente';
+      const plegada = h('div', { class: 'tarjeta datos-plegados' },
+        h('button', { type: 'button', class: 'resumen', 'data-acc': 'editar-datos', onclick: () => plegada.replaceWith(tarjeta) },
+          h('span', {}, linea), h('small', { class: 'editar-datos' }, [App.trabajoDatos && td.estado ? NOMBRE_ESTADO[td.estado] : null, (trabajo.unidad || App.ajustes().unidad), 'editar ▾'].filter(Boolean).join(' · '))),
+        tel || dir ? h('div', { class: 'acciones-cliente' },
+          tel ? h('a', { class: 'boton-enlace mini-enlace', 'data-acc': 'llamar', href: 'tel:' + tel }, 'Llamar') : null,
+          tel ? enlace('whatsapp-cliente', 'https://wa.me/' + telWhatsapp(td.telefono), 'WhatsApp') : null,
+          dir ? enlace('mapa', urlMapa(dir), 'Maps') : null) : null);
+      main.append(plegada);
+    } else main.append(tarjeta);
   }
 
   main.append(h('h2', {}, 'Nueva ficha'), selectorFicha(App, id), h('h2', {}, 'Fichas'), lista);
