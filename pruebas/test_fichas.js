@@ -117,7 +117,7 @@ prueba('unidades: cm admite un decimal, guarda mm y no guarda lo mal tecleado', 
   await a.page.waitForTimeout(400); igual((await ficha(a)).datos.puertas[0].ancho, null); igual((await ficha(a)).datos.puertas[0].mal, { ancho: '245,55' });
   await a.page.fill(P + '[data-acc="ancho"]', '245,5'); await a.page.waitForTimeout(400);
   await a.page.evaluate(() => history.back()); await a.page.waitForSelector('[data-pantalla="trabajo"]');
-  await a.page.click('[data-acc="unidad"][data-v="mm"]'); await a.page.click('[data-acc="abrir-ficha"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
+  await a.page.click('[data-acc="unidad"][data-v="mm"]'); await a.page.click('[data-acc="abrir-ficha"]'); await a.page.click('[data-pantalla="resumen"] [data-acc="editar"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
   igual(await val(a, P + '[data-acc="ancho"]'), '2455'); igual(await a.page.getAttribute(P + '[data-acc="ancho"]', 'inputmode'), 'numeric');
 }));
 prueba('tecla a tecla, lo mal escrito no deja guardado un trozo y sigue avisando al volver', con({}, async a => {
@@ -156,7 +156,24 @@ prueba('lo escrito justo antes de cerrar no se pierde', con({}, async a => {
 }));
 prueba('volver atrás enseguida tampoco pierde nada', con({}, async a => {
   await nueva(a, 'puerta'); await a.page.fill(P + '[data-acc="ancho"]', '778'); await a.page.evaluate(() => history.back()); await a.page.waitForSelector('[data-pantalla="trabajo"]');
-  await a.page.click('[data-acc="abrir-ficha"]'); await a.page.waitForSelector('[data-pantalla="ficha"]'); igual(await val(a, P + '[data-acc="ancho"]'), '778');
+  await a.page.click('[data-acc="abrir-ficha"]'); await a.page.click('[data-pantalla="resumen"] [data-acc="editar"]'); await a.page.waitForSelector('[data-pantalla="ficha"]'); igual(await val(a, P + '[data-acc="ancho"]'), '778');
+}));
+prueba('tocar una ficha de la lista abre su resumen, con Editar; la flecha vuelve al trabajo', con({}, async a => {
+  await nueva(a, 'puerta'); await a.page.fill(P + '[data-acc="ancho"]', '781'); await a.page.evaluate(() => history.back()); await a.page.waitForSelector('[data-pantalla="trabajo"]');
+  await a.page.click('[data-acc="abrir-ficha"]'); await a.page.waitForSelector('[data-pantalla="resumen"] [data-acc="editar"]');
+  afirma((await a.page.innerText('[data-pantalla="resumen"]')).includes('781'), 'el resumen no trae la medida');
+  await a.page.click('header .atras'); await a.page.waitForSelector('[data-pantalla="trabajo"]');
+}));
+prueba('puerta doble con hojas distintas y paño fijo: se apunta una medida y la otra sale sola', con({}, async a => {
+  await nueva(a, 'puerta', null, 'cm');
+  await a.page.fill(P + '[data-acc="ancho"]', '160'); await a.page.press(P + '[data-acc="ancho"]', 'Tab');
+  await a.page.click(P + '[data-acc="tipo-puerta"][data-v="doble"]');
+  await a.page.click(P + '[data-acc="hojas-iguales"][data-v="false"]');
+  await a.page.click(P + '[data-acc="fijo"][data-v="true"]');
+  await a.page.fill(P + '[data-acc="puerta_ancho"]', '120'); await a.page.press(P + '[data-acc="puerta_ancho"]', 'Tab');
+  await a.page.fill(P + '[data-acc="hoja1"]', '80'); await a.page.press(P + '[data-acc="hoja1"]', 'Tab');
+  await a.page.waitForFunction(() => /40 cm/.test(document.querySelector('[data-acc="otra-hoja"]').innerText) && /40 cm/.test(document.querySelector('[data-acc="ancho-fijo"]').innerText));
+  afirma(!(await a.page.$(P + '[data-acc="tipo-puerta"][data-v="fija"]')), 'sigue ofreciendo «fija» como tipo');
 }));
 prueba('medidas libres y notas en cualquier ficha, y llegan a la nube', con({}, async a => {
   await nueva(a, 'nota');
@@ -213,7 +230,7 @@ prueba('notas y medidas en blanco se quitan al salir', con({}, async a => {
   await a.page.click('[data-acc="anadir-libre"]'); await a.page.fill('[data-acc="libre-nombre"]', 'Mesa');
   await a.page.click('[data-acc="anadir-libre"]'); await a.page.click('[data-acc="anadir-nota"]');
   await a.page.evaluate(() => history.back()); await a.page.waitForSelector('[data-pantalla="trabajo"]');
-  await a.page.click('[data-acc="abrir-ficha"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
+  await a.page.click('[data-acc="abrir-ficha"]'); await a.page.click('[data-pantalla="resumen"] [data-acc="editar"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
   const f = await ficha(a); igual(f.datos.libres.map(m => m.nombre), ['Mesa']); igual(f.datos.notas.length, 0);
 }));
 prueba('al abrir la app se quitan las fichas que quedaron vacías', con({}, async a => {

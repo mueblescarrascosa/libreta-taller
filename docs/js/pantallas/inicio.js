@@ -26,7 +26,7 @@ export async function pintarInicio(App) {
     // Buscando se ve todo; si no, los montados quedan aparte.
     const activos = consulta.trim() ? ordenados : ordenados.filter(t => !archivado(t)), archivados = consulta.trim() ? [] : ordenados.filter(archivado);
     activos.forEach(t => filas.push(filaTrabajo(t)));
-    if (consulta.trim()) r.fichas.sort(porFecha).forEach(f => filas.push(h('a', { class: 'fila', href: '#/ficha/' + f.id, 'data-acc': 'abrir-ficha' }, h('b', {}, tituloFicha(f)), h('small', {}, 'Ficha'))));
+    if (consulta.trim()) r.fichas.sort(porFecha).forEach(f => filas.push(h('a', { class: 'fila', href: '#/resumen/' + f.id, 'data-acc': 'abrir-ficha' }, h('b', {}, tituloFicha(f)), h('small', {}, 'Ficha'))));
     if (!filas.length) filas.push(h('p', { class: 'vacio' }, consulta.trim() ? 'Nada encontrado.' : 'Aún no hay trabajos.'));
     if (archivados.length) {
       filas.push(h('button', { type: 'button', class: 'ancho', 'data-acc': 'ver-archivados', onclick: () => { verArchivados = !verArchivados; pintarLista(); } },

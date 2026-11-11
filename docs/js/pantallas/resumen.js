@@ -1,7 +1,8 @@
 // Resumen de una ficha terminada, o de un trabajo entero: presentación limpia para ver, imprimir o enviar (PDF o texto por WhatsApp).
 import { h, tituloFicha, vivos } from '../util.js';
 import { verMedida } from '../unidades.js';
-import { normalizarFicha } from '../modelo.js';
+import { normalizarFicha, textoTipoPuerta } from '../modelo.js';
+const mayus = t => (t ? t[0].toUpperCase() + t.slice(1) : '');
 import { bloquesResumen, textoResumen, unidadesDe } from '../resumen.js';
 import { recuentoPuertas, textoTrabajo } from '../trabajos.js';
 import { geometriaPlanta, svgPlanta } from '../plano-vista.js';
@@ -17,7 +18,6 @@ export function tituloLargo(trabajo, parte) {
   const fecha = dd(f.getDate()) + '-' + dd(f.getMonth() + 1) + '-' + f.getFullYear();
   return [trabajo && trabajo.nombre, parte, trabajo && trabajo.cliente, trabajo && trabajo.direccion, fecha].map(limpio).filter(Boolean).join(' - ');
 }
-const TIPO_PUERTA = { corredera: 'Corredera', doble: 'Doble', fija: 'Fija' };
 
 // Convierte «*Pared A* · 3 m» en negrita para la pantalla.
 function linea(t) {
@@ -36,7 +36,7 @@ async function nodosFicha(App, ficha, trabajo, AJ) {
   if (ficha.tipo === 'puerta') {
     if (d.modelo || d.color) nodos.push(h('p', {}, [d.modelo && 'Modelo: ' + d.modelo, d.color && 'Color: ' + d.color].filter(Boolean).join(' · ')));
     nodos.push(h('table', {}, h('thead', {}, h('tr', {}, ['Puerta', 'Ancho', 'Alto', 'Tabique', 'Tipo', 'Abre', 'Condena', 'Vidriera'].map(t => h('th', {}, t)))),
-      h('tbody', {}, (d.puertas || []).map((p, i) => h('tr', {}, [p.nombre || 'Puerta ' + (i + 1), v(p.ancho, u), v(p.alto, u), v(p.tabique, u), TIPO_PUERTA[p.tipo] || '',
+      h('tbody', {}, (d.puertas || []).map((p, i) => h('tr', {}, [p.nombre || 'Puerta ' + (i + 1), v(p.ancho, u), v(p.alto, u), v(p.tabique, u), mayus(textoTipoPuerta(p, u)),
         p.mano === 'izq' ? 'Izquierda' : p.mano === 'der' ? 'Derecha' : '', siNo(p.condena), siNo(p.vidriera)].map(t => h('td', {}, t)))))),
     h('p', { class: 'nota-ud' }, 'Medidas en ' + u));
   }
@@ -118,7 +118,7 @@ export async function pintarResumen(App, id) {
   if (!leida || leida.borrado_at) return App.ir('#/');
   const ficha = normalizarFicha(leida), AJ = App.ajustes();
   const trabajo = ficha.trabajo_id ? await App.almacen.leer('trabajos', ficha.trabajo_id) : null;
-  const main = App.marco('resumen', 'Resumen', '#/ficha/' + id);
+  const main = App.marco('resumen', 'Resumen', trabajo ? '#/trabajo/' + trabajo.id : '#/sueltas');
   const aviso = h('p', { class: 'aviso-resumen' });
   const doc = h('article', { class: 'resumen-doc' }, cabecera(trabajo), ...(await nodosFicha(App, ficha, trabajo, AJ)), h('footer', {}, 'Libreta Taller'));
   const titulo = tituloLargo(trabajo, tituloFicha(ficha));

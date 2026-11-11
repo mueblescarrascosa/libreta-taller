@@ -2,7 +2,7 @@
 import { h, segmentado, tituloFicha, vivos } from '../util.js';
 import { unidadDe } from '../unidades.js';
 import { avisos, camposDeElemento, elementoNuevo, paredNueva, puertaNueva, normalizarFicha, resumenPuerta, limpiarDatos, tieneInformacion,
-  TIPOS_ELEMENTO, NOMBRE_ELEMENTO, RAPIDAS_PUERTA, USOS, nombreElemento, TIPOS_PUERTA } from '../modelo.js';
+  TIPOS_ELEMENTO, NOMBRE_ELEMENTO, RAPIDAS_PUERTA, USOS, nombreElemento, tiposPuertaPara, otraHoja, anchoFijo } from '../modelo.js';
 import { duplicarFicha } from '../trabajos.js';
 import { campoMedida, campoEntero } from '../campos.js';
 import { verMedida } from '../unidades.js';
@@ -89,11 +89,37 @@ export async function pintarFicha(App, id) {
         medida(p, 'alto', 'Alto', { rapidos: AJ.puerta_altos, aviso: null }),
         medida(p, 'tabique', 'Grosor de tabique', { rapidos: AJ.puerta_tabiques, aviso: null }),
         h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Tipo'),
-          segmentado({ acc: 'tipo-puerta', opciones: TIPOS_PUERTA, valor: p.tipo || null, permitirVacio: true, alCambiar: v => { p.tipo = v; cambio(); } })),
+          segmentado({ acc: 'tipo-puerta', opciones: tiposPuertaPara(p), valor: p.tipo || null, permitirVacio: true, alCambiar: v => { p.tipo = v; cambio(); repintar(); } })),
+        ...extrasPuerta(p),
         h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Abre a (mirando desde el pasillo)'),
           segmentado({ acc: 'mano', opciones: [['izq', 'Izquierda'], ['der', 'Derecha']], valor: p.mano, permitirVacio: true, alCambiar: v => { p.mano = v; cambio(); } })),
         h('div', { class: 'dos' }, siNo(p, 'condena', 'Condena'), siNo(p, 'vidriera', 'Vidriera')),
         h('div', { class: 'avisos', 'data-avisos': 'puerta.' + p.id }));
+    }
+    // Doble: ¿hojas iguales? Si no, el ancho de cada una. Paño fijo en cualquier puerta: ancho y lado.
+    function extrasPuerta(p) {
+      const n = [];
+      if (p.tipo === 'doble') {
+        n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Hojas'),
+          segmentado({ acc: 'hojas-iguales', opciones: [[true, 'Iguales'], [false, 'Distintas']], valor: p.hojas_iguales ?? null, permitirVacio: true, alCambiar: v => { p.hojas_iguales = v; cambio(); repintar(); } })));
+        if (p.hojas_iguales === false) {
+          const otra = h('small', { class: 'ayuda', 'data-acc': 'otra-hoja' });
+          const pintarOtra = () => { const o = otraHoja(p); otra.textContent = o !== null ? 'La otra hoja: ' + verMedida(o, unidad) + ' ' + unidad : (p.fijo ? 'La otra hoja sale sola con el ancho de la puerta y el de esta.' : 'La otra hoja sale sola con el ancho total y el de esta.'); };
+          pintarOtra(); refrescos.push(() => { if (otra.isConnected) pintarOtra(); });
+          n.push(medida(p, 'hoja1', 'Ancho de la hoja que abre', { aviso: null }), otra);
+        }
+      }
+      n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Paño fijo al lado'),
+        segmentado({ acc: 'fijo', opciones: SI_NO, valor: p.fijo ?? null, permitirVacio: true, alCambiar: v => { p.fijo = v; cambio(); repintar(); } })));
+      if (p.fijo) {
+        const paño = h('small', { class: 'ayuda', 'data-acc': 'ancho-fijo' });
+        const pintarFijo = () => { const f = anchoFijo(p); paño.textContent = f !== null ? 'El paño fijo: ' + verMedida(f, unidad) + ' ' + unidad + ' (ancho total menos la puerta)' : 'Arriba, el ancho total del hueco; aquí el de la puerta, y el paño sale solo.'; };
+        pintarFijo(); refrescos.push(() => { if (paño.isConnected) pintarFijo(); });
+        n.push(medida(p, 'puerta_ancho', 'Ancho de la puerta (sin el paño)', { rapidos: AJ.puerta_anchos, aviso: null }), paño,
+        h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Lado del paño (mirando desde el pasillo)'),
+          segmentado({ acc: 'fijo-lado', opciones: [['izq', 'Izquierda'], ['der', 'Derecha']], valor: p.fijo_lado || null, permitirVacio: true, alCambiar: v => { p.fijo_lado = v; cambio(); } })));
+      }
+      return n;
     }
     function resumen(p, i) {
       return h('div', { class: 'tarjeta', 'data-puerta': '' },

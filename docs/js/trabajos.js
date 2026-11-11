@@ -2,7 +2,7 @@
 // orden por actividad, limpieza de fotos y plantilla de piso. Sin pantalla: todo se prueba en Node.
 import { verMedida } from './unidades.js';
 import { tituloFicha, NOMBRE_SUBTIPO } from './util.js';
-import { normalizarFicha, tieneInformacion, limpiarDatos, fichaNueva } from './modelo.js';
+import { normalizarFicha, tieneInformacion, limpiarDatos, fichaNueva, anchoPuerta } from './modelo.js';
 import { bloquesResumen } from './resumen.js';
 import { instante } from './sincro.js';
 
@@ -78,7 +78,8 @@ export function trabajosARecuperar(trabajos, fichas) {
 export function recuentoPuertas(fichas, unidad) {
   const puertas = fichas.map(normalizarFicha).filter(f => f.tipo === 'puerta').flatMap(f => f.datos.puertas || []);
   const v = mm => verMedida(mm, unidad), grupos = new Map();
-  puertas.forEach(p => {
+  // Con paño fijo cuenta el ancho de la puerta, no el del hueco entero.
+  puertas.map(p => (p.fijo ? Object.assign({}, p, { ancho: anchoPuerta(p) }) : p)).forEach(p => {
     const k = hay(p.ancho) && hay(p.alto) ? 'de ' + v(p.ancho) + ' × ' + v(p.alto) : hay(p.ancho) ? 'de ' + v(p.ancho) + ' de ancho' : hay(p.alto) ? 'de ' + v(p.alto) + ' de alto' : 'sin medidas';
     grupos.set(k, (grupos.get(k) || 0) + 1);
   });
@@ -86,7 +87,7 @@ export function recuentoPuertas(fichas, unidad) {
   const cuenta = fn => puertas.filter(fn).length;
   const izq = cuenta(p => p.mano === 'izq'), der = cuenta(p => p.mano === 'der');
   if (izq || der) lineas.push('Abren a la izquierda: ' + izq + ' · a la derecha: ' + der);
-  [['Con condena', p => p.condena], ['Con vidriera', p => p.vidriera], ['Correderas', p => p.tipo === 'corredera'], ['Dobles', p => p.tipo === 'doble'], ['Fijas', p => p.tipo === 'fija']]
+  [['Con condena', p => p.condena], ['Con vidriera', p => p.vidriera], ['Correderas', p => p.tipo === 'corredera'], ['Dobles', p => p.tipo === 'doble'], ['Con paño fijo', p => p.fijo || p.tipo === 'fija']]
     .forEach(([t, fn]) => { const n = cuenta(fn); if (n) lineas.push(t + ': ' + n); });
   return { total: puertas.length, lineas };
 }

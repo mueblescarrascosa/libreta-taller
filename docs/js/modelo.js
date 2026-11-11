@@ -114,7 +114,33 @@ export function puertaNueva(anterior) {
   return { id: id(), nombre: '', tipo: null, ancho: null, alto: null, tabique: anterior ? anterior.tabique ?? null : null, mano: null, condena: null, vidriera: null };
 }
 // Tipo de puerta: la abatible de una hoja es la normal y no se repite en los resúmenes.
-export const TIPOS_PUERTA = [['abatible', 'Abatible'], ['corredera', 'Corredera'], ['doble', 'Doble'], ['fija', 'Fija']];
+// «fija» era un tipo antiguo: ya no se ofrece (el paño fijo es un añadido de la puerta), pero se sigue enseñando si estaba puesto.
+export const TIPOS_PUERTA = [['abatible', 'Abatible'], ['corredera', 'Corredera'], ['doble', 'Doble']];
+export const tiposPuertaPara = p => (p.tipo === 'fija' ? [...TIPOS_PUERTA, ['fija', 'Fija (antiguo)']] : TIPOS_PUERTA);
+const ladoTexto = l => (l === 'izq' ? 'a la izquierda' : l === 'der' ? 'a la derecha' : '');
+
+// Doble con hojas distintas: se apunta la que abre y la otra es lo que queda del ancho.
+// Con paño fijo, «ancho» es el total del hueco: se apunta la puerta y el paño es lo que queda.
+export const anchoPuerta = p => (p.fijo ? (hay(p.puerta_ancho) ? p.puerta_ancho : null) : p.ancho);
+export const anchoFijo = p => (p.fijo && hay(p.ancho) && hay(p.puerta_ancho) && p.ancho > p.puerta_ancho ? p.ancho - p.puerta_ancho : null);
+export const otraHoja = p => { const a = anchoPuerta(p); return hay(a) && hay(p.hoja1) && a > p.hoja1 ? a - p.hoja1 : null; };
+// Doble: hojas iguales o el ancho de cada una. Paño fijo: su ancho y a qué lado (mirando desde el pasillo).
+export function textoTipoPuerta(p, unidad) {
+  const v = mm => verMedida(mm, unidad), t = [];
+  if (p.tipo === 'corredera') t.push('corredera');
+  if (p.tipo === 'fija') t.push('fija');
+  if (p.tipo === 'doble') {
+    if (p.hojas_iguales === true) t.push('doble, hojas iguales');
+    else if (p.hojas_iguales === false && hay(p.hoja1)) { const o = otraHoja(p); t.push('doble, hojas ' + v(p.hoja1) + ' + ' + (o !== null ? v(o) : '?') + ' ' + unidad); }
+    else if (p.hojas_iguales === false) t.push('doble, hojas distintas');
+    else t.push('doble');
+  }
+  if (p.fijo) {
+    const f = anchoFijo(p);
+    t.push([hay(p.puerta_ancho) ? 'puerta ' + v(p.puerta_ancho) + ' ' + unidad + ' +' : null, 'paño fijo', f !== null ? v(f) + ' ' + unidad : null, ladoTexto(p.fijo_lado)].filter(Boolean).join(' '));
+  }
+  return t.join(' · ');
+}
 
 // Las fichas de puerta antiguas tenían una sola puerta con los datos sueltos: pasan a la lista.
 export function normalizarFicha(f) {
@@ -132,7 +158,8 @@ export function resumenPuerta(p, unidad) {
   else if (hay(p.ancho)) t.push('ancho ' + v(p.ancho) + ' ' + unidad);
   else if (hay(p.alto)) t.push('alto ' + v(p.alto) + ' ' + unidad);
   if (hay(p.tabique)) t.push('tabique ' + v(p.tabique));
-  if (p.tipo && p.tipo !== 'abatible') t.push(p.tipo === 'corredera' ? 'corredera' : p.tipo === 'doble' ? 'doble' : 'fija');
+  const tipo = textoTipoPuerta(p, unidad);
+  if (tipo) t.push(tipo);
   if (p.mano) t.push(p.mano === 'izq' ? 'izquierda' : 'derecha');
   if (p.condena) t.push('condena');
   if (p.vidriera) t.push('vidriera');
