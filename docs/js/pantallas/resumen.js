@@ -62,16 +62,15 @@ function tablaInstalaciones(d, u) {
 
 // Puertas en una tabla compacta: ancho × alto juntos, condena y vidriera como C y V, y sin las columnas que nadie usa.
 function tablaPuertas(puertas, u, dePremarco) {
-  const medida = p => (p.ancho != null || p.alto != null ? [v(p.ancho, u) || '?', v(p.alto, u) || '?'].join(' × ') + (p.medida === 'premarco' ? ' P' : '') : '');
+  const medida = p => (p.ancho != null || p.alto != null ? [v(p.ancho, u) || '?', v(p.alto, u) || '?'].concat(p.tabique != null ? [v(p.tabique, u)] : []).join(' × ') + (p.medida === 'premarco' ? ' P' : '') : '');
   const cols = [
     ['Puerta', (p, i) => p.nombre || 'Puerta ' + (i + 1)],
     [dePremarco ? 'Premarco' : 'Medida', medida],
-    ['Tab.', p => v(p.tabique, u)],
     ['Tipo', p => mayus(textoTipoPuerta(p, u))],
-    ['Abre', p => (p.mano === 'izq' ? 'Izq.' : p.mano === 'der' ? 'Dcha.' : '')],
+    ['Abre', p => (p.mano === 'izq' ? '← Izq.' : p.mano === 'der' ? 'Dcha. →' : '')],
     ['C/V', p => [p.condena ? 'C' : '', p.vidriera ? 'V' : ''].filter(Boolean).join(' ')],
   ].filter(([t, f], k) => k < 2 || puertas.some((p, i) => f(p, i)));
-  const leyenda = [(dePremarco ? 'Medidas de premarco' : 'Medidas de puerta') + ', en ' + u];
+  const leyenda = [(dePremarco ? 'Premarco' : 'Puerta') + ': ancho × alto' + (puertas.some(p => p.tabique != null) ? ' × tabique' : '') + ', en ' + u];
   if (puertas.some(p => p.medida === 'premarco')) leyenda.push('P = medida de premarco');
   if (cols.some(c => c[0] === 'C/V')) leyenda.push('C = condena · V = vidriera');
   return [h('table', { class: 'tabla-puertas' }, h('thead', {}, h('tr', {}, cols.map(c => h('th', {}, c[0])))),

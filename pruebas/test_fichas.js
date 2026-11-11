@@ -48,7 +48,7 @@ prueba('añadir puertas: la nueva copia el tabique y la anterior queda resumida'
   igual((await a.page.$$('[data-puerta]')).length, 2); igual((await a.page.$$('[data-puerta].abierta')).length, 1);
   igual(await val(a, P + '[data-acc="tabique"]'), '90');
   const r = await a.page.innerText('[data-puerta]:not(.abierta)');
-  afirma(r.includes('Dormitorio 1') && r.includes('820 × 2030 mm') && r.includes('izquierda'), r);
+  afirma(r.includes('Dormitorio 1') && r.includes('820 × 2030') && r.includes('izq'), r);
   for (let i = 0; i < 8; i++) await a.page.click('[data-acc="anadir-puerta"]');
   igual((await a.page.$$('[data-puerta]')).length, 10);
   await a.page.click('[data-puerta]:first-child [data-acc="abrir-puerta"]'); igual(await val(a, P + '[data-acc="nombre-puerta"]'), 'Dormitorio 1');

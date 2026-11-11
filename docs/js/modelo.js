@@ -184,13 +184,12 @@ export function normalizarFicha(f) {
 export function resumenPuerta(p, unidad) {
   const t = [], v = mm => verMedida(mm, unidad);
   const pre = p.medida === 'premarco' ? ' (premarco)' : '';
-  if (hay(p.ancho) && hay(p.alto)) t.push(v(p.ancho) + ' × ' + v(p.alto) + ' ' + unidad + pre);
-  else if (hay(p.ancho)) t.push('ancho ' + v(p.ancho) + ' ' + unidad);
-  else if (hay(p.alto)) t.push('alto ' + v(p.alto) + ' ' + unidad);
-  if (hay(p.tabique)) t.push('tabique ' + v(p.tabique));
+  // Ancho × alto × tabique en una sola cifra; lo que falte, con «?».
+  if (hay(p.ancho) || hay(p.alto)) t.push([p.ancho, p.alto].map(x => (hay(x) ? v(x) : '?')).concat(hay(p.tabique) ? [v(p.tabique)] : []).join(' × ') + ' ' + unidad + pre);
+  else if (hay(p.tabique)) t.push('tabique ' + v(p.tabique));
+  if (p.mano) t.push(p.mano === 'izq' ? 'abre ← izq.' : 'abre dcha. →');
   const tipo = textoTipoPuerta(p, unidad);
   if (tipo) t.push(tipo);
-  if (p.mano) t.push(p.mano === 'izq' ? 'izquierda' : 'derecha');
   if (p.condena) t.push('condena');
   if (p.vidriera) t.push('vidriera');
   return t.length ? t.join(' · ') : 'sin medidas';

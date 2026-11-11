@@ -94,11 +94,14 @@ export async function pintarFicha(App, id) {
     const nombre = (p, i) => p.nombre || 'Puerta ' + (i + 1);
     function editor(p, i) {
       return h('div', { class: 'tarjeta abierta', 'data-puerta': '' },
-        h('div', { class: 'cab' }, h('h3', {}, nombre(p, i)),
-          h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-puerta', onclick: () => {
-            if (!confirmarQuitar(nombre(p, i).toLowerCase())) return;
-            d.puertas.splice(d.puertas.indexOf(p), 1); abierta = null; cambio(); repintar();
-          } }, 'Quitar')),
+        h('div', { class: 'cab' },
+          h('button', { type: 'button', class: 'resumen titulo-modulo', 'data-acc': 'cerrar-puerta', title: 'Cerrar', onclick: () => { abierta = null; repintar(); } }, h('h3', {}, nombre(p, i) + ' ▴')),
+          h('span', { class: 'botones-puerta' },
+            i > 0 ? h('button', { type: 'button', class: 'mini', 'data-acc': 'subir-puerta', 'aria-label': 'Subir', title: 'Subir', onclick: () => { [d.puertas[i - 1], d.puertas[i]] = [d.puertas[i], d.puertas[i - 1]]; cambio(); repintar(); } }, '↑') : null,
+            h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-puerta', onclick: () => {
+              if (!confirmarQuitar(nombre(p, i).toLowerCase())) return;
+              d.puertas.splice(d.puertas.indexOf(p), 1); abierta = null; cambio(); repintar();
+            } }, 'Quitar'))),
         h('input', { 'data-acc': 'nombre-puerta', placeholder: 'Nombre (o déjalo: Puerta ' + (i + 1) + ')', value: p.nombre, oninput: ev => { p.nombre = ev.target.value; cambio(); } }),
         // Nombres rápidos: si se repite uno, se numeran solos.
         h('div', { class: 'chips nombres-rapidos' }, AJ.nombres_puerta.map(([, t]) => h('button', { type: 'button', 'data-acc': 'nombre-rapido', 'data-v': t,
@@ -662,6 +665,8 @@ export async function pintarFicha(App, id) {
       history.back();
     } }, 'Borrar ficha'));
   refrescarAvisos();
+  // Una ficha de nota se abre lista para escribir.
+  if (ficha.tipo === 'nota' && !d.notas.length) nuevaNota();
   App.refrescar = async () => {
     const nueva = await App.almacen.leer('fichas', id);
     // Se repinta sin perder el sitio: un cambio de otro dispositivo no debe llevar la ficha arriba.

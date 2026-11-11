@@ -77,8 +77,8 @@ prueba('una ficha de puerta antigua pasa a tener la lista', () => {
   igual(normalizarFicha(f), f, 'una ficha ya nueva no cambia');
 });
 prueba('resumen de una puerta', () => {
-  igual(resumenPuerta({ ancho: 820, alto: 2030, tabique: 90, mano: 'izq', condena: true, vidriera: false }, 'cm'), '82 × 203 cm · tabique 9 · izquierda · condena');
-  igual(resumenPuerta({ ancho: 820, alto: null, tabique: null, mano: 'der', condena: false, vidriera: true }, 'mm'), 'ancho 820 mm · derecha · vidriera');
+  igual(resumenPuerta({ ancho: 820, alto: 2030, tabique: 90, mano: 'izq', condena: true, vidriera: false }, 'cm'), '82 × 203 × 9 cm · abre ← izq. · condena');
+  igual(resumenPuerta({ ancho: 820, alto: null, tabique: null, mano: 'der', condena: false, vidriera: true }, 'mm'), '820 × ? mm · abre dcha. → · vidriera');
   igual(resumenPuerta({ ancho: null, alto: null, tabique: null, mano: null, condena: null, vidriera: null }, 'mm'), 'sin medidas');
 });
 prueba('medidas rápidas de puerta', () => { igual(RAPIDAS_PUERTA.ancho, [920, 820, 720, 620]); igual(RAPIDAS_PUERTA.alto, [2030, 2110]); igual(RAPIDAS_PUERTA.tabique, [70, 90, 110]); });

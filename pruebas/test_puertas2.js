@@ -41,7 +41,7 @@ prueba('tabla de puertas compacta, reordenar y elegir qué fichas van en el resu
   await a.page.click('header [data-acc="cab-resumen"]'); await a.page.waitForSelector('[data-pantalla="resumen"]');
   igual(await a.page.$$eval('.tabla-puertas th', ts => ts.map(t => t.textContent)), ['Puerta', 'Premarco', 'C/V']);
   igual(await a.page.$$eval('.tabla-puertas tbody tr', ts => ts.map(t => [...t.children].map(c => c.textContent))), [['Baño', '80 × ?', 'C'], ['Salón', '90 × 210', ''], ['Puerta 3', '', '']]);
-  afirma((await a.page.innerText('.resumen-doc .nota-ud')).startsWith('Medidas de premarco'));
+  afirma((await a.page.innerText('.resumen-doc .nota-ud')).startsWith('Premarco: ancho × alto'));
   afirma((await a.page.innerText('.resumen-doc h2')).startsWith('Puertas · Piso 1'));
   // Resumen del trabajo con dos fichas: solo las puertas.
   await a.page.click('header .atras'); await a.page.waitForSelector('[data-pantalla="trabajo"]');

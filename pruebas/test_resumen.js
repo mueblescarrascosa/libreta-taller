@@ -12,7 +12,7 @@ prueba('texto de puertas: cabecera, modelo y una línea por puerta', () => {
   const t = textoResumen({ ficha: f, trabajo, ajustes: AJUSTES_FABRICA });
   afirma(t.startsWith('*Reforma Sol*'), t); afirma(t.includes('Juan') && t.includes('C/ Sol 1'));
   afirma(t.includes('*Puertas*') && t.includes('Modelo: Lisa') && t.includes('Color: Blanco'), t);
-  afirma(t.includes('1. Dormitorio 1: 82 × 203 cm · tabique 9 · izquierda · condena'), t);
+  afirma(t.includes('1. Dormitorio 1: 82 × 203 × 9 cm · abre ← izq. · condena'), t);
   afirma(t.includes('2. Puerta 2: 72 × 203 cm · vidriera'), t);
 });
 prueba('texto de cocina: altura, acabados, paredes con elementos y módulos', () => {

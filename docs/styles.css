@@ -80,6 +80,7 @@ details.plegable > .tarjeta, details.plegable > .lista, details.plegable > div {
 .sec-elementos > h4 { color: #1d4ed8; }
 .sec-pared .elemento { background: rgba(255,255,255,.75); border: 1px solid var(--borde); border-radius: 8px; padding: 8px; border-top-style: solid; }
 .zona-pilares .elemento { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; }
+.botones-puerta { display: flex; gap: 6px; flex: none; }
 .enlace-fijo { justify-self: start; align-self: flex-start; }
 header:has(.barra-acciones) { flex-wrap: wrap; row-gap: 4px; }
 .barra-acciones { order: 9; flex: 1 0 100%; display: flex; justify-content: space-around; gap: 4px; border-top: 1px solid rgba(255,255,255,.15); padding-top: 4px; }
@@ -315,3 +316,11 @@ button { background: #fffef9; border-color: var(--borde); }
   main[data-pantalla="ficha"] .zona-alzado svg.alzado { max-height: 42vh; }
 }
 @media print { html, body { background: #fff !important; } .resumen-doc { box-shadow: none; } }
+
+/* Impresión en A4: márgenes de 10 mm y sin cortar tablas, dibujos ni bloques por la mitad. */
+@page { size: A4; margin: 10mm; }
+@media print {
+  .resumen-doc h2, .resumen-doc h3, .resumen-doc .tit { break-after: avoid; page-break-after: avoid; }
+  .resumen-doc tr, .resumen-doc section, .resumen-doc .recuento, .planta-resumen, .alzado-resumen, .fotos-resumen img { break-inside: avoid; page-break-inside: avoid; }
+  .planta-resumen svg.planta, .alzado-resumen svg.alzado { max-height: 120mm; }
+}
