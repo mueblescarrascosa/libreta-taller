@@ -1,5 +1,5 @@
 // Resumen de una ficha terminada, o de un trabajo entero: presentación limpia para ver, imprimir o enviar (PDF o texto por WhatsApp).
-import { h, tituloFicha, vivos, icono } from '../util.js';
+import { h, tituloFicha, vivos, botonBarra } from '../util.js';
 import { verMedida } from '../unidades.js';
 import { normalizarFicha, textoTipoPuerta } from '../modelo.js';
 const mayus = t => (t ? t[0].toUpperCase() + t.slice(1) : '');
@@ -63,7 +63,7 @@ async function nodosFicha(App, ficha, trabajo, AJ) {
   return nodos;
 }
 
-// Botones de la cabecera del resumen: editar, enviar PDF, descargar PDF, enviar texto e imprimir.
+// Botones del resumen, en la barra de arriba: editar, WhatsApp (texto), enviar PDF, descargar PDF e imprimir.
 function acciones({ doc, titulo, texto, editar, aviso }) {
   function descargar(blob, nombre) {
     const url = URL.createObjectURL(blob), a = h('a', { href: url, download: nombre });
@@ -97,20 +97,14 @@ function acciones({ doc, titulo, texto, editar, aviso }) {
     setTimeout(volver, 3000);
     window.print();
   }
-  async function enviarTexto() {
-    const t = texto();
-    if (navigator.share) {
-      try { await navigator.share({ text: t, title: titulo }); } catch (e) { /* cancelado */ }
-      return;
-    }
-    window.open(urlWhatsapp(t), '_blank');
-  }
-  return h('div', { class: 'acciones' },
-    h('button', { type: 'button', 'data-acc': 'editar', onclick: editar }, 'Editar'),
-    h('button', { type: 'button', class: 'prin', 'data-acc': 'enviar-pdf', onclick: pdf(false) }, 'Enviar PDF'),
-    h('button', { type: 'button', 'data-acc': 'descargar-pdf', onclick: pdf(true) }, 'Descargar PDF'),
-    h('button', { type: 'button', 'data-acc': 'enviar-texto', onclick: enviarTexto }, 'Enviar texto'),
-    h('button', { type: 'button', 'data-acc': 'imprimir', onclick: imprimir }, 'Imprimir'));
+  // WhatsApp directo con el texto ya escrito (WhatsApp pregunta a quién).
+  function enviarTexto() { window.open(urlWhatsapp(texto()), '_blank'); }
+  return [
+    botonBarra(h('button', { type: 'button', 'data-acc': 'editar', onclick: editar }), 'editar', 'Editar'),
+    botonBarra(h('button', { type: 'button', class: 'wa', 'data-acc': 'enviar-texto', onclick: enviarTexto }), 'whatsapp', 'WhatsApp'),
+    botonBarra(h('button', { type: 'button', 'data-acc': 'enviar-pdf', onclick: pdf(false) }), 'pdf', 'Enviar PDF'),
+    botonBarra(h('button', { type: 'button', 'data-acc': 'descargar-pdf', onclick: pdf(true) }), 'descargar', 'Descargar'),
+    botonBarra(h('button', { type: 'button', 'data-acc': 'imprimir', onclick: imprimir }), 'imprimir', 'Imprimir')];
 }
 
 export async function pintarResumen(App, id) {
@@ -118,14 +112,12 @@ export async function pintarResumen(App, id) {
   if (!leida || leida.borrado_at) return App.ir('#/');
   const ficha = normalizarFicha(leida), AJ = App.ajustes();
   const trabajo = ficha.trabajo_id ? await App.almacen.leer('trabajos', ficha.trabajo_id) : null;
-  const main = App.marco('resumen', tituloFicha(ficha), trabajo ? '#/trabajo/' + trabajo.id : '#/sueltas', [
-    icono(h('a', { class: 'boton-cab', href: '#/ficha/' + id, 'data-acc': 'cab-editar' }), 'editar', 'Editar'),
-    icono(h('a', { class: 'boton-cab wa', href: '#', target: '_blank', rel: 'noopener', 'data-acc': 'cab-whatsapp',
-      onclick: ev => { ev.currentTarget.href = urlWhatsapp(textoResumen({ ficha, trabajo, ajustes: AJ })); } }), 'whatsapp', 'Enviar por WhatsApp')]);
-  const aviso = h('p', { class: 'aviso-resumen' });
-  const doc = h('article', { class: 'resumen-doc' }, cabecera(trabajo), ...(await nodosFicha(App, ficha, trabajo, AJ)), h('footer', {}, 'Libreta Taller'));
+  const aviso = h('p', { class: 'aviso-resumen' }), doc = h('article', { class: 'resumen-doc' });
   const titulo = tituloLargo(trabajo, tituloFicha(ficha));
-  main.append(acciones({ doc, titulo, aviso, texto: () => textoResumen({ ficha, trabajo, ajustes: AJ }), editar: () => App.ir('#/ficha/' + id) }), aviso, doc);
+  const main = App.marco('resumen', tituloFicha(ficha), trabajo ? '#/trabajo/' + trabajo.id : '#/sueltas',
+    acciones({ doc, titulo, aviso, texto: () => textoResumen({ ficha, trabajo, ajustes: AJ }), editar: () => App.ir('#/ficha/' + id) }));
+  doc.append(cabecera(trabajo), ...(await nodosFicha(App, ficha, trabajo, AJ)), h('footer', {}, 'Libreta Taller'));
+  main.append(aviso, doc);
 }
 
 // Todo el trabajo: cabecera, recuento de puertas para el pedido y cada ficha en orden.
@@ -135,13 +127,13 @@ export async function pintarResumenTrabajo(App, id) {
   const AJ = App.ajustes(), u = trabajo.unidad || AJ.unidad;
   const fichas = vivos(await App.almacen.todos('fichas')).filter(f => f.trabajo_id === id)
     .sort((a, b) => String(a.creado_at).localeCompare(String(b.creado_at))).map(normalizarFicha);
-  const main = App.marco('resumen', 'Resumen del trabajo', '#/trabajo/' + id);
-  const aviso = h('p', { class: 'aviso-resumen' });
-  const doc = h('article', { class: 'resumen-doc' }, cabecera(trabajo));
+  const aviso = h('p', { class: 'aviso-resumen' }), doc = h('article', { class: 'resumen-doc' }, cabecera(trabajo));
+  const main = App.marco('resumen', 'Resumen del trabajo', '#/trabajo/' + id,
+    acciones({ doc, titulo: tituloLargo(trabajo.nombre ? trabajo : Object.assign({}, trabajo, { nombre: 'Trabajo' }), 'Medidas'), aviso, texto: () => textoTrabajo({ trabajo, fichas, ajustes: AJ }), editar: () => App.ir('#/trabajo/' + id) }));
   const r = recuentoPuertas(fichas, u);
   if (r.total) doc.append(h('section', { class: 'recuento' }, h('p', { class: 'tit' }, h('b', {}, 'Puertas: ' + r.total)), ...r.lineas.map(t => h('p', {}, t))));
   for (const f of fichas) doc.append(h('div', { class: 'ficha-resumen' }, ...(await nodosFicha(App, f, trabajo, AJ))));
   if (!fichas.length) doc.append(h('p', { class: 'vacio' }, 'Este trabajo aún no tiene fichas.'));
   doc.append(h('footer', {}, 'Libreta Taller'));
-  main.append(acciones({ doc, titulo: tituloLargo(trabajo.nombre ? trabajo : Object.assign({}, trabajo, { nombre: 'Trabajo' }), 'Medidas'), aviso, texto: () => textoTrabajo({ trabajo, fichas, ajustes: AJ }), editar: () => App.ir('#/trabajo/' + id) }), aviso, doc);
+  main.append(aviso, doc);
 }

@@ -13,11 +13,37 @@ header a { color: #fff; text-decoration: none; font-size: 22px; padding: 2px 6px
 .boton-fila { width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid var(--borde); background: #fff; color: inherit; text-decoration: none; }
 .boton-fila.wa { background: #25d366; border-color: #25d366; color: #fff; }
 .enlace-fijo { align-self: flex-start; }
+header:has(.barra-acciones) { flex-wrap: wrap; row-gap: 4px; }
+.barra-acciones { order: 9; flex: 1 0 100%; display: flex; justify-content: space-around; gap: 4px; border-top: 1px solid rgba(255,255,255,.15); padding-top: 4px; }
+.boton-barra { flex: 1 1 0; max-width: 96px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px; border: 0; border-radius: 8px; background: transparent; color: #fff; font: inherit; cursor: pointer; }
+.boton-barra .ico { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid rgba(255,255,255,.45); }
+.boton-barra.wa .ico { background: #25d366; border-color: #25d366; }
+.boton-barra .et-barra { font-size: 11px; line-height: 1.1; white-space: nowrap; opacity: .9; }
+.boton-barra:disabled { opacity: .5; }
 .botones-cab { display: flex; gap: 6px; flex: none; }
 header .boton-cab { width: 38px; height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid rgba(255,255,255,.45); background: transparent; color: #fff; cursor: pointer; white-space: nowrap; }
 header .boton-cab.wa { background: #25d366; border-color: #25d366; color: #fff; }
 .titulo { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.estado { font-size: 12px; background: transparent; color: #d1fae5; border: 0; padding: 4px; white-space: nowrap; }
+.estado { position: relative; display: inline-flex; align-items: center; background: transparent; color: #86efac; border: 0; padding: 4px; cursor: pointer; flex: none; }
+.estado .cifra { position: absolute; top: 0; right: -2px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px; background: #f59e0b; color: #111827; font-size: 10px; font-weight: 700; line-height: 15px; text-align: center; }
+.estado.rechazo .cifra { background: #f87171; }
+.solo-lector { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.calc-boton { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; padding: 0; background: transparent; color: #fff; border: 0; border-radius: 8px; cursor: pointer; flex: none; }
+.calc-fondo { position: fixed; inset: 0; z-index: 450; background: rgba(0,0,0,.45); display: flex; align-items: flex-end; justify-content: center; }
+.calc { width: 100%; max-width: 380px; background: #1f2937; color: #fff; border-radius: 16px 16px 0 0; padding: 12px; padding-bottom: max(12px, env(safe-area-inset-bottom)); box-shadow: 0 -6px 24px rgba(0,0,0,.35); }
+@media (min-width: 700px) { .calc-fondo { align-items: center; } .calc { border-radius: 16px; } }
+.calc-cab { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.calc-cab .mini { background: transparent; color: #fff; border-color: rgba(255,255,255,.4); }
+.calc-pantalla { background: #111827; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; text-align: right; min-height: 92px; }
+.calc-ult { font-size: 13px; color: #9ca3af; min-height: 18px; overflow-wrap: anywhere; }
+.calc-expr { font-size: 28px; font-weight: 600; overflow-wrap: anywhere; line-height: 1.2; }
+.calc-res { font-size: 18px; color: #fcd34d; min-height: 24px; }
+.calc-teclas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.calc-teclas button { min-height: 52px; font-size: 22px; font-weight: 600; border-radius: 10px; border: 0; background: #374151; color: #fff; cursor: pointer; }
+.calc-teclas button.op { background: #4b5563; color: #fcd34d; }
+.calc-teclas button.borrar { background: #4b5563; color: #fca5a5; }
+.calc-teclas button.igual { background: var(--acento); }
+.calc-teclas button:active { filter: brightness(1.25); }
 .estado.pendiente { color: #fde68a; }
 .estado.rechazo { color: #fca5a5; font-weight: 600; }
 main { max-width: 720px; margin: 0 auto; padding: 12px; padding-bottom: 40px; }

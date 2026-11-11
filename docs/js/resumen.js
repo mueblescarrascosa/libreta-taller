@@ -1,7 +1,7 @@
 // Resumen de una ficha como texto para WhatsApp (*negrita*), con las medidas en su unidad.
 import { verMedida } from './unidades.js';
 import { tituloFicha } from './util.js';
-import { resumenPuerta, nombreElemento, camposDeElemento, textoAzulejo } from './modelo.js';
+import { resumenPuerta, nombreElemento, camposDeElemento, textoAzulejo, extraPilar } from './modelo.js';
 import { nombreModulo, cuadreBajos, cuadreAltos, cuadreCuerposPared, textoCuadre, nombreLineal, nombreInterior, textoElectro } from './modulos.js';
 
 const hay = v => v !== null && v !== undefined && v !== '';
@@ -13,10 +13,10 @@ export function unidadesDe(ficha, trabajo, ajustes) {
   return { u, pared: (d.paredes_m ?? ajustes.paredes_m) ? 'm' : u };
 }
 
-function lineaElemento(e, u) {
+function lineaElemento(e, u, delPilar = false) {
   const c = camposDeElemento(e.tipo), ud = e.tipo === 'pilar' ? 'cm' : u, v = mm => verMedida(mm, ud) + ' ' + ud;
-  const partes = [];
-  if (hay(e.distancia)) partes.push('a ' + v(e.distancia) + ' desde la ' + (e.ref === 'der' ? 'derecha' : 'izquierda'));
+  const partes = [], lado = e.ref === 'der' ? 'derecha' : 'izquierda';
+  if (hay(e.distancia)) partes.push('a ' + v(e.distancia) + (delPilar ? ' desde el pilar de la ' + lado : ' desde la ' + lado));
   if (c.altura && hay(e.altura)) partes.push('altura ' + v(e.altura));
   if (c.ancho && hay(e.ancho)) partes.push('ancho ' + v(e.ancho));
   if (c.alto && e.techo) partes.push('hasta el techo');
@@ -34,13 +34,13 @@ function lineaModulos(nombre, lista, cuadre) {
 
 const textoCuerpo = (c, ajustes) => unir([hay(c.ancho) ? verMedida(c.ancho, 'cm') : '?', c.interior ? (c.interior === 'otro' ? c.nombre || 'otro' : nombreInterior(c.interior, ajustes).toLowerCase()) : null], ' ');
 
-function bloquePared(p, ud, u, ajustes) {
+function bloquePared(p, ud, u, ajustes, d) {
   const l = [unir(['*Pared ' + p.letra + '*', hay(p.largo) ? verMedida(p.largo, ud) + ' ' + ud : null, hay(p.alto) ? 'alto ' + verMedida(p.alto, ud) + ' ' + ud : null, textoAzulejo(p, ud) || null])];
   if ((p.cuerpos || []).length) {
     const c = textoCuadre(cuadreCuerposPared(p), 'cm');
     l.push('- Cuerpos: ' + p.cuerpos.map(x => textoCuerpo(x, ajustes)).join(', ') + (c ? ' (' + c.charAt(0).toLowerCase() + c.slice(1) + ')' : ''));
   }
-  (p.elementos || []).forEach(e => l.push(lineaElemento(e, u)));
+  (p.elementos || []).forEach(e => l.push(lineaElemento(e, u, extraPilar(d, p, e) > 0)));
   l.push(lineaModulos('Bajos', p.bajos, cuadreBajos(p)), (p.altos || []).length ? lineaModulos('Altos', p.altos, cuadreAltos(p)) : null);
   return l.filter(hay);
 }
@@ -72,7 +72,7 @@ export function bloquesResumen({ ficha, trabajo, ajustes }) {
     cab.push(...acabadosTexto(d.acabados, ajustes));
     (d.electro || []).forEach(e => cab.push(textoElectro(e)));
     bloques.push(cab);
-    (d.paredes || []).forEach(p => bloques.push(bloquePared(p, pared, u, ajustes)));
+    (d.paredes || []).forEach(p => bloques.push(bloquePared(p, pared, u, ajustes, d)));
   } else {
     bloques.push(cab);
   }

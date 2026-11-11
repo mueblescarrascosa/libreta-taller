@@ -44,14 +44,21 @@ prueba('sin compartir archivos, el PDF se descarga', con({}, async a => {
   const [d] = await Promise.all([a.page.waitForEvent('download', { timeout: 20000 }), a.page.click('[data-acc="enviar-pdf"]')]);
   afirma(/\.pdf$/.test(d.suggestedFilename()), d.suggestedFilename());
 }));
-prueba('enviar como texto comparte el texto o abre WhatsApp', con({}, async a => {
+prueba('WhatsApp abre WhatsApp directamente con el texto', con({}, async a => {
   await nueva(a, 'puerta'); await a.page.click(P + '[data-c="ancho"] [data-acc="rapido"][data-v="820"]'); await terminar(a);
-  await a.page.evaluate(() => { navigator.share = async o => { window.__txt = o.text; }; });
-  await a.page.click('[data-acc="enviar-texto"]'); await a.page.waitForFunction(() => window.__txt);
-  afirma(/\*Reforma Sol\*/.test(await a.page.evaluate(() => window.__txt)));
-  await a.page.evaluate(() => { delete navigator.share; Object.defineProperty(navigator, 'share', { value: undefined, configurable: true }); window.open = u => { window.__url = u; }; });
-  await a.page.click('[data-acc="enviar-texto"]'); await a.page.waitForFunction(() => window.__url);
-  afirma(/^https:\/\/wa\.me\/\?text=/.test(await a.page.evaluate(() => window.__url)));
+  await a.page.evaluate(() => { window.open = u => { window.__url = u; }; });
+  await a.page.click('header [data-acc="enviar-texto"]'); await a.page.waitForFunction(() => window.__url);
+  const u = await a.page.evaluate(() => window.__url);
+  afirma(/^https:\/\/wa\.me\/\?text=/.test(u) && /\*Reforma Sol\*/.test(decodeURIComponent(u)), u);
+}));
+prueba('resumen: todos los botones en la barra de arriba, en una fila que cabe en el móvil', con({}, async a => {
+  await a.page.setViewportSize({ width: 360, height: 740 });
+  await nueva(a, 'puerta'); await a.page.click(P + '[data-c="ancho"] [data-acc="rapido"][data-v="820"]'); await terminar(a);
+  igual(await a.page.$$eval('header .barra-acciones .boton-barra', bs => bs.map(b => b.dataset.acc)), ['editar', 'enviar-texto', 'enviar-pdf', 'descargar-pdf', 'imprimir']);
+  igual((await a.page.$$('main .acciones')).length, 0, 'quedan botones en el cuerpo');
+  const tops = await a.page.$$eval('header .boton-barra', bs => [...new Set(bs.map(b => Math.round(b.getBoundingClientRect().top)))]);
+  igual(tops.length, 1, 'no caben en una fila');
+  afirma(await a.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'se sale de lado');
 }));
 prueba('la cabecera del resumen es clara y legible, también al imprimir', con({}, async a => {
   await nueva(a, 'nota'); await a.page.click('[data-acc="anadir-nota"]'); await a.page.fill('[data-acc="nota"]', 'Hola'); await terminar(a);

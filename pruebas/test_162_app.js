@@ -49,7 +49,7 @@ prueba('planta: cajas orientativas y nombres que no se pisan', con({}, async a =
   igual((await a.page.$$('[data-acc="planta"] [data-caja]')).length, 3, 'cajas');
   const cajas = await a.page.$$eval('[data-acc="planta"] text[data-elemento]', ts => ts.map(t => { const r = t.getBBox(); return [r.x, r.y, r.width, r.height]; }));
   igual(cajas.length, 3);
-  igual(await a.page.$$eval('[data-acc="planta"] text[data-elemento]', ts => ts.map(t => t.textContent)), ['E 100', 'E 106', 'Toma 110']);
+  igual(await a.page.$$eval('[data-acc="planta"] text[data-elemento]', ts => ts.map(t => t.textContent)), ['E a 100 de izq', 'E a 106 de izq', 'Toma a 110 de izq']);
   const pisa = (p, q) => p[0] < q[0] + q[2] && q[0] < p[0] + p[2] && p[1] < q[1] + q[3] && q[1] < p[1] + p[3];
   for (let i = 0; i < cajas.length; i++) for (let j = i + 1; j < cajas.length; j++) afirma(!pisa(cajas[i], cajas[j]), 'se pisan ' + i + ' y ' + j + ': ' + JSON.stringify(cajas));
 }));

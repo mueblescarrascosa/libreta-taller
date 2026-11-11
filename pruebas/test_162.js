@@ -78,8 +78,17 @@ prueba('planta: cada elemento lleva su cota en la unidad del trabajo, desde su e
   p.elementos.push(Object.assign(elementoNuevo('enchufe', 'izq'), { distancia: 1000 }),
     Object.assign(elementoNuevo('ventana', 'der'), { distancia: 450, ancho: 800 }),
     Object.assign(elementoNuevo('pilar', 'izq'), { distancia: 0, ancho: 300 }));
-  igual(geometriaPlanta(f.datos, { unidad: 'cm' }).elementos.map(e => e.cota), ['100', 'dcha 45', '0']);
-  igual(geometriaPlanta(f.datos, { unidad: 'mm' }).elementos.map(e => e.cota), ['1000', 'dcha 450', '0']);
+  igual(geometriaPlanta(f.datos, { unidad: 'cm' }).elementos.map(e => e.cota), ['a 100 de izq', 'a 45 de dcha', 'a 0 de izq']);
+  igual(geometriaPlanta(f.datos, { unidad: 'mm' }).elementos.map(e => e.cota), ['a 1000 de izq', 'a 450 de dcha', 'a 0 de izq']);
+});
+prueba('planta con varias paredes: la cota dice la pared de la esquina desde la que se midió', () => {
+  const f = fichaNueva('cocina', null, 't');
+  f.datos.paredes = ['A', 'B', 'C'].map(l => Object.assign(paredNueva([]), { letra: l, largo: 3000, elementos: [] }));
+  f.datos.paredes[0].elementos.push(Object.assign(elementoNuevo('enchufe', 'izq'), { distancia: 820 }));
+  f.datos.paredes[1].elementos.push(Object.assign(elementoNuevo('puerta', 'izq'), { distancia: 820, ancho: 800 }), Object.assign(elementoNuevo('ventana', 'der'), { distancia: 300, ancho: 800 }));
+  f.datos.paredes[2].elementos.push(Object.assign(elementoNuevo('enchufe', 'der'), { distancia: 500 }));
+  const cotas = geometriaPlanta(f.datos, { unidad: 'cm' }).elementos.map(e => e.pared + ': ' + e.cota);
+  igual(cotas, ['A: a 82 de izq', 'B: a 82 de A', 'B: a 30 de C', 'C: a 50 de dcha']);
 });
 
 fin();

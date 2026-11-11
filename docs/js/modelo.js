@@ -210,7 +210,45 @@ function revisarDiferencia(lista, campo, nombre, valores, unidad, margen) {
   if (dif > margen) lista.push({ campo, texto: nombre + ' difieren ' + verMedida(dif, unidad) + ' ' + unidad });
 }
 
-function avisosParedes(lista, paredes, unidad) {
+// ── Pilar en una punta de la pared ──
+// Devuelve cuánto ocupa (mm desde la esquina hasta la cara del pilar) o null si no hay.
+// Cuenta un pilar de la propia pared pegado a esa punta (5 cm de holgura) y el de la pared vecina en esa esquina,
+// que aquí ocupa lo que allí «sobresale».
+const HOLGURA_PILAR = 50;
+function pilarPropio(p, lado) {
+  const L = p.largo;
+  for (const e of p.elementos || []) {
+    if (e.tipo !== 'pilar' || !hay(e.distancia) || !hay(e.ancho)) continue;
+    const mismo = (e.ref === 'der') === (lado === 'der');
+    if (mismo && e.distancia <= HOLGURA_PILAR) return e.distancia + e.ancho;
+    if (!mismo && hay(L) && L - e.distancia - e.ancho <= HOLGURA_PILAR) return L - e.distancia;
+  }
+  return null;
+}
+function pilarVecino(p, lado) {
+  for (const e of p.elementos || []) {
+    if (e.tipo !== 'pilar' || !hay(e.distancia) || !hay(e.ancho) || !hay(e.fondo)) continue;
+    const mismo = (e.ref === 'der') === (lado === 'der');
+    if ((mismo && e.distancia <= HOLGURA_PILAR) || (!mismo && hay(p.largo) && p.largo - e.distancia - e.ancho <= HOLGURA_PILAR)) return e.fondo;
+  }
+  return null;
+}
+export function pilarEnPunta(datos, pared, lado) {
+  const propio = pilarPropio(pared, lado);
+  if (propio !== null) return propio;
+  const lista = (datos && datos.paredes) || [], i = lista.indexOf(pared), cerrada = !!(datos && datos.plano && datos.plano.cerrada);
+  if (i < 0) return null;
+  const j = lado === 'der' ? (i + 1 < lista.length ? i + 1 : cerrada ? 0 : -1) : (i > 0 ? i - 1 : cerrada ? lista.length - 1 : -1);
+  if (j < 0 || j === i) return null;
+  return pilarVecino(lista[j], lado === 'der' ? 'izq' : 'der');
+}
+// Lo que hay que sumar a la distancia de un elemento medido desde la cara del pilar (0 si se midió desde la esquina).
+export function extraPilar(datos, pared, e) {
+  if (e.tipo === 'pilar' || e.desde !== 'pilar') return 0;
+  return pilarEnPunta(datos, pared, e.ref === 'der' ? 'der' : 'izq') || 0;
+}
+
+function avisosParedes(lista, paredes, unidad, datos) {
   (paredes || []).forEach(p => {
     revisarTamano(lista, 'pared.' + p.id, 'Pared ' + p.letra, p.largo, unidad);
     revisarTamano(lista, 'pared.' + p.id, 'Alto de la pared ' + p.letra, p.alto, unidad);
@@ -222,7 +260,7 @@ function avisosParedes(lista, paredes, unidad) {
       revisarMaximo(lista, campo, nombre + ' (altura)', e.altura, unidad);
       revisarTamano(lista, campo, nombre + ' (ancho)', e.ancho, unidad);
       revisarTamano(lista, campo, nombre + ' (alto)', e.alto, unidad);
-      if (hay(p.largo) && hay(e.distancia) && e.distancia + (e.ancho || 0) > p.largo) {
+      if (hay(p.largo) && hay(e.distancia) && e.distancia + extraPilar(datos, p, e) + (e.ancho || 0) > p.largo) {
         lista.push({ campo, texto: nombre + ' se sale de la pared ' + p.letra + ' (' + verMedida(p.largo, unidad) + ' ' + unidad + ')' });
       }
     });
@@ -255,7 +293,7 @@ export function avisos(ficha, unidad, { margen = AJUSTES_FABRICA.margen } = {}) 
       revisarMaximo(l, 'enchufe.' + e.id, 'Enchufe (altura)', e.altura, unidad);
     });
   }
-  avisosParedes(l, d.paredes, unidad);
+  avisosParedes(l, d.paredes, unidad, d);
   l.push(...avisosModulos(ficha, 'cm'));
   d.libres.forEach(m => revisarMaximo(l, 'libre.' + m.id, m.nombre || 'Medida', m.mm, unidad));
   return l;

@@ -3,7 +3,8 @@ import { SUPABASE_URL, SUPABASE_KEY, TRABAJO_DATOS } from './config.js';
 import { abrirAlmacen } from './almacen.js';
 import { crearNube } from './nube.js';
 import { crearSincro } from './sincro.js';
-import { h, vivos } from './util.js';
+import { h, vivos, icono, svgIcono } from './util.js';
+import { abrirCalculadora } from './calculadora.js';
 import { mezclarAjustes } from './modelo.js';
 import { pintarInicio } from './pantallas/inicio.js';
 import { pintarTrabajo } from './pantallas/trabajo.js';
@@ -61,8 +62,14 @@ const App = {
     const el = document.querySelector('[data-acc="estado"]');
     if (!el) return;
     const n = await App.sincro.pendientes(), r = (await App.sincro.rechazadas()).length, err = App.sincro.ultimoError();
-    el.textContent = err === 'sesion' ? 'Entra de nuevo' : r ? r + ' sin poder subir' : n ? n + ' por subir' : 'Todo guardado en la nube';
-    el.className = 'estado' + (err === 'sesion' || n ? ' pendiente' : '') + (r ? ' rechazo' : '');
+    // Un icono pequeño de nube (y el número si hay algo por subir); el texto completo, para lectores y al pasar el ratón.
+    const texto = err === 'sesion' ? 'Entra de nuevo' : r ? r + ' sin poder subir' : n ? n + ' por subir' : 'Todo guardado en la nube';
+    const cual = err === 'sesion' || r ? 'nube_mal' : n ? 'nube_subir' : 'nube', cifra = r || n;
+    el.innerHTML = svgIcono(cual);
+    if (cifra && err !== 'sesion') el.append(h('span', { class: 'cifra', 'aria-hidden': 'true' }, String(cifra)));
+    el.append(h('span', { class: 'solo-lector' }, texto));
+    el.title = texto;
+    el.className = 'estado' + (err === 'sesion' || n ? ' pendiente' : '') + (r || err === 'sesion' ? ' rechazo' : '');
   },
 
   ir(hash) { location.hash = hash; },
@@ -76,7 +83,8 @@ const App = {
       h('header', {},
         atras ? h('a', { class: 'atras', href: atras, 'aria-label': 'Volver' }, '←') : null,
         h('b', { class: 'titulo' }, titulo),
-        botones && botones.length ? h('span', { class: 'botones-cab' }, ...botones) : null,
+        botones && botones.length ? h('span', { class: botones[0].classList.contains('boton-barra') ? 'barra-acciones' : 'botones-cab' }, ...botones) : null,
+        icono(h('button', { type: 'button', class: 'calc-boton', 'data-acc': 'abrir-calculadora', onclick: abrirCalculadora }), 'calculadora', 'Calculadora'),
         h('button', { type: 'button', 'data-acc': 'estado', class: 'estado', onclick: () => App.alTocarEstado() }, ''),
         pantalla === 'ajustes' ? null : h('a', { class: 'engranaje', href: '#/ajustes', 'data-acc': 'ajustes', 'aria-label': 'Ajustes' }, '⚙')),
       main);

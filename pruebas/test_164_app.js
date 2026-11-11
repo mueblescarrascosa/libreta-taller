@@ -20,7 +20,7 @@ prueba('planta de una pared: todos los nombres caben en el dibujo', async () => 
     const { vb, cajas } = await dibujar(a, PISO1);
     const fuera = cajas.filter(c => c.x < vb.x || c.y < vb.y || c.x + c.w > vb.x + vb.w || c.y + c.h > vb.y + vb.h).map(c => c.t);
     igual(fuera, []);
-    for (const t of ['E dcha 300', 'E general dcha 310', 'Toma termo dcha 315', 'Agua dcha 215']) afirma(cajas.some(c => c.t === t), 'falta ' + t + ': ' + cajas.map(c => c.t).join(' | '));
+    for (const t of ['E a 300 de dcha', 'E general a 310 de dcha', 'Toma termo a 315 de dcha', 'Agua a 215 de dcha']) afirma(cajas.some(c => c.t === t), 'falta ' + t + ': ' + cajas.map(c => c.t).join(' | '));
   } finally { await a.cerrar(); }
 });
 prueba('planta: nada pisa el largo de la pared ni el texto del azulejo', async () => {

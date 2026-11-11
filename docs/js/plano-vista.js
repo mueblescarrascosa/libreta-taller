@@ -1,7 +1,7 @@
 // Planta dibujada a partir de las paredes de la ficha: forma (del plano a mano o, si no hay, en ángulo recto),
 // largos a escala y cada elemento en su sitio según su distancia y su referencia.
 import { aEscala, comprobar, planoPorDefecto, letras } from './plano-geo.js';
-import { camposDeElemento, paredNueva, nombreElemento, USOS, textoAzulejo } from './modelo.js';
+import { camposDeElemento, paredNueva, nombreElemento, USOS, textoAzulejo, extraPilar } from './modelo.js';
 import { verMedida } from './unidades.js';
 import { nombreModulo, esColumna } from './modulos.js';
 
@@ -39,8 +39,14 @@ function planoDe(d) {
   return planoPorDefecto(paredes);
 }
 
-// Cota de un elemento tal como se midió: «100» desde la izquierda, «dcha 45» desde la derecha (mochetas en cm).
-const cotaDe = (e, unidad) => (hay(e.distancia) ? (e.ref === 'der' ? 'dcha ' : '') + verMedida(e.distancia, e.tipo === 'pilar' ? 'cm' : unidad) : null);
+// Cota de un elemento tal como se midió, diciendo desde dónde: «a 82 de B» (la pared de esa esquina)
+// o, si no hay pared al lado, «a 82 de izq» / «a 82 de dcha». Solo el número se confundía con el ancho.
+const cotaDe = (e, unidad, vecinas = {}, delPilar = false) => {
+  if (!hay(e.distancia)) return null;
+  if (delPilar) return 'a ' + verMedida(e.distancia, unidad) + ' del pilar';
+  const desde = e.ref === 'der' ? vecinas.der || 'dcha' : vecinas.izq || 'izq';
+  return 'a ' + verMedida(e.distancia, e.tipo === 'pilar' ? 'cm' : unidad) + ' de ' + desde;
+};
 
 export function geometriaPlanta(d, { margen = 10, unidad = 'cm' } = {}) {
   const plano = planoDe(d), vacio = { paredes: [], elementos: [], sinSituar: [], aEscala: false, cierre: null };
@@ -60,11 +66,15 @@ export function geometriaPlanta(d, { margen = 10, unidad = 'cm' } = {}) {
     const u = { x: (b.x - a.x) / (lon || 1), y: (b.y - a.y) / (lon || 1) }, dentro = { x: -u.y, y: u.x };
     const k = hay(L) && L > 0 ? lon / L : null;
     const en = s => ({ x: a.x + u.x * s * k, y: a.y + u.y * s * k });
+    // Paredes que tocan cada punta: la izquierda es el principio de la pared y la derecha el final.
+    const vecinas = { izq: i > 0 ? nombres[i - 1] : plano.cerrada ? nombres[m - 1] : null,
+      der: i < m - 1 ? nombres[i + 1] : plano.cerrada ? nombres[0] : null };
     (pared.elementos || []).forEach(e => {
-      const base = { tipo: e.tipo, etiqueta: etiqueta(e), corta: corta(e), cota: cotaDe(e, unidad), pared: letra, dentro };
+      const extra = extraPilar(d, pared, e);
+      const base = { tipo: e.tipo, etiqueta: etiqueta(e), corta: corta(e), cota: cotaDe(e, unidad, vecinas, extra > 0), pared: letra, dentro };
       if (k === null || !hay(e.distancia)) { geo.sinSituar.push(base); return; }
-      const c = camposDeElemento(e.tipo), ancho = c.ancho && hay(e.ancho) ? e.ancho : 0;
-      const s = e.ref === 'der' ? (c.punto === 'centro' || !ancho ? L - e.distancia : L - e.distancia - ancho) : e.distancia;
+      const c = camposDeElemento(e.tipo), ancho = c.ancho && hay(e.ancho) ? e.ancho : 0, dist = e.distancia + extra;
+      const s = e.ref === 'der' ? (c.punto === 'centro' || !ancho ? L - dist : L - dist - ancho) : dist;
       if (!ancho) {
         const w = ANCHO_APROX[e.tipo], r = Object.assign(base, { punto: en(s) });
         if (w) r.caja = [en(s - w / 2), en(s + w / 2)];

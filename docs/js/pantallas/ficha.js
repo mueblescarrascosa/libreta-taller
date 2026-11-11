@@ -2,7 +2,7 @@
 import { h, segmentado, tituloFicha, vivos, icono } from '../util.js';
 import { unidadDe } from '../unidades.js';
 import { avisos, camposDeElemento, elementoNuevo, paredNueva, puertaNueva, normalizarFicha, resumenPuerta, limpiarDatos, tieneInformacion,
-  TIPOS_ELEMENTO, NOMBRE_ELEMENTO, RAPIDAS_PUERTA, USOS, nombreElemento, tiposPuertaPara, otraHoja, anchoFijo } from '../modelo.js';
+  TIPOS_ELEMENTO, NOMBRE_ELEMENTO, RAPIDAS_PUERTA, USOS, nombreElemento, tiposPuertaPara, otraHoja, anchoFijo, pilarEnPunta } from '../modelo.js';
 import { duplicarFicha } from '../trabajos.js';
 import { campoMedida, campoEntero } from '../campos.js';
 import { verMedida } from '../unidades.js';
@@ -164,7 +164,21 @@ export async function pintarFicha(App, id) {
     } }, t));
     return botones;
   }
-  function elemento(e, lista, repintar) {
+  // Si en la punta desde la que se mide hay un pilar, se pregunta si la medida es desde la esquina o desde el pilar.
+  function medidoDesde(e, pared) {
+    const zona = h('div', { class: 'campo desde-pilar', 'data-acc': 'zona-desde' });
+    const pintar = () => {
+      const ancho = e.tipo === 'pilar' || !pared ? null : pilarEnPunta(d, pared, e.ref === 'der' ? 'der' : 'izq');
+      if (ancho === null) { zona.replaceChildren(); zona.hidden = true; return; }
+      zona.hidden = false;
+      zona.replaceChildren(h('label', { class: 'et' }, 'Medido desde (hay un pilar de ' + verMedida(ancho, 'cm') + ' cm en esa esquina)'),
+        segmentado({ acc: 'desde', opciones: [['esquina', 'Esquina'], ['pilar', 'Pilar']], valor: e.desde === 'pilar' ? 'pilar' : 'esquina',
+          alCambiar: v => { if (v === 'pilar') e.desde = 'pilar'; else delete e.desde; cambio(); } }));
+    };
+    pintar(); refrescos.push(() => { if (zona.isConnected) pintar(); });
+    return zona;
+  }
+  function elemento(e, lista, repintar, pared) {
     const c = camposDeElemento(e.tipo);
     // Las mochetas (pilares) se miden siempre en centímetros.
     const medida = (obj, k, etiqueta, extra) => medidaGeneral(obj, k, etiqueta, Object.assign(e.tipo === 'pilar' ? { unidad: 'cm' } : {}, extra));
@@ -175,6 +189,7 @@ export async function pintarFicha(App, id) {
       usosDe(e.tipo).length ? h('div', { class: 'chips usos' }, segmentadoChips(e)) : null,
       e.tipo === 'otro' || e.tipo === 'zona' ? h('input', { 'data-acc': 'nombre-elemento', placeholder: e.tipo === 'zona' ? '¿Qué zona? (campana, fregadero…)' : '¿Qué es?', value: e.nombre, oninput: ev => { e.nombre = ev.target.value; cambio(); } }) : null,
       h('div', { class: 'dos' }, medida(e, 'distancia', 'Distancia', refExtra), c.altura ? medida(e, 'altura', e.tipo === 'ventana' ? 'Alféizar (altura del suelo)' : 'Altura del suelo', { aviso: null }) : null),
+      medidoDesde(e, pared),
       c.ancho || c.alto || c.fondo ? h('div', { class: 'dos' },
         c.ancho ? medida(e, 'ancho', 'Ancho', { aviso: null }) : null,
         c.alto && !(e.tipo === 'zona' && e.techo) ? medida(e, 'alto', 'Alto', { aviso: null }) : null,
@@ -226,7 +241,7 @@ export async function pintarFicha(App, id) {
   }
   function pared(p, tipos, repintarTodo, udPared) {
     const zonaEl = h('div', {});
-    const repintar = () => { zonaEl.replaceChildren(...p.elementos.map(e => elemento(e, p.elementos, repintar))); refrescarAvisos(); };
+    const repintar = () => { zonaEl.replaceChildren(...p.elementos.map(e => elemento(e, p.elementos, repintar, p))); refrescarAvisos(); };
     repintar();
     const pilares = h('div', { class: 'campo' }, h('label', { class: 'et' }, '¿Mochetas o pilares?'),
       segmentado({ acc: 'pilares', opciones: SI_NO, valor: p.pilares ?? null, permitirVacio: true, alCambiar: v => {

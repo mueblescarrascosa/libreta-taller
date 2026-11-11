@@ -84,9 +84,9 @@ prueba('resumen de todo el trabajo con el recuento de puertas', con({}, async a 
   await a.page.click('[data-acc="resumen-trabajo"]'); await a.page.waitForSelector('[data-pantalla="resumen"]');
   const t = await texto(a, '.resumen-doc');
   afirma(/Puertas: 2/.test(t) && /2 de 82 × 203/.test(t) && /Llamar al pintor/.test(t), t);
-  await a.page.evaluate(() => { navigator.share = async o => { window.__txt = o.text; }; });
-  await a.page.click('[data-acc="enviar-texto"]'); await a.page.waitForFunction(() => window.__txt);
-  const x = await a.page.evaluate(() => window.__txt); afirma(x.includes('*Puertas: 2*') && x.includes('Llamar al pintor'), x);
+  await a.page.evaluate(() => { window.open = u => { window.__url = u; }; });
+  await a.page.click('[data-acc="enviar-texto"]'); await a.page.waitForFunction(() => window.__url);
+  const x = await a.page.evaluate(() => decodeURIComponent(window.__url)); afirma(x.includes('*Puertas: 2*') && x.includes('Llamar al pintor'), x);
 }));
 
 // ── Mejora 2: Google Maps (el teléfono va con la columna nueva) ──
