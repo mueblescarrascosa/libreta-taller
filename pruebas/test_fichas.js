@@ -8,6 +8,7 @@ const nueva = async (a, tipo, subtipo, unidad) => {
   await a.page.click('[data-acc="tipo"][data-v="' + tipo + '"]');
   if (subtipo) await a.page.click('[data-acc="subtipo"][data-v="' + subtipo + '"]');
   await a.page.waitForSelector('[data-pantalla="ficha"]');
+  if (tipo === 'puerta') await a.page.click('[data-acc="medida-de"][data-v="puerta"]');
 };
 const recargar = async a => { await a.page.waitForTimeout(400); await a.page.reload(); await a.page.waitForSelector('[data-pantalla="ficha"]'); };
 const val = (a, sel) => a.page.inputValue(sel);
@@ -270,7 +271,7 @@ prueba('una ficha sin nada se descarta al salir; con algo se queda', con({}, asy
   await nueva(a, 'nota'); await a.page.evaluate(() => history.back()); await a.page.waitForSelector('[data-pantalla="trabajo"]');
   await a.page.waitForTimeout(200); igual((await a.page.$$('[data-acc="abrir-ficha"]')).length, 0, 'quedó la nota vacía');
   await a.page.click('[data-acc="tipo"][data-v="puerta"]'); await a.page.waitForSelector('[data-puerta]');
-  await a.page.click(P + '[data-c="ancho"] [data-acc="rapido"][data-v="820"]');
+  await a.page.click(P + '[data-c="ancho"] [data-acc="rapido"][data-v="900"]');
   await a.page.evaluate(() => history.back()); await a.page.waitForSelector('[data-pantalla="trabajo"]'); await a.page.waitForTimeout(200);
   igual((await a.page.$$('[data-acc="abrir-ficha"]')).length, 1);
 }));

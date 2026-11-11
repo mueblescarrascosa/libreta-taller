@@ -11,7 +11,7 @@ const nueva = async (a, tipo) => { await irInicio(a); await crearTrabajo(a, 'Cas
 prueba('añadir un ancho de puerta lo pone como botón rápido', con({}, async a => {
   await irAjustes(a); igual(await lista(a, 'puerta_anchos'), ['920', '820', '720', '620']);
   await anadir(a, 'puerta_anchos', '85'); igual(await lista(a, 'puerta_anchos'), ['920', '820', '720', '620', '850']);
-  await nueva(a, 'puerta');
+  await nueva(a, 'puerta'); await a.page.click('[data-acc="medida-de"][data-v="puerta"]');
   igual(await a.page.$$eval('[data-puerta].abierta [data-c="ancho"] [data-acc="rapido"]', b => b.map(x => x.dataset.v)), ['920', '820', '720', '620', '850']);
 }));
 prueba('quitar, subir y volver a los de fábrica', con({}, async a => {

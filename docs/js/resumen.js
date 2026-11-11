@@ -77,6 +77,7 @@ export function bloquesResumen({ ficha, trabajo, ajustes }) {
   if (ficha.tipo === 'puerta') {
     const mc = unir([hay(d.modelo) ? 'Modelo: ' + d.modelo : null, hay(d.color) ? 'Color: ' + d.color : null]);
     if (mc) cab.push(mc);
+    cab.push(d.medida === 'premarco' ? 'Medidas de premarco' : 'Medidas de puerta');
     (d.puertas || []).forEach((p, i) => cab.push((i + 1) + '. ' + (p.nombre || 'Puerta ' + (i + 1)) + ': ' + resumenPuerta(p, u)));
     bloques.push(cab);
   } else if (ficha.tipo === 'cocina' || ficha.subtipo === 'vestidor') {

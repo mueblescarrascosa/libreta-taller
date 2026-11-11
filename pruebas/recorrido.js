@@ -20,6 +20,7 @@ try {
   toques = 0;
   await toca('[data-acc="tipo"][data-v="puerta"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
   await foto('puertas_nueva');
+  await toca('[data-acc="medida-de"][data-v="puerta"]');
   const P = '[data-puerta].abierta ';
   await toca(P + '[data-c="ancho"] [data-acc="rapido"][data-v="820"]');
   await toca(P + '[data-c="alto"] [data-acc="rapido"][data-v="2030"]');

@@ -76,11 +76,12 @@ export function trabajosARecuperar(trabajos, fichas) {
 
 // Recuento de todas las puertas de un trabajo, agrupadas por medida, para el pedido.
 export function recuentoPuertas(fichas, unidad) {
-  const puertas = fichas.map(normalizarFicha).filter(f => f.tipo === 'puerta').flatMap(f => f.datos.puertas || []);
+  const puertas = fichas.map(normalizarFicha).filter(f => f.tipo === 'puerta').flatMap(f => (f.datos.puertas || []).map(p => (f.datos.medida === 'premarco' ? Object.assign({}, p, { medida: 'premarco' }) : p)));
   const v = mm => verMedida(mm, unidad), grupos = new Map();
   // Con paño fijo cuenta el ancho de la puerta, no el del hueco entero.
   puertas.map(p => (p.fijo ? Object.assign({}, p, { ancho: anchoPuerta(p) }) : p)).forEach(p => {
-    const k = hay(p.ancho) && hay(p.alto) ? 'de ' + v(p.ancho) + ' × ' + v(p.alto) : hay(p.ancho) ? 'de ' + v(p.ancho) + ' de ancho' : hay(p.alto) ? 'de ' + v(p.alto) + ' de alto' : 'sin medidas';
+    let k = hay(p.ancho) && hay(p.alto) ? 'de ' + v(p.ancho) + ' × ' + v(p.alto) : hay(p.ancho) ? 'de ' + v(p.ancho) + ' de ancho' : hay(p.alto) ? 'de ' + v(p.alto) + ' de alto' : 'sin medidas';
+    if (p.medida === 'premarco' && k !== 'sin medidas') k += ' (premarco)';
     grupos.set(k, (grupos.get(k) || 0) + 1);
   });
   const lineas = [...grupos].sort((a, b) => (a[0] === 'sin medidas') - (b[0] === 'sin medidas') || b[1] - a[1]).map(([k, n]) => n + ' ' + k);
@@ -104,7 +105,7 @@ export function duplicarFicha(ficha, trabajoId) {
     return v;
   };
   const f = normalizarFicha(ficha);
-  return { id: crypto.randomUUID(), trabajo_id: trabajoId, tipo: f.tipo, subtipo: f.subtipo || null, nombre: tituloFicha(f) + ' (copia)',
+  return { id: crypto.randomUUID(), trabajo_id: trabajoId, tipo: f.tipo, subtipo: f.subtipo || null, nombre: (f.nombre || tituloFicha(f)) + ' (copia)',
     datos: nuevosIds(JSON.parse(JSON.stringify(f.datos))), creado_at: new Date().toISOString(), updated_at: null, borrado_at: null };
 }
 

@@ -53,7 +53,7 @@ prueba('recuento de puertas agrupa por medida', () => {
     puertas({ ancho: 820, alto: 2030, mano: 'izq', vidriera: true }, {}),
   ], 'cm');
   igual(r.total, 5);
-  igual(r.lineas, ['3 de 82 × 203', '1 de 72 × 203', '1 sin medidas', 'Abren a la izquierda: 2 · a la derecha: 1', 'Con condena: 1', 'Con vidriera: 2', 'Correderas: 1']);
+  igual(r.lineas, ['3 de 82 × 203 (premarco)', '1 de 72 × 203 (premarco)', '1 sin medidas', 'Abren a la izquierda: 2 · a la derecha: 1', 'Con condena: 1', 'Con vidriera: 2', 'Correderas: 1']);
 });
 
 // ── Duplicar ──

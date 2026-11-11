@@ -2,7 +2,7 @@ import { prueba, afirma, igual, fin } from './mini.js';
 import { abrir, entrar, crearTrabajo } from './arnes.js';
 
 const con = (op, fn) => async () => { const a = await abrir(op); try { await entrar(a); await fn(a); igual(a.errores, [], 'errores de página'); } finally { await a.cerrar(); } };
-const nueva = async (a, tipo) => { await crearTrabajo(a, 'Reforma Sol'); await a.page.fill('[data-acc="cliente"]', 'Juan'); await a.page.click('[data-acc="tipo"][data-v="' + tipo + '"]'); await a.page.waitForSelector('[data-pantalla="ficha"]'); };
+const nueva = async (a, tipo) => { await crearTrabajo(a, 'Reforma Sol'); await a.page.fill('[data-acc="cliente"]', 'Juan'); await a.page.click('[data-acc="tipo"][data-v="' + tipo + '"]'); await a.page.waitForSelector('[data-pantalla="ficha"]'); if (tipo === 'puerta') await a.page.click('[data-acc="medida-de"][data-v="puerta"]'); };
 const P = '[data-puerta].abierta ';
 const terminar = async a => { await a.page.click('[data-acc="terminar"]'); await a.page.waitForSelector('[data-pantalla="resumen"]'); };
 

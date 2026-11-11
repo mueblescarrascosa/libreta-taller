@@ -1,7 +1,7 @@
 // Una ficha: sus huecos según el tipo y, en todas, medidas libres, notas, croquis y fotos.
 import { h, segmentado, tituloFicha, vivos, icono } from '../util.js';
 import { unidadDe } from '../unidades.js';
-import { CORTO_ELEMENTO, HUMOS_DIAMETROS, HUMOS_RECTANGULARES, islaNueva, avisos, camposDeElemento, elementoNuevo, paredNueva, puertaNueva, normalizarFicha, resumenPuerta, limpiarDatos, tieneInformacion,
+import { nombrarPuerta, CORTO_ELEMENTO, HUMOS_DIAMETROS, HUMOS_RECTANGULARES, islaNueva, avisos, camposDeElemento, elementoNuevo, paredNueva, puertaNueva, normalizarFicha, resumenPuerta, limpiarDatos, tieneInformacion,
   TIPOS_ELEMENTO, NOMBRE_ELEMENTO, RAPIDAS_PUERTA, USOS, nombreElemento, tiposPuertaPara, otraHoja, anchoFijo, pilarEnPunta } from '../modelo.js';
 import { duplicarFicha } from '../trabajos.js';
 import { campoMedida, campoEntero } from '../campos.js';
@@ -77,6 +77,15 @@ export async function pintarFicha(App, id) {
   const siNo = (obj, k, etiqueta) => h('div', { class: 'campo' }, h('label', { class: 'et' }, etiqueta),
     segmentado({ acc: k, opciones: SI_NO, valor: obj[k], permitirVacio: true, alCambiar: v => { obj[k] = v; cambio(); } }));
 
+  // Ficha de puertas con nombre de zona (varias en un trabajo: Piso 1, Piso 2, Bajo…), con botones rápidos.
+  function nombreZona() {
+    const input = h('input', { 'data-acc': 'nombre-ficha', placeholder: 'Zona (Piso 1, Bajo, Casa…)', value: ficha.nombre, oninput: ev => { ficha.nombre = ev.target.value; cambio(); } });
+    return h('div', { class: 'campo' }, input,
+      h('div', { class: 'chips' }, ['Bajo', 'Piso 1', 'Piso 2', 'Piso 3', 'Ático'].map(z => h('button', { type: 'button', 'data-acc': 'zona-rapida', 'data-v': z,
+        onclick: () => { ficha.nombre = z; input.value = z; cambio(); } }, z))));
+  }
+  const premarco = () => d.medida === 'premarco';
+  let repintarPuertas = () => {};
   // ── Puertas: varias por ficha; solo una abierta, las demás en una línea ──
   function puertas() {
     const zona = h('div', { class: 'lista' });
@@ -89,9 +98,12 @@ export async function pintarFicha(App, id) {
             if (!confirmarQuitar(nombre(p, i).toLowerCase())) return;
             d.puertas.splice(d.puertas.indexOf(p), 1); abierta = null; cambio(); repintar();
           } }, 'Quitar')),
-        h('input', { 'data-acc': 'nombre-puerta', placeholder: 'Nombre (por ejemplo, Dormitorio 1)', value: p.nombre, oninput: ev => { p.nombre = ev.target.value; cambio(); } }),
-        medida(p, 'ancho', 'Ancho', { rapidos: AJ.puerta_anchos, aviso: null }),
-        medida(p, 'alto', 'Alto', { rapidos: AJ.puerta_altos, aviso: null }),
+        h('input', { 'data-acc': 'nombre-puerta', placeholder: 'Nombre (o déjalo: Puerta ' + (i + 1) + ')', value: p.nombre, oninput: ev => { p.nombre = ev.target.value; cambio(); } }),
+        // Nombres rápidos: si se repite uno, se numeran solos.
+        h('div', { class: 'chips nombres-rapidos' }, AJ.nombres_puerta.map(([, t]) => h('button', { type: 'button', 'data-acc': 'nombre-rapido', 'data-v': t,
+          onclick: () => { nombrarPuerta(d.puertas, p, t); cambio(); repintar(); } }, t))),
+        medida(p, 'ancho', premarco() ? 'Ancho del premarco' : 'Ancho', { rapidos: premarco() ? AJ.premarco_anchos : AJ.puerta_anchos, aviso: null }),
+        medida(p, 'alto', premarco() ? 'Alto del premarco' : 'Alto', { rapidos: premarco() ? AJ.premarco_altos : AJ.puerta_altos, aviso: null }),
         medida(p, 'tabique', 'Tabique', { rapidos: AJ.puerta_tabiques, aviso: null }),
         h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Tipo'),
           segmentado({ acc: 'tipo-puerta', opciones: tiposPuertaPara(p), valor: p.tipo || null, permitirVacio: true, alCambiar: v => { p.tipo = v; if (v === 'doble' || v === 'corredera') quitarFijo(p); cambio(); repintar(); } })),
@@ -136,15 +148,17 @@ export async function pintarFicha(App, id) {
       return n;
     }
     function resumen(p, i) {
-      return h('div', { class: 'tarjeta', 'data-puerta': '' },
+      return h('div', { class: 'tarjeta puerta-cerrada', 'data-puerta': '' },
         h('button', { type: 'button', class: 'resumen', 'data-acc': 'abrir-puerta', onclick: () => { abierta = p.id; repintar(); } },
           h('b', {}, nombre(p, i)), h('small', {}, resumenPuerta(p, unidad))),
+        i > 0 ? h('button', { type: 'button', class: 'mini', 'data-acc': 'subir-puerta', 'aria-label': 'Subir', title: 'Subir', onclick: () => { [d.puertas[i - 1], d.puertas[i]] = [d.puertas[i], d.puertas[i - 1]]; cambio(); repintar(); } }, '↑') : null,
         h('div', { class: 'avisos', 'data-avisos': 'puerta.' + p.id }));
     }
     function repintar() {
       zona.replaceChildren(...d.puertas.map((p, i) => (p.id === abierta ? editor : resumen)(p, i)));
       refrescarAvisos();
     }
+    repintarPuertas = repintar;
     repintar();
     return [h('h2', {}, 'Puertas'), zona,
       h('button', { type: 'button', class: 'prin ancho', 'data-acc': 'anadir-puerta', onclick: () => {
@@ -524,7 +538,12 @@ export async function pintarFicha(App, id) {
   }
 
   function propios() {
-    if (ficha.tipo === 'puerta') return [h('div', { class: 'tarjeta' }, h('b', {}, 'Para todas las puertas'), h('div', { class: 'dos' }, texto(d, 'modelo', 'puertas-modelo', 'Modelo'), texto(d, 'color', 'puertas-color', 'Color'))), ...puertas()];
+    if (ficha.tipo === 'puerta') return [h('div', { class: 'tarjeta' }, h('b', {}, 'Para todas las puertas'),
+      // Se suele medir el premarco; si aún no está puesto, la puerta.
+      h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Se mide'),
+        segmentado({ acc: 'medida-de', opciones: [['premarco', 'Premarco'], ['puerta', 'Puerta']], valor: d.medida === 'premarco' ? 'premarco' : 'puerta',
+          alCambiar: v => { d.medida = v; cambio(); repintarPuertas(); } })),
+      h('div', { class: 'dos' }, texto(d, 'modelo', 'puertas-modelo', 'Modelo'), texto(d, 'color', 'puertas-color', 'Color'))), ...puertas()];
     if (ficha.tipo === 'cocina') return [...paredes(TIPOS_ELEMENTO.cocina), ...islas(), plegable('acabados', 'Acabados', acabados(), resumenAcabados), plegable('electro', 'Electrodomésticos', electro(), resumenElectro)];
     if (ficha.tipo === 'armario') {
       // El vestidor se mide por paredes: el hueco y la lista general de cuerpos solo se ven si ya tenía datos de antes.
@@ -588,7 +607,7 @@ export async function pintarFicha(App, id) {
   repintarLibres();
   main.append(
     general,
-    ...(ficha.tipo === 'puerta' ? [] : [h('input', { 'data-acc': 'nombre-ficha', placeholder: 'Nombre', value: ficha.nombre, oninput: ev => { ficha.nombre = ev.target.value; cambio(); } })]),
+    ...(ficha.tipo === 'puerta' ? [nombreZona()] : [h('input', { 'data-acc': 'nombre-ficha', placeholder: 'Nombre', value: ficha.nombre, oninput: ev => { ficha.nombre = ev.target.value; cambio(); } })]),
     ...propios(), tituloLibres, zonaLibres, ...notas(),
     ...adjuntos.nodos,
     // Lo que se puede añadir a cualquier ficha, en una sola fila.

@@ -16,6 +16,9 @@ export const TIPOS_ELEMENTO = {
 export const AJUSTES_FABRICA = {
   unidad: 'mm', paredes_m: true, margen: 10,
   puerta_anchos: [920, 820, 720, 620], puerta_altos: [2030, 2110], puerta_tabiques: [70, 90, 110],
+  // Medida de premarco (orientativas: se ajustan en Ajustes).
+  premarco_anchos: [1000, 900, 800, 700], premarco_altos: [2100, 2150],
+  nombres_puerta: [['entrada', 'Entrada'], ['salon', 'Salón'], ['cocina', 'Cocina'], ['aseo', 'Aseo'], ['bano', 'Baño'], ['habitacion', 'Habitación'], ['despacho', 'Despacho'], ['terraza', 'Terraza']],
   modulo_anchos: [300, 400, 450, 500, 600, 800, 900, 1000, 1200],
   usos_toma: [['agua', 'Agua'], ['termo', 'Termo'], ['gas', 'Gas']],
   usos_enchufe: [['general', 'General'], ['hmo', 'H/MO (columna)'], ['placa', 'Placa'], ['campana', 'Campana'], ['frigo', 'Frigorífico'], ['lavavajillas', 'Lavavajillas'], ['lavadora', 'Lavadora'], ['termo', 'Termo']],
@@ -34,8 +37,8 @@ export function mezclarAjustes(g) {
   if (['mm', 'cm'].includes(d.unidad)) a.unidad = d.unidad;
   if (typeof d.paredes_m === 'boolean') a.paredes_m = d.paredes_m;
   if (Number.isInteger(d.margen) && d.margen > 0) a.margen = d.margen;
-  ['puerta_anchos', 'puerta_altos', 'puerta_tabiques', 'modulo_anchos'].forEach(k => { if (listaNumeros(d[k])) a[k] = copiar(d[k]); });
-  ['usos_toma', 'usos_enchufe', 'lineales', 'interiores'].forEach(k => { if (listaPares(d[k])) a[k] = copiar(d[k]); });
+  ['puerta_anchos', 'puerta_altos', 'puerta_tabiques', 'modulo_anchos', 'premarco_anchos', 'premarco_altos'].forEach(k => { if (listaNumeros(d[k])) a[k] = copiar(d[k]); });
+  ['usos_toma', 'usos_enchufe', 'lineales', 'interiores', 'nombres_puerta'].forEach(k => { if (listaPares(d[k])) a[k] = copiar(d[k]); });
   return a;
 }
 
@@ -94,7 +97,7 @@ export function camposDeElemento(tipo) {
 }
 
 // Lo que no es información: identificadores, letras de pared y referencias por defecto.
-const SIN_INFO = new Set(['id', 'letra', 'ref', 'ref_ultima', 'paredes_m']);
+const SIN_INFO = new Set(['id', 'letra', 'ref', 'ref_ultima', 'paredes_m', 'medida']);
 
 // ¿Hay algo apuntado? Cuenta cualquier texto, número, sí/no o elemento añadido.
 export function tieneInformacion(v, clave) {
@@ -127,7 +130,17 @@ const CAMPOS_PUERTA = ['ancho', 'alto', 'tabique', 'mano', 'condena', 'vidriera'
 
 // En un mismo piso el tabique suele repetirse: la puerta nueva lo copia de la anterior.
 export function puertaNueva(anterior) {
-  return { id: id(), nombre: '', tipo: null, ancho: null, alto: null, tabique: anterior ? anterior.tabique ?? null : null, mano: null, condena: null, vidriera: null };
+  const p = { id: id(), nombre: '', tipo: null, ancho: null, alto: null, tabique: anterior ? anterior.tabique ?? null : null, mano: null, condena: null, vidriera: null };
+  return p;
+}
+// Nombre rápido con número si se repite: la segunda «Habitación» pasa a «Habitación 2» y la primera a «Habitación 1».
+export function nombrarPuerta(puertas, p, base) {
+  const otras = puertas.filter(x => x !== p), mismo = new RegExp('^' + base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '( \\d+)?$');
+  const iguales = otras.filter(x => mismo.test(x.nombre || ''));
+  if (!iguales.length) { p.nombre = base; return; }
+  iguales.forEach(x => { if (x.nombre === base) x.nombre = base + ' 1'; });
+  const usados = iguales.map(x => Number((x.nombre.match(/ (\d+)$/) || [])[1]) || 1);
+  p.nombre = base + ' ' + (Math.max(...usados) + 1);
 }
 // Tipo de puerta: la abatible de una hoja es la normal y no se repite en los resúmenes.
 // «fija» era un tipo antiguo: ya no se ofrece (el paño fijo es un añadido de la puerta), pero se sigue enseñando si estaba puesto.
@@ -170,7 +183,8 @@ export function normalizarFicha(f) {
 
 export function resumenPuerta(p, unidad) {
   const t = [], v = mm => verMedida(mm, unidad);
-  if (hay(p.ancho) && hay(p.alto)) t.push(v(p.ancho) + ' × ' + v(p.alto) + ' ' + unidad);
+  const pre = p.medida === 'premarco' ? ' (premarco)' : '';
+  if (hay(p.ancho) && hay(p.alto)) t.push(v(p.ancho) + ' × ' + v(p.alto) + ' ' + unidad + pre);
   else if (hay(p.ancho)) t.push('ancho ' + v(p.ancho) + ' ' + unidad);
   else if (hay(p.alto)) t.push('alto ' + v(p.alto) + ' ' + unidad);
   if (hay(p.tabique)) t.push('tabique ' + v(p.tabique));
@@ -184,7 +198,7 @@ export function resumenPuerta(p, unidad) {
 
 function datosDe(tipo, subtipo) {
   const c = { libres: [], notas: [], ref_ultima: 'izq' };
-  if (tipo === 'puerta') return Object.assign(c, { modelo: '', color: '', puertas: [puertaNueva(null)] });
+  if (tipo === 'puerta') return Object.assign(c, { modelo: '', color: '', medida: 'premarco', puertas: [puertaNueva(null)] });
   if (tipo === 'cocina') return Object.assign(c, { alto_techo: null, acabados: acabadosNuevos(), paredes: [paredNueva([])] });
   if (tipo === 'armario') {
     Object.assign(c, { ancho_arriba: null, ancho_medio: null, ancho_abajo: null, alto_izq: null, alto_der: null, fondo: null, rodapie_alto: null, rodapie_grosor: null, enchufes: [], cuerpos: [] });

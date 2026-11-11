@@ -1,5 +1,5 @@
 // Resumen de una ficha terminada, o de un trabajo entero: presentación limpia para ver, imprimir o enviar (PDF o texto por WhatsApp).
-import { h, tituloFicha, vivos, botonBarra } from '../util.js';
+import { h, tituloFicha, vivos, botonBarra, NOMBRE_TIPO } from '../util.js';
 import { verMedida } from '../unidades.js';
 import { normalizarFicha, textoTipoPuerta, nombreElemento, extraPilar, tamanoHumos } from '../modelo.js';
 import { EMPRESA, COPYRIGHT } from '../config.js';
@@ -57,15 +57,31 @@ function tablaInstalaciones(d, u) {
       h('tbody', {}, filas.map(f => h('tr', {}, f.map(t => h('td', {}, t)))))));
 }
 
+// Puertas en una tabla compacta: ancho × alto juntos, condena y vidriera como C y V, y sin las columnas que nadie usa.
+function tablaPuertas(puertas, u, dePremarco) {
+  const medida = p => (p.ancho != null || p.alto != null ? [v(p.ancho, u) || '?', v(p.alto, u) || '?'].join(' × ') + (p.medida === 'premarco' ? ' P' : '') : '');
+  const cols = [
+    ['Puerta', (p, i) => p.nombre || 'Puerta ' + (i + 1)],
+    [dePremarco ? 'Premarco' : 'Medida', medida],
+    ['Tab.', p => v(p.tabique, u)],
+    ['Tipo', p => mayus(textoTipoPuerta(p, u))],
+    ['Abre', p => (p.mano === 'izq' ? 'Izq.' : p.mano === 'der' ? 'Dcha.' : '')],
+    ['C/V', p => [p.condena ? 'C' : '', p.vidriera ? 'V' : ''].filter(Boolean).join(' ')],
+  ].filter(([t, f], k) => k < 2 || puertas.some((p, i) => f(p, i)));
+  const leyenda = [(dePremarco ? 'Medidas de premarco' : 'Medidas de puerta') + ', en ' + u];
+  if (puertas.some(p => p.medida === 'premarco')) leyenda.push('P = medida de premarco');
+  if (cols.some(c => c[0] === 'C/V')) leyenda.push('C = condena · V = vidriera');
+  return [h('table', { class: 'tabla-puertas' }, h('thead', {}, h('tr', {}, cols.map(c => h('th', {}, c[0])))),
+    h('tbody', {}, puertas.map((p, i) => h('tr', {}, cols.map(c => h('td', {}, c[1](p, i))))))),
+  h('p', { class: 'nota-ud' }, leyenda.join(' · '))];
+}
+
 // Lo de una ficha: título, tabla de puertas, planta, el resto en bloques y las fotos.
 async function nodosFicha(App, ficha, trabajo, AJ) {
   const d = ficha.datos, { u } = unidadesDe(ficha, trabajo, AJ), nodos = [h('h2', {}, tituloFicha(ficha))];
   if (ficha.tipo === 'puerta') {
     if (d.modelo || d.color) nodos.push(h('p', {}, [d.modelo && 'Modelo: ' + d.modelo, d.color && 'Color: ' + d.color].filter(Boolean).join(' · ')));
-    nodos.push(h('table', {}, h('thead', {}, h('tr', {}, ['Puerta', 'Ancho', 'Alto', 'Tabique', 'Tipo', 'Abre', 'Condena', 'Vidriera'].map(t => h('th', {}, t)))),
-      h('tbody', {}, (d.puertas || []).map((p, i) => h('tr', {}, [p.nombre || 'Puerta ' + (i + 1), v(p.ancho, u), v(p.alto, u), v(p.tabique, u), mayus(textoTipoPuerta(p, u)),
-        p.mano === 'izq' ? 'Izquierda' : p.mano === 'der' ? 'Derecha' : '', siNo(p.condena), siNo(p.vidriera)].map(t => h('td', {}, t)))))),
-    h('p', { class: 'nota-ud' }, 'Medidas en ' + u));
+    nodos.push(...tablaPuertas(d.puertas || [], u, d.medida === 'premarco'));
   }
   if ((d.paredes || []).length) {
     const g = geometriaPlanta(d, { margen: AJ.margen, unidad: u });
@@ -156,13 +172,31 @@ export async function pintarResumenTrabajo(App, id) {
   const AJ = App.ajustes(), u = trabajo.unidad || AJ.unidad;
   const fichas = vivos(await App.almacen.todos('fichas')).filter(f => f.trabajo_id === id)
     .sort((a, b) => String(a.creado_at).localeCompare(String(b.creado_at))).map(normalizarFicha);
-  const aviso = h('p', { class: 'aviso-resumen' }), doc = h('article', { class: 'resumen-doc' }, cabecera(trabajo));
+  const aviso = h('p', { class: 'aviso-resumen' }), doc = h('article', { class: 'resumen-doc' });
+  // Qué fichas van (todas al principio): lo marcado es lo que se ve, se imprime y se envía.
+  const sel = new Set(fichas.map(f => f.id)), elegidas = () => fichas.filter(f => sel.has(f.id));
   const main = App.marco('resumen', 'Resumen del trabajo', '#/trabajo/' + id,
-    acciones({ doc, titulo: tituloLargo(trabajo.nombre ? trabajo : Object.assign({}, trabajo, { nombre: 'Trabajo' }), 'Medidas'), aviso, texto: () => textoTrabajo({ trabajo, fichas, ajustes: AJ }), editar: () => App.ir('#/trabajo/' + id) }));
-  const r = recuentoPuertas(fichas, u);
-  if (r.total) doc.append(h('section', { class: 'recuento' }, h('p', { class: 'tit' }, h('b', {}, 'Puertas: ' + r.total)), ...r.lineas.map(t => h('p', {}, t))));
-  for (const f of fichas) doc.append(h('div', { class: 'ficha-resumen' }, ...(await nodosFicha(App, f, trabajo, AJ))));
-  if (!fichas.length) doc.append(h('p', { class: 'vacio' }, 'Este trabajo aún no tiene fichas.'));
-  doc.append(h('footer', {}, COPYRIGHT));
-  main.append(aviso, doc);
+    acciones({ doc, titulo: tituloLargo(trabajo.nombre ? trabajo : Object.assign({}, trabajo, { nombre: 'Trabajo' }), 'Medidas'), aviso, texto: () => textoTrabajo({ trabajo, fichas: elegidas(), ajustes: AJ }), editar: () => App.ir('#/trabajo/' + id) }));
+  async function pintarDoc() {
+    const lista = elegidas(), r = recuentoPuertas(lista, u), partes = [cabecera(trabajo)];
+    if (r.total) partes.push(h('section', { class: 'recuento' }, h('p', { class: 'tit' }, h('b', {}, 'Puertas: ' + r.total)), ...r.lineas.map(t => h('p', {}, t))));
+    for (const f of lista) partes.push(h('div', { class: 'ficha-resumen' }, ...(await nodosFicha(App, f, trabajo, AJ))));
+    if (!lista.length) partes.push(h('p', { class: 'vacio' }, fichas.length ? 'No has marcado ninguna ficha.' : 'Este trabajo aún no tiene fichas.'));
+    partes.push(h('footer', {}, COPYRIGHT));
+    doc.replaceChildren(...partes);
+  }
+  const zonaSel = h('div', { class: 'elegir-fichas' });
+  function pintarSel() {
+    const tipos = [...new Set(fichas.map(f => f.tipo))];
+    const chip = (acc, v, texto, on, alTocar, tipo) => h('button', { type: 'button', 'data-acc': acc, 'data-v': v, 'data-tipo': tipo || '', class: on ? 'on' : '', onclick: async () => { alTocar(); pintarSel(); await pintarDoc(); } }, texto);
+    zonaSel.replaceChildren(
+      h('small', { class: 'et' }, 'Qué va en el resumen:'),
+      h('div', { class: 'chips' },
+        chip('elegir-todo', 'todo', 'Todo', sel.size === fichas.length, () => fichas.forEach(f => sel.add(f.id))),
+        ...(tipos.length > 1 ? tipos.map(t => chip('elegir-tipo', t, 'Solo ' + NOMBRE_TIPO[t].toLowerCase(), fichas.every(f => sel.has(f.id) === (f.tipo === t)), () => { sel.clear(); fichas.filter(f => f.tipo === t).forEach(f => sel.add(f.id)); }, t)) : [])),
+      h('div', { class: 'chips' }, fichas.map(f => chip('elegir-ficha', f.id, (sel.has(f.id) ? '✓ ' : '') + tituloFicha(f), sel.has(f.id), () => { if (sel.has(f.id)) sel.delete(f.id); else sel.add(f.id); }, f.tipo))));
+  }
+  if (fichas.length > 1) pintarSel();
+  await pintarDoc();
+  main.append(zonaSel, aviso, doc);
 }

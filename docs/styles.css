@@ -50,6 +50,18 @@ details.plegable > .tarjeta, details.plegable > .lista, details.plegable > div {
 .tipos button[data-v="nota"] { border-left: 4px solid #6b7280; }
 .tipos { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .tipos button { min-height: 44px; padding: 6px 4px; font-size: 14.5px; }
+.resumen-doc .tabla-puertas { font-size: 13px; }
+.resumen-doc .tabla-puertas th, .resumen-doc .tabla-puertas td { padding: 6px 5px; vertical-align: top; }
+.resumen-doc .tabla-puertas td:nth-child(2) { white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 600; }
+.resumen-doc .tabla-puertas td:first-child { font-weight: 600; }
+.resumen-doc .tabla-puertas tbody tr:nth-child(even) { background: #fbf7ee; }
+.elegir-fichas { margin-bottom: 10px; display: grid; gap: 6px; }
+.elegir-fichas .chips button.on { background: var(--oscuro); border-color: var(--oscuro); color: #fff; }
+@media print { .elegir-fichas { display: none !important; } }
+.tarjeta.puerta-cerrada { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tarjeta.puerta-cerrada > .resumen { flex: 1 1 0; min-width: 0; }
+.tarjeta.puerta-cerrada > .avisos { flex-basis: 100%; }
+.nombres-rapidos button { min-height: 32px; padding: 2px 9px; font-size: 13px; }
 .enlace-fijo { justify-self: start; align-self: flex-start; }
 header:has(.barra-acciones) { flex-wrap: wrap; row-gap: 4px; }
 .barra-acciones { order: 9; flex: 1 0 100%; display: flex; justify-content: space-around; gap: 4px; border-top: 1px solid rgba(255,255,255,.15); padding-top: 4px; }
