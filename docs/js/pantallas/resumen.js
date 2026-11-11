@@ -34,7 +34,7 @@ async function nodosFicha(App, ficha, trabajo, AJ) {
     h('p', { class: 'nota-ud' }, 'Medidas en ' + u));
   }
   if ((d.paredes || []).length) {
-    const g = geometriaPlanta(d, { margen: AJ.margen });
+    const g = geometriaPlanta(d, { margen: AJ.margen, unidad: u });
     if (g.paredes.length) nodos.push(h('div', { class: 'planta-resumen' }, svgPlanta(g)));
   }
   // El resto, con los mismos bloques que el texto de WhatsApp (sin la cabecera del trabajo ni el título).

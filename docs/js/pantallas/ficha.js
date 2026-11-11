@@ -160,7 +160,7 @@ export async function pintarFicha(App, id) {
     // Planta dibujada con las medidas: se rehace con cada cambio.
     const zonaPlanta = h('div', { class: 'zona-planta' });
     pintarPlanta = () => {
-      const g = geometriaPlanta(d, { margen: AJ.margen }), hijos = [];
+      const g = geometriaPlanta(d, { margen: AJ.margen, unidad }), hijos = [];
       if (g.paredes.length) hijos.push(svgPlanta(g));
       if (g.paredes.length && !g.aEscala) hijos.push(h('small', { class: 'ayuda' }, 'Sin escala: faltan largos o las medidas no cierran.'));
       if (g.sinSituar.length) hijos.push(h('small', { class: 'ayuda', 'data-acc': 'sin-situar' }, 'Sin situar (falta la distancia o el largo de su pared): ' + g.sinSituar.map(e => e.etiqueta + ' en ' + e.pared).join(', ') + '.'));

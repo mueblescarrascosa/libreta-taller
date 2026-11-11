@@ -72,4 +72,14 @@ prueba('planta: enchufes, tomas y desagües llevan una caja orientativa centrada
   afirma(Math.hypot(centro(ge.caja).x - ge.punto.x, centro(ge.caja).y - ge.punto.y) < 1e-6, 'no está centrada');
 });
 
+// ── Cotas en el croquis: la medida junto al nombre ──
+prueba('planta: cada elemento lleva su cota en la unidad del trabajo, desde su esquina', () => {
+  const f = fichaNueva('cocina', null, 't'), p = f.datos.paredes[0]; p.largo = 3000;
+  p.elementos.push(Object.assign(elementoNuevo('enchufe', 'izq'), { distancia: 1000 }),
+    Object.assign(elementoNuevo('ventana', 'der'), { distancia: 450, ancho: 800 }),
+    Object.assign(elementoNuevo('pilar', 'izq'), { distancia: 0, ancho: 300 }));
+  igual(geometriaPlanta(f.datos, { unidad: 'cm' }).elementos.map(e => e.cota), ['100', 'dcha 45', '0']);
+  igual(geometriaPlanta(f.datos, { unidad: 'mm' }).elementos.map(e => e.cota), ['1000', 'dcha 450', '0']);
+});
+
 fin();

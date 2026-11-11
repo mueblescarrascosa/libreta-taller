@@ -39,7 +39,10 @@ function planoDe(d) {
   return planoPorDefecto(paredes);
 }
 
-export function geometriaPlanta(d, { margen = 10 } = {}) {
+// Cota de un elemento tal como se midió: «100» desde la izquierda, «dcha 45» desde la derecha (mochetas en cm).
+const cotaDe = (e, unidad) => (hay(e.distancia) ? (e.ref === 'der' ? 'dcha ' : '') + verMedida(e.distancia, e.tipo === 'pilar' ? 'cm' : unidad) : null);
+
+export function geometriaPlanta(d, { margen = 10, unidad = 'cm' } = {}) {
   const plano = planoDe(d), vacio = { paredes: [], elementos: [], sinSituar: [], aEscala: false, cierre: null };
   if (!plano) return vacio;
   let pts = aEscala(plano, margen);
@@ -58,7 +61,7 @@ export function geometriaPlanta(d, { margen = 10 } = {}) {
     const k = hay(L) && L > 0 ? lon / L : null;
     const en = s => ({ x: a.x + u.x * s * k, y: a.y + u.y * s * k });
     (pared.elementos || []).forEach(e => {
-      const base = { tipo: e.tipo, etiqueta: etiqueta(e), corta: corta(e), pared: letra, dentro };
+      const base = { tipo: e.tipo, etiqueta: etiqueta(e), corta: corta(e), cota: cotaDe(e, unidad), pared: letra, dentro };
       if (k === null || !hay(e.distancia)) { geo.sinSituar.push(base); return; }
       const c = camposDeElemento(e.tipo), ancho = c.ancho && hay(e.ancho) ? e.ancho : 0;
       const s = e.ref === 'der' ? (c.punto === 'centro' || !ancho ? L - e.distancia : L - e.distancia - ancho) : e.distancia;
@@ -145,8 +148,10 @@ export function svgPlanta(geo) {
     while (paso < 12 && puestos.some(q => pisa(caja, q)));
     puestos.push(caja);
     if (paso > 1) svg.append(el('line', { x1: c.x + d.x * s * 2, y1: c.y + d.y * s * 2, x2: caja.cx - d.x * s * 2, y2: caja.cy - d.y * s * 2, stroke: col, 'stroke-width': s * 0.3, opacity: 0.7 }));
-    texto(caja.cx, caja.cy, t, { fill: col, 'data-elemento': tipo });
+    nombres.push(() => texto(caja.cx, caja.cy, t, { fill: col, 'data-elemento': tipo }));
   };
+  // Los nombres van al final, encima de las rayitas, para que ninguna los tache.
+  const nombres = [];
   geo.elementos.forEach(e => {
     const col = colorDe(e.tipo), d = e.dentro;
     if (e.tipo === 'zona' && e.a) {
@@ -164,7 +169,8 @@ export function svgPlanta(geo) {
     }
     else if (e.punto) { svg.append(el('circle', { cx: e.punto.x, cy: e.punto.y, r: s * 1.8, fill: col })); c = e.punto; }
     else { svg.append(el('line', { x1: e.a.x, y1: e.a.y, x2: e.b.x, y2: e.b.y, stroke: col, 'stroke-width': s * 2.6 })); c = { x: (e.a.x + e.b.x) / 2, y: (e.a.y + e.b.y) / 2 }; }
-    nombre(c, d, e.corta, col, e.tipo);
+    nombre(c, d, e.corta + (e.cota ? ' ' + e.cota : ''), col, e.tipo);
   });
+  nombres.forEach(f => f());
   return svg;
 }
