@@ -95,9 +95,10 @@ export async function pintarTrabajo(App, id) {
         if (!confirm('¿Borrar el trabajo «' + (trabajo.nombre || 'sin nombre') + '» y todas sus fichas? Se puede recuperar desde la papelera durante 30 días.')) return;
         const ahora = new Date().toISOString();
         App.vaciar = null;
-        await App.guardarFila('trabajos', Object.assign(trabajo, { borrado_at: ahora }));
+        // Primero las fichas: un trabajo borrado con fichas vivas se recuperaría solo.
         const fichas = vivos(await App.almacen.todos('fichas')).filter(f => f.trabajo_id === id);
         for (const f of fichas) await App.guardarFila('fichas', Object.assign(f, { borrado_at: ahora }));
+        await App.guardarFila('trabajos', Object.assign(trabajo, { borrado_at: ahora }));
         App.ir('#/');
       } }, 'Borrar trabajo'));
   }

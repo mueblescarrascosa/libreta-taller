@@ -57,16 +57,28 @@ export function crearAlmacenFalso() {
     async getMeta(k) { return s.meta.has(k) ? s.meta.get(k) : null; },
     async setMeta(k, v) { s.meta.set(k, v); },
     async guardar(tabla, fila) {
-      const clave = tabla + ':' + fila.id, e = s.cola.get(clave);
+      const clave = tabla + ':' + fila.id, e = s.cola.get(clave), ant = s[tabla].get(fila.id), base = fila.updated_at ?? null;
       s[tabla].set(fila.id, copia(fila));
-      s.cola.set(clave, e ? Object.assign(e, { v: e.v + 1 }) : { clave, tabla, id: fila.id, base: fila.updated_at ?? null, v: 1 });
+      if (e) { e.v++; return; }
+      const nueva = { clave, tabla, id: fila.id, base, v: 1 };
+      if (tabla === 'trabajos' && ant && base && ant.updated_at === base) nueva.previa = copia(ant);
+      s.cola.set(clave, nueva);
+    },
+    async marcarRechazo(clave, motivo) { const e = s.cola.get(clave); if (e) e.rechazo = motivo; },
+    async quitarRechazo(clave) { const e = s.cola.get(clave); if (e) delete e.rechazo; },
+    async descartarNueva(tabla, id) { s[tabla].delete(id); s.cola.delete(tabla + ':' + id); },
+    async reencolar(tabla, fila, remota) {
+      const clave = tabla + ':' + fila.id, e = s.cola.get(clave) || { clave, tabla, id: fila.id, v: 0 };
+      delete e.enviado; delete e.rechazo;
+      s.cola.set(clave, Object.assign(e, { base: remota.updated_at, previa: copia(remota), v: e.v + 1 }));
+      s[tabla].set(fila.id, copia(fila));
     },
     async marcarEnvio(clave, huella) { const e = s.cola.get(clave); if (e) e.enviado = huella; },
     async getPropia(tabla, id) { return s.meta.get('propia:' + tabla + ':' + id) ?? null; },
     async confirmarSubida(tabla, filaNube, v) {
       const clave = tabla + ':' + filaNube.id, e = s.cola.get(clave);
       s.meta.set('propia:' + tabla + ':' + filaNube.id, filaNube.updated_at);
-      if (e && e.v !== v) { e.base = filaNube.updated_at; return; }
+      if (e && e.v !== v) { e.base = filaNube.updated_at; if (tabla === 'trabajos') e.previa = copia(filaNube); return; }
       s.cola.delete(clave); s[tabla].set(filaNube.id, copia(filaNube));
     },
     async dividir(remota, sufijo) {

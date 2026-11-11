@@ -15,6 +15,21 @@ prueba('dos guardados dejan una entrada de cola con la base de la primera', () =
   const c = await ev(a, "return await al.todos('cola');");
   igual(c.length, 1); igual(c[0].clave, 'fichas:f1'); igual(c[0].tabla, 'fichas'); igual(c[0].id, 'f1'); igual(c[0].base, 'U1');
 }));
+prueba('al cambiar un trabajo se guarda cómo estaba antes, solo si coincide con la base', () => conAlmacen(async a => {
+  await ev(a, "await al.poner('trabajos',{id:'t1',nombre:'A',updated_at:'U1'});await al.guardar('trabajos',{id:'t1',nombre:'B',updated_at:'U1'});await al.guardar('trabajos',{id:'t1',nombre:'C',updated_at:'U1'});");
+  await ev(a, "await al.poner('trabajos',{id:'t2',nombre:'A',updated_at:'U9'});await al.guardar('trabajos',{id:'t2',nombre:'B',updated_at:'U1'});");
+  const c = await ev(a, "return await al.todos('cola');");
+  igual(c.find(e => e.id === 't1').previa, { id: 't1', nombre: 'A', updated_at: 'U1' });
+  afirma(!('previa' in c.find(e => e.id === 't2')), 'previa con otra base');
+}));
+prueba('rechazo, reencolar y descartar algo nuevo', () => conAlmacen(async a => {
+  const r = await ev(a, "await al.guardar('trabajos',{id:'t1',nombre:'B',updated_at:'U1'});await al.marcarRechazo('trabajos:t1','mal');const x=(await al.todos('cola'))[0].rechazo;" +
+    "await al.reencolar('trabajos',{id:'t1',nombre:'J',updated_at:'U2'},{id:'t1',nombre:'R',updated_at:'U2'});const e=(await al.todos('cola'))[0];" +
+    "await al.guardar('fichas',{id:'f9',updated_at:null});await al.descartarNueva('fichas','f9');" +
+    "return {x,e,f:await al.leer('fichas','f9'),t:await al.leer('trabajos','t1'),n:(await al.todos('cola')).length};");
+  igual(r.x, 'mal'); igual([r.e.base, r.e.previa.nombre, 'rechazo' in r.e], ['U2', 'R', false]);
+  igual(r.f, null); igual(r.t.nombre, 'J'); igual(r.n, 1);
+}));
 prueba('fila nueva tiene base nula', () => conAlmacen(async a => {
   await ev(a, "await al.guardar('fichas',{id:'f2',updated_at:null});");
   igual((await ev(a, "return await al.todos('cola');"))[0].base, null);

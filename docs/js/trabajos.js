@@ -48,6 +48,13 @@ export function faltan(ficha) {
   return l;
 }
 
+// Trabajos borrados que aún tienen fichas vivas (las siguió usando otro móvil mientras se borraba aquí):
+// se recuperan para que esas fichas no queden escondidas.
+export function trabajosARecuperar(trabajos, fichas) {
+  const conVivas = new Set(fichas.filter(f => !f.borrado_at && f.trabajo_id).map(f => f.trabajo_id));
+  return trabajos.filter(t => t.borrado_at && conVivas.has(t.id));
+}
+
 // Recuento de todas las puertas de un trabajo, agrupadas por medida, para el pedido.
 export function recuentoPuertas(fichas, unidad) {
   const puertas = fichas.map(normalizarFicha).filter(f => f.tipo === 'puerta').flatMap(f => f.datos.puertas || []);

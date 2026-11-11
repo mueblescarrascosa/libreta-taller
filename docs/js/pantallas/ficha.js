@@ -163,6 +163,7 @@ export async function pintarFicha(App, id) {
       const g = geometriaPlanta(d, { margen: AJ.margen, unidad }), hijos = [];
       if (g.paredes.length) hijos.push(svgPlanta(g));
       if (g.paredes.length && !g.aEscala) hijos.push(h('small', { class: 'ayuda' }, 'Sin escala: faltan largos o las medidas no cierran.'));
+      if (!d.plano && d.paredes.length >= 5) hijos.push(h('small', { class: 'ayuda', 'data-acc': 'aviso-forma' }, 'Con 5 o más paredes el dibujo es aproximado (todas en ángulo recto). Pulsa «Dibujar la forma» para que se parezca.'));
       if (g.sinSituar.length) hijos.push(h('small', { class: 'ayuda', 'data-acc': 'sin-situar' }, 'Sin situar (falta la distancia o el largo de su pared): ' + g.sinSituar.map(e => e.etiqueta + ' en ' + e.pared).join(', ') + '.'));
       zonaPlanta.replaceChildren(...hijos);
     };
@@ -173,12 +174,14 @@ export async function pintarFicha(App, id) {
       if (!r) return;
       Object.assign(d, aplicarPlano(d, r));
       await guardarYa(); repintar();
+      botonForma.textContent = 'Editar la forma';
     };
+    const botonForma = h('button', { type: 'button', class: 'mini', 'data-acc': 'dibujar-planta', onclick: dibujar }, d.plano ? 'Editar la forma' : 'Dibujar la forma');
     return [h('div', { class: 'cab' }, h('h2', {}, 'Habitación'),
       segmentado({ acc: 'ud-paredes', opciones: [[false, unidad], [true, 'm']], valor: !!enM(), alCambiar: v => { d.paredes_m = v; App.cambiarParedesM(v); cambio(); pintarAlto(); repintar(); } })),
     h('div', { class: 'tarjeta' }, zonaAlto),
     h('div', { class: 'tarjeta' }, h('div', { class: 'cab' }, h('b', {}, 'Planta'),
-      h('button', { type: 'button', class: 'mini', 'data-acc': 'dibujar-planta', onclick: dibujar }, d.plano ? 'Editar la forma' : 'Dibujar la forma')), zonaPlanta),
+      botonForma), zonaPlanta),
     h('h2', {}, 'Paredes'),
     zona,
     h('button', { type: 'button', class: 'ancho', 'data-acc': 'anadir-pared', onclick: () => { d.paredes.push(paredNueva(d.paredes)); cambio(); repintar(); } }, '+ Añadir pared')];

@@ -11,7 +11,8 @@ import { pintarFicha, descartarVacio } from './pantallas/ficha.js';
 import { pintarAjustes } from './pantallas/ajustes.js';
 import { pintarResumen, pintarResumenTrabajo } from './pantallas/resumen.js';
 import { pintarPapelera } from './pantallas/papelera.js';
-import { fotosParaLimpiar } from './trabajos.js';
+import { fotosParaLimpiar, trabajosARecuperar } from './trabajos.js';
+import { pintarPendientes } from './pantallas/pendientes.js';
 import { vigilarVersion, pintarAvisoVersion } from './version.js';
 
 const raiz = document.getElementById('app');
@@ -59,9 +60,9 @@ const App = {
   async pintarEstado() {
     const el = document.querySelector('[data-acc="estado"]');
     if (!el) return;
-    const n = await App.sincro.pendientes(), err = App.sincro.ultimoError();
-    el.textContent = err === 'sesion' ? 'Entra de nuevo' : n ? n + ' por subir' : 'Todo guardado en la nube';
-    el.className = 'estado' + (err === 'sesion' || n ? ' pendiente' : '');
+    const n = await App.sincro.pendientes(), r = (await App.sincro.rechazadas()).length, err = App.sincro.ultimoError();
+    el.textContent = err === 'sesion' ? 'Entra de nuevo' : r ? r + ' sin poder subir' : n ? n + ' por subir' : 'Todo guardado en la nube';
+    el.className = 'estado' + (err === 'sesion' || n ? ' pendiente' : '') + (r ? ' rechazo' : '');
   },
 
   ir(hash) { location.hash = hash; },
@@ -81,9 +82,16 @@ const App = {
     return main;
   },
 
-  alTocarEstado() {
+  async alTocarEstado() {
     if (App.sincro.ultimoError() === 'sesion') return pintarEntrada();
+    if ((await App.sincro.rechazadas()).length) return App.ir('#/pendientes');
     App.sincro.sincronizar();
+  },
+
+  // Trabajos borrados que siguen teniendo fichas vivas (de otro móvil): vuelven.
+  async recuperarTrabajos() {
+    const [trabajos, fichas] = await Promise.all([App.almacen.todos('trabajos'), App.almacen.todos('fichas')]);
+    for (const t of trabajosARecuperar(trabajos, fichas)) await App.guardarFila('trabajos', Object.assign(t, { borrado_at: null }));
   },
 
   async salirDeCuenta() {
@@ -136,6 +144,7 @@ async function ruta() {
   if (seccion === 'resumen') return pintarResumen(App, id);
   if (seccion === 'resumen-trabajo') return pintarResumenTrabajo(App, id);
   if (seccion === 'papelera') return pintarPapelera(App);
+  if (seccion === 'pendientes') return pintarPendientes(App);
   return pintarInicio(App);
 }
 
@@ -167,7 +176,7 @@ async function arrancar() {
     : nubeSinConexion();
   App.sincro = crearSincro({ almacen: App.almacen, nube: App.nube });
   App.sincro.alCambiar(async hayCambios => {
-    if (hayCambios) await App.cargarAjustes();
+    if (hayCambios) { await App.cargarAjustes(); await App.recuperarTrabajos(); }
     App.pintarEstado();
     if (hayCambios && App.refrescar && !document.activeElement.matches('input,textarea')) App.refrescar();
   });
@@ -179,6 +188,7 @@ async function arrancar() {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && App.uid) App.sincro.sincronizar(); });
   // Fichas que se quedaron vacías (por ejemplo, si se cerró la app recién creada): fuera.
   if (App.uid) for (const f of vivos(await App.almacen.todos('fichas'))) await descartarVacio(App, f);
+  if (App.uid) await App.recuperarTrabajos();
   await ruta();
   if (App.uid) App.sincro.sincronizar();
   limpiarFotos();

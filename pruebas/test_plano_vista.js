@@ -46,7 +46,7 @@ prueba('con plano dibujado usa su forma', () => {
 });
 prueba('aplicar un plano crea paredes por letra y conserva lo que había', () => {
   const d = cocina([{ largo: 3000, elementos: [el('gas', { distancia: 300 })] }]);
-  const plano = { vertices: [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 3, y: 2 }, { x: 0, y: 2 }], cerrada: true, largos: [null, 2000, 3000, 2000], esquinas: [], diagonales: [] };
+  const plano = { vertices: [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 3, y: 2 }, { x: 0, y: 2 }], cerrada: true, largos: [3000, 2000, 3000, 2000], esquinas: [], diagonales: [] };
   const n = aplicarPlano(d, plano);
   igual(n.paredes.map(p => p.letra), ['A', 'B', 'C', 'D']); igual(n.paredes[0].largo, 3000); igual(n.paredes[0].elementos.length, 1);
   igual(n.paredes[1].largo, 2000); afirma(n.plano && !('largos' in n.plano), 'el plano no debe guardar largos: los tienen las paredes');

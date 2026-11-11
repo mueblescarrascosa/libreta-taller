@@ -111,7 +111,8 @@ export function aplicarPlano(datos, plano) {
   const m = plano.cerrada ? plano.vertices.length : plano.vertices.length - 1, existentes = datos.paredes || [];
   const paredes = letras(m).map((letra, i) => {
     const largo = plano.largos ? plano.largos[i] : undefined, previa = existentes.find(p => p.letra === letra);
-    if (previa) return Object.assign({}, previa, hay(largo) ? { largo } : {});
+    // El editor se abre con los largos de la ficha: si vuelve uno vacío es que se borró.
+    if (previa) return Object.assign({}, previa, plano.largos ? { largo: hay(largo) ? largo : null } : {});
     return Object.assign(paredNueva([]), { letra, largo: hay(largo) ? largo : null });
   });
   const sobran = existentes.filter(p => !paredes.some(x => x.letra === p.letra));

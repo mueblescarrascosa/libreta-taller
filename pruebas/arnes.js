@@ -57,6 +57,8 @@ function atenderRest(route, q, u, n, tabla) {
     return salida(l.slice(ini, p.get('limit') ? ini + Number(p.get('limit')) : undefined));
   }
   const cuerpo = JSON.parse(q.postData());
+  // Para probar filas que la nube no acepta: n.rechazar(tabla, fila) => true.
+  if (n.rechazar && n.rechazar(tabla, cuerpo)) return responder(400, { code: '22P02', message: 'valor no válido' });
   if (q.method() === 'POST') {
     if (filas.some(f => f.id === cuerpo.id)) return responder(409, { code: '23505', message: 'duplicada' });
     const f = Object.assign({ borrado_at: null }, cuerpo, { user_id: 'U1', updated_at: sello(n) });

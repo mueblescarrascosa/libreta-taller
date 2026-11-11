@@ -45,14 +45,52 @@ export async function abrirAlmacen(nombre = 'medidas-db') {
 
     // Guarda la fila y anota que hay que subirla. La base es la versión de la nube sobre la que trabajaba
     // la pantalla (su updated_at): si la nube cambió después, la subida lo detecta como conflicto.
+    // En los trabajos se guarda también cómo estaba antes del cambio (previa), para juntar luego
+    // los cambios de dos móviles dato a dato.
     guardar(tabla, fila) {
-      const clave = tabla + ':' + fila.id;
+      const clave = tabla + ':' + fila.id, base = fila.updated_at ?? null;
       return tx([tabla, 'cola'], t => {
-        t.objectStore(tabla).put(fila);
-        const c = t.objectStore('cola'), g = c.get(clave);
+        const s = t.objectStore(tabla), c = t.objectStore('cola'), g = c.get(clave);
         g.onsuccess = () => {
           const e = g.result;
-          c.put(e ? Object.assign(e, { v: e.v + 1 }) : { clave, tabla, id: fila.id, base: fila.updated_at ?? null, v: 1 });
+          if (e) { c.put(Object.assign(e, { v: e.v + 1 })); s.put(fila); return; }
+          const gp = s.get(fila.id);
+          gp.onsuccess = () => {
+            const ant = gp.result, nueva = { clave, tabla, id: fila.id, base, v: 1 };
+            if (tabla === 'trabajos' && ant && base && ant.updated_at === base) nueva.previa = ant;
+            c.put(nueva); s.put(fila);
+          };
+        };
+      });
+    },
+
+    // La nube no acepta esta fila: se apunta el motivo para enseñarlo (sigue en la cola).
+    marcarRechazo(clave, motivo) {
+      return tx(['cola'], t => {
+        const c = t.objectStore('cola'), g = c.get(clave);
+        g.onsuccess = () => { if (g.result) c.put(Object.assign(g.result, { rechazo: motivo })); };
+      });
+    },
+    quitarRechazo(clave) {
+      return tx(['cola'], t => {
+        const c = t.objectStore('cola'), g = c.get(clave);
+        g.onsuccess = () => { if (g.result) { delete g.result.rechazo; c.put(g.result); } };
+      });
+    },
+    // Algo nuevo que nunca llegó a la nube y se descarta: fuera la fila y su entrada.
+    descartarNueva(tabla, id) {
+      return tx([tabla, 'cola'], t => { t.objectStore(tabla).delete(id); t.objectStore('cola').delete(tabla + ':' + id); });
+    },
+    // Tras juntar un conflicto: queda la fila juntada, pendiente de subir sobre la versión de la nube.
+    reencolar(tabla, fila, remota) {
+      const clave = tabla + ':' + fila.id;
+      return tx([tabla, 'cola'], t => {
+        const c = t.objectStore('cola'), g = c.get(clave);
+        g.onsuccess = () => {
+          const e = g.result || { clave, tabla, id: fila.id, v: 0 };
+          delete e.enviado; delete e.rechazo;
+          c.put(Object.assign(e, { base: remota.updated_at, previa: remota, v: e.v + 1 }));
+          t.objectStore(tabla).put(fila);
         };
       });
     },
@@ -76,7 +114,7 @@ export async function abrirAlmacen(nombre = 'medidas-db') {
         const c = t.objectStore('cola'), g = c.get(clave);
         g.onsuccess = () => {
           const e = g.result;
-          if (e && e.v !== v) { c.put(Object.assign(e, { base: filaNube.updated_at })); return; }
+          if (e && e.v !== v) { c.put(Object.assign(e, { base: filaNube.updated_at }, tabla === 'trabajos' ? { previa: filaNube } : {})); return; }
           c.delete(clave);
           t.objectStore(tabla).put(filaNube);
         };
