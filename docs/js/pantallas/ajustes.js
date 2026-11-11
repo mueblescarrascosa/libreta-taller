@@ -3,6 +3,7 @@ import { h, segmentado } from '../util.js';
 import { VERSION } from '../config.js';
 import { AJUSTES_FABRICA, claveDe } from '../modelo.js';
 import { leerMedida, verMedida } from '../unidades.js';
+import { copiaSeguridad } from '../trabajos.js';
 
 // Lista editable: quitar, subir, añadir y volver a los valores de fábrica.
 // numeros: medidas en mm que se ven y se escriben en cm; si no, pares [clave, texto].
@@ -40,8 +41,26 @@ function listaEditable(App, k, titulo, numeros, ayuda) {
   return caja;
 }
 
+// Copia de todo en un archivo: se comparte (móvil) o se descarga (ordenador).
+async function descargarCopia(App, msg) {
+  if (App.vaciar) await App.vaciar();
+  const [trabajos, fichas, adjuntos] = await Promise.all(['trabajos', 'fichas', 'adjuntos'].map(t => App.almacen.todos(t)));
+  const ahora = new Date(), copia = copiaSeguridad({ trabajos, fichas, adjuntos, ajustes: App.ajustes(), version: VERSION, ahora: ahora.toISOString() });
+  const nombre = 'libreta-taller-copia-' + ahora.toISOString().slice(0, 10) + '.json';
+  const archivo = new File([JSON.stringify(copia, null, 2)], nombre, { type: 'application/json' });
+  const descargar = () => {
+    const a = h('a', { href: URL.createObjectURL(archivo), download: nombre });
+    document.body.append(a); a.click(); a.remove();
+    msg.textContent = 'Copia descargada: ' + nombre;
+  };
+  if (navigator.canShare && navigator.canShare({ files: [archivo] })) {
+    try { await navigator.share({ files: [archivo], title: 'Copia de Libreta Taller' }); msg.textContent = ''; }
+    catch (e) { if (e && e.name !== 'AbortError') descargar(); }
+  } else descargar();
+}
+
 export async function pintarAjustes(App) {
-  const main = App.marco('ajustes', 'Ajustes', '#/'), A = App.ajustes();
+  const main = App.marco('ajustes', 'Ajustes', '#/'), A = App.ajustes(), msgCopia = h('small', { class: 'ayuda', 'data-acc': 'msg-copia' });
   const margen = h('input', { 'data-acc': 'margen', inputmode: 'numeric', value: A.margen });
   margen.addEventListener('input', () => { const v = Number(margen.value); if (Number.isInteger(v) && v > 0) App.cambiarAjustes({ margen: v }); });
   main.append(
@@ -65,6 +84,10 @@ export async function pintarAjustes(App) {
     h('h2', {}, 'Tomas y enchufes'),
     listaEditable(App, 'usos_toma', 'Tomas: de qué son', false),
     listaEditable(App, 'usos_enchufe', 'Enchufes: de qué son', false),
+    h('h2', {}, 'Copia de seguridad'),
+    h('div', { class: 'tarjeta' },
+      h('small', { class: 'ayuda' }, 'Un archivo con todos tus trabajos, fichas, notas, papelera y ajustes (cada ficha con su resumen en texto). Las fotos no van dentro: siguen en la nube. Guárdalo en el ordenador o en tu correo de vez en cuando.'),
+      h('button', { type: 'button', 'data-acc': 'copia-seguridad', onclick: () => descargarCopia(App, msgCopia) }, 'Descargar copia de seguridad'), msgCopia),
     h('h2', {}, 'Cuenta'),
     h('div', { class: 'tarjeta' },
       h('p', {}, App.email),

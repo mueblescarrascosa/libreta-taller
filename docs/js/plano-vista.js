@@ -7,7 +7,7 @@ import { nombreModulo, esColumna } from './modulos.js';
 
 const FONDO_MODULO = 600;
 // Ancho orientativo (mm) de lo que se mide al centro, solo para el dibujo: no es la medida real de la caja.
-const ANCHO_APROX = { enchufe: 80, toma: 60, desague: 50, humos: 120 };
+const ANCHO_APROX = { enchufe: 80, toma: 60, agua: 60, gas: 60, desague: 50, humos: 120 };
 
 const ETIQUETA_CORTA = {
   humos: 'Humos', desague: 'Desagüe', agua: 'Agua', gas: 'Gas', enchufe: 'E', enchufe_hmo: 'E H/MO', enchufe_horno: 'E horno',
@@ -126,39 +126,46 @@ export function svgPlanta(geo) {
   const todos = geo.paredes.flatMap(p => [p.a, p.b]).concat(geo.elementos.flatMap(e => e.rect || (e.punto ? [e.punto] : [e.a, e.b])), geo.modulos.flatMap(m => m.rect));
   const xs = todos.map(p => p.x), ys = todos.map(p => p.y);
   const x0 = Math.min(...xs), y0 = Math.min(...ys), w = Math.max(...xs) - x0 || 1, h = Math.max(...ys) - y0 || 1, s = Math.max(w, h) / 120, pad = s * 14;
-  const svg = el('svg', { viewBox: `${x0 - pad} ${y0 - pad} ${w + 2 * pad} ${h + 2 * pad}`, class: 'planta', role: 'img', 'aria-label': 'Planta de la habitación', 'data-acc': 'planta' });
+  const svg = el('svg', { class: 'planta', role: 'img', 'aria-label': 'Planta de la habitación', 'data-acc': 'planta' });
   const texto = (x, y, t, o) => svg.append(el('text', Object.assign({ x, y, 'font-size': s * 4, 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'paint-order': 'stroke', stroke: '#fff', 'stroke-width': s * 1.2 }, o), t));
+  // Sitio que ocupa cada texto (aproximado por su largo y su tamaño de letra), para que nada se pise
+  // y para que el marco del dibujo crezca hasta que quepan todos.
+  // Los textos van al final, encima de las rayitas, para que ninguna los tache.
+  const nombres = [];
+  const puestos = [], pisa = (p, q) => p.x < q.x + q.w && q.x < p.x + p.w && p.y < q.y + q.h && q.y < p.y + p.h;
+  const cajaTexto = (x, y, t, tam = 4) => { const w = String(t).length * s * tam * 0.62 + s, hh = s * tam * 1.35; return { x: x - w / 2, y: y - hh / 2, w, h: hh, cx: x, cy: y }; };
   geo.paredes.forEach(p => {
     svg.append(el('line', { x1: p.a.x, y1: p.a.y, x2: p.b.x, y2: p.b.y, stroke: '#1f2937', 'stroke-width': s * 1.6, 'stroke-linecap': 'square' }));
     const lon = Math.hypot(p.b.x - p.a.x, p.b.y - p.a.y) || 1, fuera = { x: (p.b.y - p.a.y) / lon, y: -(p.b.x - p.a.x) / lon };
     const mx = (p.a.x + p.b.x) / 2 + fuera.x * s * 6, my = (p.a.y + p.b.y) / 2 + fuera.y * s * 6;
-    texto(mx, my, p.letra + (hay(p.largo) ? ' · ' + verMedida(p.largo, 'm') + ' m' : ''), { 'font-weight': 700, 'data-pared': p.letra });
-    if (p.azulejo) texto(mx + fuera.x * s * 5, my + fuera.y * s * 5, p.azulejo, { 'font-size': s * 3, fill: '#0f766e' });
+    const rotulo = p.letra + (hay(p.largo) ? ' · ' + verMedida(p.largo, 'm') + ' m' : '');
+    nombres.push(() => texto(mx, my, rotulo, { 'font-weight': 700, 'data-pared': p.letra })); puestos.push(cajaTexto(mx, my, rotulo));
+    if (p.azulejo) {
+      const ax = mx + fuera.x * s * 5, ay = my + fuera.y * s * 5;
+      nombres.push(() => texto(ax, ay, p.azulejo, { 'font-size': s * 3, fill: '#0f766e' })); puestos.push(cajaTexto(ax, ay, p.azulejo, 3));
+    }
   });
   geo.modulos.forEach(m => {
     svg.append(el('polygon', { points: m.rect.map(p => p.x + ',' + p.y).join(' '), fill: m.columna ? '#e7d8c9' : '#f5ede4', stroke: '#92400e', 'stroke-width': s * 0.5, 'data-modulo': m.tipo }));
     const c = { x: (m.rect[0].x + m.rect[2].x) / 2, y: (m.rect[0].y + m.rect[2].y) / 2 };
-    texto(c.x, c.y, m.nombre + ' ' + verMedida(m.ancho, 'cm'), { 'font-size': s * 2.8, fill: '#78350f' });
+    const t = m.nombre + ' ' + verMedida(m.ancho, 'cm');
+    texto(c.x, c.y, t, { 'font-size': s * 2.8, fill: '#78350f' }); puestos.push(cajaTexto(c.x, c.y, t, 2.8));
   });
   // Nombres sin pisarse: si uno cae encima de otro ya puesto, se aleja de la pared con una rayita hasta su sitio.
-  const puestos = [], pisa = (p, q) => p.x < q.x + q.w && q.x < p.x + p.w && p.y < q.y + q.h && q.y < p.y + p.h;
-  const nombre = (c, d, t, col, tipo) => {
-    const w = String(t).length * s * 2.5 + s, hh = s * 5.4;
+  const nombre = (c, d, t, col, tipo, { tam = 4, desde = 6 } = {}) => {
     let paso = 0, caja;
-    do { const x = c.x + d.x * s * (6 + paso * 5.5), y = c.y + d.y * s * (6 + paso * 5.5); caja = { x: x - w / 2, y: y - hh / 2, w, h: hh, cx: x, cy: y }; paso++; }
-    while (paso < 12 && puestos.some(q => pisa(caja, q)));
+    do { caja = cajaTexto(c.x + d.x * s * (desde + paso * tam * 1.4), c.y + d.y * s * (desde + paso * tam * 1.4), t, tam); paso++; }
+    while (paso < 15 && puestos.some(q => pisa(caja, q)));
     puestos.push(caja);
     if (paso > 1) svg.append(el('line', { x1: c.x + d.x * s * 2, y1: c.y + d.y * s * 2, x2: caja.cx - d.x * s * 2, y2: caja.cy - d.y * s * 2, stroke: col, 'stroke-width': s * 0.3, opacity: 0.7 }));
-    nombres.push(() => texto(caja.cx, caja.cy, t, { fill: col, 'data-elemento': tipo }));
+    nombres.push(() => texto(caja.cx, caja.cy, t, Object.assign({ fill: col, 'font-size': s * tam }, tipo ? { 'data-elemento': tipo } : {})));
   };
-  // Los nombres van al final, encima de las rayitas, para que ninguna los tache.
-  const nombres = [];
   geo.elementos.forEach(e => {
     const col = colorDe(e.tipo), d = e.dentro;
     if (e.tipo === 'zona' && e.a) {
       const f = s * 2.4, a = { x: e.a.x - d.x * f, y: e.a.y - d.y * f }, b = { x: e.b.x - d.x * f, y: e.b.y - d.y * f };
       svg.append(el('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: '#0f766e', 'stroke-width': s * 0.7, 'stroke-dasharray': s * 1.5 + ' ' + s, opacity: 0.8, 'data-zona': '' }));
-      texto((a.x + b.x) / 2 - d.x * s * 3, (a.y + b.y) / 2 - d.y * s * 3, e.corta, { 'font-size': s * 2.4, fill: '#0f766e' });
+      nombre({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, { x: -d.x, y: -d.y }, e.corta, '#0f766e', null, { tam: 2.6, desde: 2.5 });
       return;
     }
     let c;
@@ -173,5 +180,9 @@ export function svgPlanta(geo) {
     nombre(c, d, e.corta + (e.cota ? ' ' + e.cota : ''), col, e.tipo);
   });
   nombres.forEach(f => f());
+  // Marco: el dibujo y todos los textos, con un poco de aire.
+  const X0 = Math.min(x0, ...puestos.map(q => q.x)) - pad / 2, Y0 = Math.min(y0, ...puestos.map(q => q.y)) - pad / 2;
+  const X1 = Math.max(x0 + w, ...puestos.map(q => q.x + q.w)) + pad / 2, Y1 = Math.max(y0 + h, ...puestos.map(q => q.y + q.h)) + pad / 2;
+  svg.setAttribute('viewBox', `${X0} ${Y0} ${X1 - X0} ${Y1 - Y0}`);
   return svg;
 }

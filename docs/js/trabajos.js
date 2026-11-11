@@ -48,6 +48,25 @@ export function faltan(ficha) {
   return l;
 }
 
+// Copia de seguridad de todo: cada trabajo con sus fichas (con su resumen en texto para leerla sin la app),
+// las notas sueltas, la papelera y los ajustes. Las fotos no van dentro (siguen en la nube): solo su ruta.
+export function copiaSeguridad({ trabajos, fichas, adjuntos = [], ajustes, version, ahora }) {
+  const fotos = id => adjuntos.filter(a => a.ficha_id === id && !a.borrado_at).map(a => a.ruta);
+  const conTexto = (f, t) => {
+    const n = normalizarFicha(f), b = bloquesResumen({ ficha: n, trabajo: t || null, ajustes });
+    return Object.assign({}, n, { texto: (t ? b.slice(1) : b).map(x => x.join('\n')).join('\n\n'), fotos: fotos(f.id) });
+  };
+  const vivosT = trabajos.filter(t => !t.borrado_at), vivas = fichas.filter(f => !f.borrado_at);
+  return {
+    app: 'Libreta Taller', version, fecha: ahora,
+    trabajos: vivosT.map(t => Object.assign({}, t, { fichas: vivas.filter(f => f.trabajo_id === t.id).map(f => conTexto(f, t)) })),
+    // También las fichas vivas cuyo trabajo no está (para que nada se quede fuera de la copia).
+    notas_sueltas: vivas.filter(f => !vivosT.some(t => t.id === f.trabajo_id)).map(f => conTexto(f, null)),
+    papelera: { trabajos: trabajos.filter(t => t.borrado_at), fichas: fichas.filter(f => f.borrado_at) },
+    ajustes,
+  };
+}
+
 // Trabajos borrados que aún tienen fichas vivas (las siguió usando otro móvil mientras se borraba aquí):
 // se recuperan para que esas fichas no queden escondidas.
 export function trabajosARecuperar(trabajos, fichas) {
