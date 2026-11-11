@@ -197,6 +197,19 @@ prueba('cabecera de la ficha: Resumen y WhatsApp junto al nombre; en el resumen,
   
   await a.page.click('header [data-acc="cab-editar"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
 }));
+prueba('lista de fichas: lápiz y WhatsApp en cada fila, sin entrar', con({}, async a => {
+  await a.page.setViewportSize({ width: 360, height: 740 });
+  await nueva(a, 'puerta', null, 'cm'); await a.page.fill(P + '[data-acc="ancho"]', '84');
+  await a.page.evaluate(() => history.back()); await a.page.waitForSelector('[data-pantalla="trabajo"]');
+  const wa = await a.page.evaluate(() => { const b = document.querySelector('[data-acc="fila-whatsapp"]'); b.addEventListener('click', e => e.preventDefault()); b.click(); return decodeURIComponent(b.href); });
+  afirma(wa.startsWith('https://wa.me/?text=') && wa.includes('84'), wa);
+  afirma(await a.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'la fila se sale en 360 px');
+  await a.page.click('[data-acc="fila-editar"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
+}));
+prueba('ajustes: no sale «null» en las listas', con({}, async a => {
+  await a.page.evaluate(() => { location.hash = '#/ajustes'; }); await a.page.waitForSelector('[data-pantalla="ajustes"]');
+  afirma(!/\bnull\b/.test(await a.page.innerText('main')), 'sale null');
+}));
 prueba('medidas libres y notas en cualquier ficha, y llegan a la nube', con({}, async a => {
   await nueva(a, 'nota');
   await a.page.click('[data-acc="anadir-libre"]'); await a.page.fill('[data-acc="libre-nombre"]', 'Mesa sierra'); await a.page.fill('[data-acc="libre-valor"]', '1200');

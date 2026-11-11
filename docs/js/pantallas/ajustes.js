@@ -30,7 +30,7 @@ function listaEditable(App, k, titulo, numeros, ayuda) {
     caja.replaceChildren(
       h('div', { class: 'cab' }, h('b', {}, titulo),
         h('button', { type: 'button', class: 'mini', 'data-acc': 'fabrica', onclick: () => guardar(JSON.parse(JSON.stringify(AJUSTES_FABRICA[k]))) }, 'Valores de fábrica')),
-      ayuda ? h('small', { class: 'ayuda' }, ayuda) : null,
+      ...(ayuda ? [h('small', { class: 'ayuda' }, ayuda)] : []),
       h('div', { class: 'items' }, lista.map((x, i) => h('div', { class: 'item', 'data-item': numeros ? String(x) : x[0] },
         h('span', {}, numeros ? verMedida(x, 'cm') + ' cm' : x[1]),
         h('button', { type: 'button', class: 'mini', 'data-acc': 'subir', 'aria-label': 'Subir', disabled: i === 0, onclick: () => { const n = lista.slice(); [n[i - 1], n[i]] = [n[i], n[i - 1]]; guardar(n); } }, '↑'),

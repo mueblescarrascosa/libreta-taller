@@ -1,5 +1,6 @@
 // Un trabajo con sus fichas. Sin id, son las notas sueltas.
-import { h, segmentado, tituloFicha, vivos, NOMBRE_TIPO, NOMBRE_SUBTIPO } from '../util.js';
+import { h, segmentado, tituloFicha, vivos, icono, NOMBRE_TIPO, NOMBRE_SUBTIPO } from '../util.js';
+import { textoResumen, urlWhatsapp } from '../resumen.js';
 import { fichaNueva, avisos, normalizarFicha } from '../modelo.js';
 import { unidadDe } from '../unidades.js';
 import { resumenCorto, faltan } from '../trabajos.js';
@@ -47,11 +48,17 @@ export async function pintarTrabajo(App, id) {
         const n = normalizarFicha(f), sin = faltan(n), av = avisos(n, unidad, { margen: AJ.margen }).length;
         // Lo que falta, con nombre (en el móvil no se ve el «title»): hasta 3 y «y N más».
         const pend = [...sin.slice(0, 3), sin.length > 3 ? 'y ' + (sin.length - 3) + ' más' : null, av ? (av === 1 ? '1 aviso' : av + ' avisos') : null].filter(Boolean);
-        return h('a', { class: 'fila', href: '#/resumen/' + f.id, 'data-acc': 'abrir-ficha', 'data-tipo': f.tipo, title: sin.join('\n') },
-          h('b', {}, tituloFicha(f)),
-          h('small', {}, [f.nombre && f.tipo !== 'armario' ? NOMBRE_TIPO[f.tipo] : null, ...resumenCorto(n).split(' · ')]
-            .filter(x => x && !tituloFicha(f).toLowerCase().includes(x.toLowerCase())).join(' · ')),
-          pend.length ? h('small', { class: 'pendiente' }, pend.join(' · ')) : null);
+        // Tocar la ficha abre su resumen; a la derecha, editarla o mandarla por WhatsApp sin entrar.
+        return h('div', { class: 'fila con-botones' },
+          h('a', { class: 'fila-enlace', href: '#/resumen/' + f.id, 'data-acc': 'abrir-ficha', 'data-tipo': f.tipo, title: sin.join('\n') },
+            h('b', {}, tituloFicha(f)),
+            h('small', {}, [f.nombre && f.tipo !== 'armario' ? NOMBRE_TIPO[f.tipo] : null, ...resumenCorto(n).split(' · ')]
+              .filter(x => x && !tituloFicha(f).toLowerCase().includes(x.toLowerCase())).join(' · ')),
+            pend.length ? h('small', { class: 'pendiente' }, pend.join(' · ')) : null),
+          h('span', { class: 'botones-fila' },
+            icono(h('a', { class: 'boton-fila', href: '#/ficha/' + f.id, 'data-acc': 'fila-editar' }), 'editar', 'Editar'),
+            icono(h('a', { class: 'boton-fila wa', href: '#', target: '_blank', rel: 'noopener', 'data-acc': 'fila-whatsapp',
+              onclick: ev => { ev.currentTarget.href = urlWhatsapp(textoResumen({ ficha: n, trabajo, ajustes: AJ })); } }), 'whatsapp', 'Enviar por WhatsApp')));
       })
       : [h('p', { class: 'vacio' }, 'Todavía no hay fichas.')]));
   }
