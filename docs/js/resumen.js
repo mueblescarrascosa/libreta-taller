@@ -97,6 +97,9 @@ export function bloquesResumen({ ficha, trabajo, ajustes }) {
   return bloques.filter(b => b.length);
 }
 
+// Abre WhatsApp con el texto ya escrito (WhatsApp pregunta a quién).
+export const urlWhatsapp = t => 'https://wa.me/?text=' + encodeURIComponent(t);
+
 export function textoResumen(o) {
   return bloquesResumen(o).map(b => b.join('\n')).join('\n\n');
 }

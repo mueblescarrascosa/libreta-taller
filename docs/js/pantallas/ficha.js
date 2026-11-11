@@ -1,5 +1,5 @@
 // Una ficha: sus huecos según el tipo y, en todas, medidas libres, notas, croquis y fotos.
-import { h, segmentado, tituloFicha, vivos } from '../util.js';
+import { h, segmentado, tituloFicha, vivos, icono } from '../util.js';
 import { unidadDe } from '../unidades.js';
 import { avisos, camposDeElemento, elementoNuevo, paredNueva, puertaNueva, normalizarFicha, resumenPuerta, limpiarDatos, tieneInformacion,
   TIPOS_ELEMENTO, NOMBRE_ELEMENTO, RAPIDAS_PUERTA, USOS, nombreElemento, tiposPuertaPara, otraHoja, anchoFijo } from '../modelo.js';
@@ -8,6 +8,7 @@ import { campoMedida, campoEntero } from '../campos.js';
 import { verMedida } from '../unidades.js';
 import { TIPOS_MODULO, NOMBRE_MODULO, moduloNuevo, nombreModulo, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, textoCuadre, lineaNueva, nombreLineal, nombreInterior, acabadosNuevos, ELECTRO, datosElectro, electroNuevo } from '../modulos.js';
 import { seccionAdjuntos } from './adjuntos.js';
+import { textoResumen, urlWhatsapp } from '../resumen.js';
 import { huella } from '../sincro.js';
 import { geometriaPlanta, svgPlanta, aplicarPlano } from '../plano-vista.js';
 import { abrirPlano } from '../plano-editor.js';
@@ -44,7 +45,11 @@ export async function pintarFicha(App, id) {
   const AJ = App.ajustes(), unidad = unidadDe(trabajo, AJ), d = ficha.datos;
   // En el vestidor los usos de enchufe son de cocina (placa, campana...): no se ofrecen.
   const usosDe = t => (t === 'toma' ? AJ.usos_toma : t === 'enchufe' && ficha.subtipo !== 'vestidor' ? AJ.usos_enchufe : []);
-  const main = App.marco('ficha', tituloFicha(ficha), trabajo ? '#/trabajo/' + trabajo.id : '#/sueltas');
+  // En la cabecera, junto al nombre: ver el resumen o mandarlo por WhatsApp tal como está ahora.
+  const main = App.marco('ficha', tituloFicha(ficha), trabajo ? '#/trabajo/' + trabajo.id : '#/sueltas', [
+    icono(h('button', { type: 'button', class: 'boton-cab', 'data-acc': 'cab-resumen', onclick: async () => { await guardarYa(); App.ir('#/resumen/' + id); } }), 'resumen', 'Ver resumen'),
+    icono(h('a', { class: 'boton-cab wa', href: '#', target: '_blank', rel: 'noopener', 'data-acc': 'cab-whatsapp',
+      onclick: ev => { ev.currentTarget.href = urlWhatsapp(textoResumen({ ficha, trabajo, ajustes: AJ })); guardarYa(); } }), 'whatsapp', 'Enviar por WhatsApp')]);
 
   let espera = null;
   const guardarYa = () => { clearTimeout(espera); espera = null; return App.guardarFila('fichas', ficha); };
@@ -89,13 +94,14 @@ export async function pintarFicha(App, id) {
         medida(p, 'alto', 'Alto', { rapidos: AJ.puerta_altos, aviso: null }),
         medida(p, 'tabique', 'Grosor de tabique', { rapidos: AJ.puerta_tabiques, aviso: null }),
         h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Tipo'),
-          segmentado({ acc: 'tipo-puerta', opciones: tiposPuertaPara(p), valor: p.tipo || null, permitirVacio: true, alCambiar: v => { p.tipo = v; cambio(); repintar(); } })),
+          segmentado({ acc: 'tipo-puerta', opciones: tiposPuertaPara(p), valor: p.tipo || null, permitirVacio: true, alCambiar: v => { p.tipo = v; if (v === 'doble' || v === 'corredera') quitarFijo(p); cambio(); repintar(); } })),
         ...extrasPuerta(p),
         h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Abre a (mirando desde el pasillo)'),
           segmentado({ acc: 'mano', opciones: [['izq', 'Izquierda'], ['der', 'Derecha']], valor: p.mano, permitirVacio: true, alCambiar: v => { p.mano = v; cambio(); } })),
         h('div', { class: 'dos' }, siNo(p, 'condena', 'Condena'), siNo(p, 'vidriera', 'Vidriera')),
         h('div', { class: 'avisos', 'data-avisos': 'puerta.' + p.id }));
     }
+    const quitarFijo = p => { ['fijo', 'puerta_ancho', 'fijo_lado'].forEach(k => delete p[k]); if (p.mal) delete p.mal.puerta_ancho; };
     // Doble: ¿hojas iguales? Si no, el ancho de cada una. Paño fijo en cualquier puerta: ancho y lado.
     function extrasPuerta(p) {
       const n = [];
@@ -109,9 +115,15 @@ export async function pintarFicha(App, id) {
           n.push(medida(p, 'hoja1', 'Ancho de la hoja que abre', { aviso: null }), otra);
         }
       }
-      n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Paño fijo al lado'),
-        segmentado({ acc: 'fijo', opciones: SI_NO, valor: p.fijo ?? null, permitirVacio: true, alCambiar: v => { p.fijo = v; cambio(); repintar(); } })));
-      if (p.fijo) {
+      // Paño fijo: poco frecuente y solo en abatibles; un botón pequeño que abre sus campos.
+      if (p.tipo === 'doble' || p.tipo === 'corredera' || p.tipo === 'fija') return n;
+      if (!p.fijo) {
+        n.push(h('button', { type: 'button', class: 'mini enlace-fijo', 'data-acc': 'fijo', onclick: () => { p.fijo = true; cambio(); repintar(); } }, '+ Paño fijo'));
+        return n;
+      }
+      {
+        n.push(h('div', { class: 'cab' }, h('label', { class: 'et' }, 'Paño fijo al lado'),
+          h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-fijo', onclick: () => { quitarFijo(p); cambio(); repintar(); } }, 'Quitar paño')));
         const paño = h('small', { class: 'ayuda', 'data-acc': 'ancho-fijo' });
         const pintarFijo = () => { const f = anchoFijo(p); paño.textContent = f !== null ? 'El paño fijo: ' + verMedida(f, unidad) + ' ' + unidad + ' (ancho total menos la puerta)' : 'Arriba, el ancho total del hueco; aquí el de la puerta, y el paño sale solo.'; };
         pintarFijo(); refrescos.push(() => { if (paño.isConnected) pintarFijo(); });

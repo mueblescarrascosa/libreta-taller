@@ -68,13 +68,15 @@ const App = {
   ir(hash) { location.hash = hash; },
 
   // Monta la cabecera y devuelve el contenedor de la pantalla.
-  marco(pantalla, titulo, atras) {
+  // botones: los de la propia pantalla, a la derecha del título (siempre a mano, la cabecera no se va al bajar).
+  marco(pantalla, titulo, atras, botones) {
     raiz.replaceChildren();
     const main = h('main', { 'data-pantalla': pantalla });
     raiz.append(
       h('header', {},
         atras ? h('a', { class: 'atras', href: atras, 'aria-label': 'Volver' }, '←') : null,
         h('b', { class: 'titulo' }, titulo),
+        botones && botones.length ? h('span', { class: 'botones-cab' }, ...botones) : null,
         h('button', { type: 'button', 'data-acc': 'estado', class: 'estado', onclick: () => App.alTocarEstado() }, ''),
         pantalla === 'ajustes' ? null : h('a', { class: 'engranaje', href: '#/ajustes', 'data-acc': 'ajustes', 'aria-label': 'Ajustes' }, '⚙')),
       main);

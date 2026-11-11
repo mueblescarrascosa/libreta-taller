@@ -164,16 +164,38 @@ prueba('tocar una ficha de la lista abre su resumen, con Editar; la flecha vuelv
   afirma((await a.page.innerText('[data-pantalla="resumen"]')).includes('781'), 'el resumen no trae la medida');
   await a.page.click('header .atras'); await a.page.waitForSelector('[data-pantalla="trabajo"]');
 }));
-prueba('puerta doble con hojas distintas y paño fijo: se apunta una medida y la otra sale sola', con({}, async a => {
+prueba('puerta doble con hojas distintas: se apunta la que abre y la otra sale sola; sin paño fijo', con({}, async a => {
   await nueva(a, 'puerta', null, 'cm');
-  await a.page.fill(P + '[data-acc="ancho"]', '160'); await a.page.press(P + '[data-acc="ancho"]', 'Tab');
+  await a.page.fill(P + '[data-acc="ancho"]', '120'); await a.page.press(P + '[data-acc="ancho"]', 'Tab');
   await a.page.click(P + '[data-acc="tipo-puerta"][data-v="doble"]');
   await a.page.click(P + '[data-acc="hojas-iguales"][data-v="false"]');
-  await a.page.click(P + '[data-acc="fijo"][data-v="true"]');
-  await a.page.fill(P + '[data-acc="puerta_ancho"]', '120'); await a.page.press(P + '[data-acc="puerta_ancho"]', 'Tab');
   await a.page.fill(P + '[data-acc="hoja1"]', '80'); await a.page.press(P + '[data-acc="hoja1"]', 'Tab');
-  await a.page.waitForFunction(() => /40 cm/.test(document.querySelector('[data-acc="otra-hoja"]').innerText) && /40 cm/.test(document.querySelector('[data-acc="ancho-fijo"]').innerText));
+  await a.page.waitForFunction(() => /40 cm/.test(document.querySelector('[data-acc="otra-hoja"]').innerText));
+  afirma(!(await a.page.$(P + '[data-acc="fijo"]')), 'la doble ofrece paño fijo');
   afirma(!(await a.page.$(P + '[data-acc="tipo-puerta"][data-v="fija"]')), 'sigue ofreciendo «fija» como tipo');
+}));
+prueba('paño fijo: botón pequeño en la abatible, el paño sale solo y se quita al pasar a corredera', con({}, async a => {
+  await nueva(a, 'puerta', null, 'cm');
+  await a.page.fill(P + '[data-acc="ancho"]', '120'); await a.page.press(P + '[data-acc="ancho"]', 'Tab');
+  await a.page.click(P + '[data-acc="fijo"]');
+  await a.page.fill(P + '[data-acc="puerta_ancho"]', '82'); await a.page.press(P + '[data-acc="puerta_ancho"]', 'Tab');
+  await a.page.waitForFunction(() => /38 cm/.test(document.querySelector('[data-acc="ancho-fijo"]').innerText));
+  await a.page.click(P + '[data-acc="tipo-puerta"][data-v="corredera"]');
+  afirma(!(await a.page.$(P + '[data-acc="fijo"]')) && !(await a.page.$(P + '[data-acc="puerta_ancho"]')), 'la corredera sigue con paño');
+  await a.page.waitForTimeout(400); const f = await ficha(a); igual(f.datos.puertas[0].fijo, undefined);
+}));
+prueba('cabecera de la ficha: Resumen y WhatsApp junto al nombre; en el resumen, Editar', con({}, async a => {
+  await a.page.setViewportSize({ width: 360, height: 740 });
+  await nueva(a, 'puerta', null, 'cm'); await a.page.fill(P + '[data-acc="ancho"]', '83');
+  const wa = await a.page.evaluate(() => { const b = document.querySelector('header [data-acc="cab-whatsapp"]'); b.addEventListener('click', e => e.preventDefault()); b.click(); return decodeURIComponent(b.href); });
+  afirma(wa.startsWith('https://wa.me/?text=') && wa.includes('83'), wa);
+  const cabe = await a.page.evaluate(() => [...document.querySelectorAll('header > *')].every(e => e.getBoundingClientRect().right <= innerWidth + 0.5) && document.documentElement.scrollWidth <= innerWidth);
+  afirma(cabe, 'la cabecera se sale en 360 px');
+  
+  await a.page.click('header [data-acc="cab-resumen"]'); await a.page.waitForSelector('[data-pantalla="resumen"]');
+  afirma((await a.page.innerText('header .titulo')).length > 0);
+  
+  await a.page.click('header [data-acc="cab-editar"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
 }));
 prueba('medidas libres y notas en cualquier ficha, y llegan a la nube', con({}, async a => {
   await nueva(a, 'nota');

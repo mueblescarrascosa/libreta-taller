@@ -1,9 +1,9 @@
 // Resumen de una ficha terminada, o de un trabajo entero: presentación limpia para ver, imprimir o enviar (PDF o texto por WhatsApp).
-import { h, tituloFicha, vivos } from '../util.js';
+import { h, tituloFicha, vivos, icono } from '../util.js';
 import { verMedida } from '../unidades.js';
 import { normalizarFicha, textoTipoPuerta } from '../modelo.js';
 const mayus = t => (t ? t[0].toUpperCase() + t.slice(1) : '');
-import { bloquesResumen, textoResumen, unidadesDe } from '../resumen.js';
+import { bloquesResumen, textoResumen, unidadesDe, urlWhatsapp } from '../resumen.js';
 import { recuentoPuertas, textoTrabajo } from '../trabajos.js';
 import { geometriaPlanta, svgPlanta } from '../plano-vista.js';
 import { generarPdf } from '../pdf.js';
@@ -103,7 +103,7 @@ function acciones({ doc, titulo, texto, editar, aviso }) {
       try { await navigator.share({ text: t, title: titulo }); } catch (e) { /* cancelado */ }
       return;
     }
-    window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank');
+    window.open(urlWhatsapp(t), '_blank');
   }
   return h('div', { class: 'acciones' },
     h('button', { type: 'button', 'data-acc': 'editar', onclick: editar }, 'Editar'),
@@ -118,7 +118,10 @@ export async function pintarResumen(App, id) {
   if (!leida || leida.borrado_at) return App.ir('#/');
   const ficha = normalizarFicha(leida), AJ = App.ajustes();
   const trabajo = ficha.trabajo_id ? await App.almacen.leer('trabajos', ficha.trabajo_id) : null;
-  const main = App.marco('resumen', 'Resumen', trabajo ? '#/trabajo/' + trabajo.id : '#/sueltas');
+  const main = App.marco('resumen', tituloFicha(ficha), trabajo ? '#/trabajo/' + trabajo.id : '#/sueltas', [
+    icono(h('a', { class: 'boton-cab', href: '#/ficha/' + id, 'data-acc': 'cab-editar' }), 'editar', 'Editar'),
+    icono(h('a', { class: 'boton-cab wa', href: '#', target: '_blank', rel: 'noopener', 'data-acc': 'cab-whatsapp',
+      onclick: ev => { ev.currentTarget.href = urlWhatsapp(textoResumen({ ficha, trabajo, ajustes: AJ })); } }), 'whatsapp', 'Enviar por WhatsApp')]);
   const aviso = h('p', { class: 'aviso-resumen' });
   const doc = h('article', { class: 'resumen-doc' }, cabecera(trabajo), ...(await nodosFicha(App, ficha, trabajo, AJ)), h('footer', {}, 'Libreta Taller'));
   const titulo = tituloLargo(trabajo, tituloFicha(ficha));
