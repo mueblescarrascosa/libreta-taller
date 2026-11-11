@@ -36,6 +36,6 @@ try {
   for (const n of [512, 192]) {
     await page.setViewportSize({ width: n, height: n });
     await page.setContent('<html><body style="margin:0">' + SVG.replace('<svg ', '<svg width="' + n + '" height="' + n + '" ') + '</body></html>');
-    await page.screenshot({ path: 'docs/icons/icon-' + n + '.png', clip: { x: 0, y: 0, width: n, height: n } });
+    await page.screenshot({ path: 'docs/icons/icon-' + n + '-v2.png', clip: { x: 0, y: 0, width: n, height: n } });
   }
 } finally { await browser.close(); }
