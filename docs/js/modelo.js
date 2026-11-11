@@ -63,13 +63,15 @@ export function textoAzulejo(p, unidad) {
   if (p.azulejo === 'toda') return 'azulejo en toda la pared';
   if (p.azulejo === 'zonas') return 'azulejo por zonas';
   if (p.azulejo !== 'franja') return '';
+  // La franja puede llevar además zonas (la de la campana, por ejemplo).
+  const zonas = (p.elementos || []).some(e => e.tipo === 'zona') ? ' + zonas' : '';
   const desde = hay(p.azulejo_desde), hasta = !p.azulejo_techo && hay(p.azulejo_hasta);
-  if (!desde && !hasta && !p.azulejo_techo) return 'azulejo en franja';
+  if (!desde && !hasta && !p.azulejo_techo) return 'azulejo en franja' + zonas;
   let t = 'azulejo';
   if (desde) t += ' desde ' + v(p.azulejo_desde) + (hasta ? '' : ' ' + unidad);
   if (p.azulejo_techo) t += ' hasta el techo';
   else if (hasta) t += ' hasta ' + v(p.azulejo_hasta) + ' ' + unidad;
-  return t;
+  return t + zonas;
 }
 
 export function camposDeElemento(tipo) {

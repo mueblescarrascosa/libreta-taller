@@ -2,7 +2,7 @@
 import { verMedida } from './unidades.js';
 import { tituloFicha } from './util.js';
 import { resumenPuerta, nombreElemento, camposDeElemento, textoAzulejo } from './modelo.js';
-import { nombreModulo, cuadreBajos, cuadreAltos, textoCuadre, nombreLineal, nombreInterior, textoElectro } from './modulos.js';
+import { nombreModulo, cuadreBajos, cuadreAltos, cuadreCuerposPared, textoCuadre, nombreLineal, nombreInterior, textoElectro } from './modulos.js';
 
 const hay = v => v !== null && v !== undefined && v !== '';
 const unir = (partes, sep = ' · ') => partes.filter(hay).join(sep);
@@ -32,8 +32,14 @@ function lineaModulos(nombre, lista, cuadre) {
   return '- ' + nombre + ': ' + t + (c ? ' (' + c.charAt(0).toLowerCase() + c.slice(1) + ')' : '');
 }
 
-function bloquePared(p, ud, u) {
+const textoCuerpo = (c, ajustes) => unir([hay(c.ancho) ? verMedida(c.ancho, 'cm') : '?', c.interior ? (c.interior === 'otro' ? c.nombre || 'otro' : nombreInterior(c.interior, ajustes).toLowerCase()) : null], ' ');
+
+function bloquePared(p, ud, u, ajustes) {
   const l = [unir(['*Pared ' + p.letra + '*', hay(p.largo) ? verMedida(p.largo, ud) + ' ' + ud : null, hay(p.alto) ? 'alto ' + verMedida(p.alto, ud) + ' ' + ud : null, textoAzulejo(p, ud) || null])];
+  if ((p.cuerpos || []).length) {
+    const c = textoCuadre(cuadreCuerposPared(p), 'cm');
+    l.push('- Cuerpos: ' + p.cuerpos.map(x => textoCuerpo(x, ajustes)).join(', ') + (c ? ' (' + c.charAt(0).toLowerCase() + c.slice(1) + ')' : ''));
+  }
   (p.elementos || []).forEach(e => l.push(lineaElemento(e, u)));
   l.push(lineaModulos('Bajos', p.bajos, cuadreBajos(p)), (p.altos || []).length ? lineaModulos('Altos', p.altos, cuadreAltos(p)) : null);
   return l.filter(hay);
@@ -66,7 +72,7 @@ export function bloquesResumen({ ficha, trabajo, ajustes }) {
     cab.push(...acabadosTexto(d.acabados, ajustes));
     (d.electro || []).forEach(e => cab.push(textoElectro(e)));
     bloques.push(cab);
-    (d.paredes || []).forEach(p => bloques.push(bloquePared(p, pared, u)));
+    (d.paredes || []).forEach(p => bloques.push(bloquePared(p, pared, u, ajustes)));
   } else {
     bloques.push(cab);
   }
@@ -80,7 +86,7 @@ export function bloquesResumen({ ficha, trabajo, ajustes }) {
     if (hay(d.rodapie_alto) || hay(d.rodapie_grosor)) l.push('Rodapié: ' + unir([hay(d.rodapie_alto) ? 'alto ' + v(d.rodapie_alto) + ' ' + u : null, hay(d.rodapie_grosor) ? 'grosor ' + v(d.rodapie_grosor) + ' ' + u : null], ', '));
     if (hay(d.hojas)) l.push('Hojas: ' + d.hojas);
     if (hay(d.puertas) && !Array.isArray(d.puertas)) l.push('Puertas: ' + d.puertas);
-    if ((d.cuerpos || []).length) l.push('Cuerpos: ' + d.cuerpos.map(c => unir([hay(c.ancho) ? v(c.ancho, 'cm') : '?', c.interior ? (c.interior === 'otro' ? c.nombre || 'otro' : nombreInterior(c.interior, ajustes).toLowerCase()) : null], ' ')).join(', '));
+    if ((d.cuerpos || []).length) l.push('Cuerpos: ' + d.cuerpos.map(c => textoCuerpo(c, ajustes)).join(', '));
     (d.enchufes || []).forEach(e => l.push(lineaElemento(Object.assign({ tipo: 'enchufe' }, e), u)));
     bloques[bloques.length - 1].push(...l);
   }

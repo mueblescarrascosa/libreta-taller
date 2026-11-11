@@ -35,6 +35,9 @@ export function cuadreCuerpos(d) {
   return { suma: s, resto: anchos.length ? Math.min(...anchos) - s : null };
 }
 
+// Cuerpos de una pared (vestidor) contra su largo.
+export function cuadreCuerposPared(p) { const s = suma(p.cuerpos); return { suma: s, resto: resto(p.largo, s) }; }
+
 // Texto del cuadre para enseñar debajo de cada fila: «quedan 23 cm» o «te pasas 5 cm».
 export function textoCuadre(c, unidad) {
   if (!hay(c.resto) || !c.suma) return '';
@@ -50,6 +53,7 @@ export function avisosModulos(ficha, unidad) {
   (d.paredes || []).forEach(p => {
     pasa('pared.' + p.id, 'Bajos de la pared ' + p.letra, cuadreBajos(p));
     pasa('pared.' + p.id, 'Altos de la pared ' + p.letra, cuadreAltos(p));
+    pasa('pared.' + p.id, 'Cuerpos de la pared ' + p.letra, cuadreCuerposPared(p));
   });
   if (ficha.tipo === 'armario') pasa('cuerpos', 'Los cuerpos', cuadreCuerpos(d));
   return l;

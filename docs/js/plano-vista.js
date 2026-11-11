@@ -6,6 +6,8 @@ import { verMedida } from './unidades.js';
 import { nombreModulo, esColumna } from './modulos.js';
 
 const FONDO_MODULO = 600;
+// Ancho orientativo (mm) de lo que se mide al centro, solo para el dibujo: no es la medida real de la caja.
+const ANCHO_APROX = { enchufe: 80, toma: 60, desague: 50, humos: 120 };
 
 const ETIQUETA_CORTA = {
   humos: 'Humos', desague: 'Desagüe', agua: 'Agua', gas: 'Gas', enchufe: 'E', enchufe_hmo: 'E H/MO', enchufe_horno: 'E horno',
@@ -60,7 +62,11 @@ export function geometriaPlanta(d, { margen = 10 } = {}) {
       if (k === null || !hay(e.distancia)) { geo.sinSituar.push(base); return; }
       const c = camposDeElemento(e.tipo), ancho = c.ancho && hay(e.ancho) ? e.ancho : 0;
       const s = e.ref === 'der' ? (c.punto === 'centro' || !ancho ? L - e.distancia : L - e.distancia - ancho) : e.distancia;
-      if (!ancho) { geo.elementos.push(Object.assign(base, { punto: en(s) })); return; }
+      if (!ancho) {
+        const w = ANCHO_APROX[e.tipo], r = Object.assign(base, { punto: en(s) });
+        if (w) r.caja = [en(s - w / 2), en(s + w / 2)];
+        geo.elementos.push(r); return;
+      }
       const pa = en(s), pb = en(s + ancho), r = Object.assign(base, { a: pa, b: pb });
       if (e.tipo === 'pilar' && hay(e.fondo)) {
         const f = e.fondo * k;
@@ -77,6 +83,15 @@ export function geometriaPlanta(d, { margen = 10 } = {}) {
         geo.modulos.push({ tipo: mo.tipo, nombre: nombreModulo(mo), ancho: mo.ancho, columna: esColumna(mo), pared: letra, dentro,
           rect: [pa, pb, { x: pb.x + dentro.x * f, y: pb.y + dentro.y * f }, { x: pa.x + dentro.x * f, y: pa.y + dentro.y * f }] });
         s += mo.ancho;
+      }
+      // Cuerpos del vestidor, igual que los bajos.
+      s = 0;
+      for (const [i, cu] of (pared.cuerpos || []).entries()) {
+        if (!hay(cu.ancho)) break;
+        const pa = en(s), pb = en(s + cu.ancho), f = FONDO_MODULO * k;
+        geo.modulos.push({ tipo: 'cuerpo', nombre: 'Cuerpo ' + (i + 1), ancho: cu.ancho, columna: false, pared: letra, dentro,
+          rect: [pa, pb, { x: pb.x + dentro.x * f, y: pb.y + dentro.y * f }, { x: pa.x + dentro.x * f, y: pa.y + dentro.y * f }] });
+        s += cu.ancho;
       }
     }
   }
@@ -121,6 +136,17 @@ export function svgPlanta(geo) {
     const c = { x: (m.rect[0].x + m.rect[2].x) / 2, y: (m.rect[0].y + m.rect[2].y) / 2 };
     texto(c.x, c.y, m.nombre + ' ' + verMedida(m.ancho, 'cm'), { 'font-size': s * 2.8, fill: '#78350f' });
   });
+  // Nombres sin pisarse: si uno cae encima de otro ya puesto, se aleja de la pared con una rayita hasta su sitio.
+  const puestos = [], pisa = (p, q) => p.x < q.x + q.w && q.x < p.x + p.w && p.y < q.y + q.h && q.y < p.y + p.h;
+  const nombre = (c, d, t, col, tipo) => {
+    const w = String(t).length * s * 2.5 + s, hh = s * 5.4;
+    let paso = 0, caja;
+    do { const x = c.x + d.x * s * (6 + paso * 5.5), y = c.y + d.y * s * (6 + paso * 5.5); caja = { x: x - w / 2, y: y - hh / 2, w, h: hh, cx: x, cy: y }; paso++; }
+    while (paso < 12 && puestos.some(q => pisa(caja, q)));
+    puestos.push(caja);
+    if (paso > 1) svg.append(el('line', { x1: c.x + d.x * s * 2, y1: c.y + d.y * s * 2, x2: caja.cx - d.x * s * 2, y2: caja.cy - d.y * s * 2, stroke: col, 'stroke-width': s * 0.3, opacity: 0.7 }));
+    texto(caja.cx, caja.cy, t, { fill: col, 'data-elemento': tipo });
+  };
   geo.elementos.forEach(e => {
     const col = colorDe(e.tipo), d = e.dentro;
     if (e.tipo === 'zona' && e.a) {
@@ -131,9 +157,14 @@ export function svgPlanta(geo) {
     }
     let c;
     if (e.rect) { svg.append(el('polygon', { points: e.rect.map(p => p.x + ',' + p.y).join(' '), fill: '#d1d5db', stroke: col, 'stroke-width': s * 0.6 })); c = { x: (e.rect[0].x + e.rect[2].x) / 2, y: (e.rect[0].y + e.rect[2].y) / 2 }; }
+    else if (e.caja) {
+      const f = s * 2, [p, q] = e.caja;
+      svg.append(el('polygon', { points: [p, q, { x: q.x + d.x * f, y: q.y + d.y * f }, { x: p.x + d.x * f, y: p.y + d.y * f }].map(z => z.x + ',' + z.y).join(' '), fill: col, opacity: 0.85, 'data-caja': e.tipo }));
+      c = e.punto;
+    }
     else if (e.punto) { svg.append(el('circle', { cx: e.punto.x, cy: e.punto.y, r: s * 1.8, fill: col })); c = e.punto; }
     else { svg.append(el('line', { x1: e.a.x, y1: e.a.y, x2: e.b.x, y2: e.b.y, stroke: col, 'stroke-width': s * 2.6 })); c = { x: (e.a.x + e.b.x) / 2, y: (e.a.y + e.b.y) / 2 }; }
-    texto(c.x + d.x * s * 6, c.y + d.y * s * 6, e.corta, { fill: col, 'data-elemento': e.tipo });
+    nombre(c, d, e.corta, col, e.tipo);
   });
   return svg;
 }

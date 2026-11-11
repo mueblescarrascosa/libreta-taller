@@ -126,7 +126,7 @@ prueba('con la columna nueva: teléfono, llamar, WhatsApp, estado y archivados',
 prueba('la lista de fichas dice qué tiene cada una y qué falta', con({}, async a => {
   await nueva(a, 'puerta'); await a.page.click(P + '[data-c="ancho"] [data-acc="rapido"][data-v="820"]'); await volverTrabajo(a);
   const t = await texto(a, '[data-acc="abrir-ficha"]');
-  afirma(/1 puerta/.test(t) && /Falta 1/.test(t), t);
+  afirma(/1 puerta/.test(t) && /Puerta 1: falta el alto/.test(t), t);
 }));
 
 // ── Mejora 5: duplicar y mover ──

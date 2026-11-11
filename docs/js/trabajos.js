@@ -18,7 +18,8 @@ export function resumenCorto(ficha) {
   if (f.tipo === 'puerta') partes.push(plural((d.puertas || []).length, 'puerta', 'puertas'));
   if (f.tipo === 'armario') {
     if (f.subtipo) partes.push(NOMBRE_SUBTIPO[f.subtipo]);
-    if ((d.cuerpos || []).length) partes.push(plural(d.cuerpos.length, 'cuerpo', 'cuerpos'));
+    const nc = (d.cuerpos || []).length + (d.paredes || []).reduce((s, p) => s + (p.cuerpos || []).length, 0);
+    if (nc) partes.push(plural(nc, 'cuerpo', 'cuerpos'));
   }
   if ((d.paredes || []).length && (f.tipo === 'cocina' || f.subtipo === 'vestidor')) partes.push(plural(d.paredes.length, 'pared', 'paredes'));
   const notas = (d.notas || []).filter(n => String(n.texto || '').trim()).length;
@@ -38,7 +39,8 @@ export function faltan(ficha) {
     if (!hay(d.alto_techo)) l.push('Falta la altura');
     (d.paredes || []).forEach(p => { if (!hay(p.largo)) l.push('Pared ' + p.letra + ': falta el largo'); });
   }
-  if (f.tipo === 'armario') {
+  // El vestidor se mide por paredes: no tiene hueco de armario.
+  if (f.tipo === 'armario' && f.subtipo !== 'vestidor') {
     if (![d.ancho_arriba, d.ancho_medio, d.ancho_abajo].some(hay)) l.push('Falta el ancho del hueco');
     if (![d.alto_izq, d.alto_der].some(hay)) l.push('Falta el alto del hueco');
     if (!hay(d.fondo)) l.push('Falta el fondo');

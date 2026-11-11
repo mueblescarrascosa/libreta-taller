@@ -6,7 +6,7 @@ import { avisos, camposDeElemento, elementoNuevo, paredNueva, puertaNueva, norma
 import { duplicarFicha } from '../trabajos.js';
 import { campoMedida, campoEntero } from '../campos.js';
 import { verMedida } from '../unidades.js';
-import { TIPOS_MODULO, NOMBRE_MODULO, moduloNuevo, nombreModulo, cuadreBajos, cuadreAltos, cuadreCuerpos, textoCuadre, lineaNueva, nombreLineal, nombreInterior, acabadosNuevos, ELECTRO, datosElectro, electroNuevo } from '../modulos.js';
+import { TIPOS_MODULO, NOMBRE_MODULO, moduloNuevo, nombreModulo, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, textoCuadre, lineaNueva, nombreLineal, nombreInterior, acabadosNuevos, ELECTRO, datosElectro, electroNuevo } from '../modulos.js';
 import { seccionAdjuntos } from './adjuntos.js';
 import { huella } from '../sincro.js';
 import { geometriaPlanta, svgPlanta, aplicarPlano } from '../plano-vista.js';
@@ -203,7 +203,7 @@ export async function pintarFicha(App, id) {
         h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Hasta el techo'),
           segmentado({ acc: 'azulejo_techo', opciones: SI_NO, valor: p.azulejo_techo ?? null, permitirVacio: true, alCambiar: v => { p.azulejo_techo = v; cambio(); pintarAzulejo(); } })));
       }
-      if (p.azulejo === 'zonas') {
+      if (p.azulejo === 'zonas' || p.azulejo === 'franja') {
         extra.push(h('button', { type: 'button', 'data-acc': 'anadir-zona', onclick: () => { p.elementos.push(elementoNuevo('zona', d.ref_ultima)); cambio(); repintar(); } }, '+ Zona azulejada (campana, fregadero…)'));
       }
       zonaAzulejo.replaceChildren(h('label', { class: 'et' }, 'Azulejo'),
@@ -220,6 +220,7 @@ export async function pintarFicha(App, id) {
       pilares,
       h('div', { class: 'campo' }, zonaAzulejo),
       tipos === TIPOS_ELEMENTO.cocina ? muebles(p) : null,
+      ficha.subtipo === 'vestidor' ? h('div', { class: 'campo' }, ...cuerpos(p, () => cuadreCuerposPared(p), false)) : null,
       zonaEl,
       h('label', { class: 'et' }, 'Añadir'),
       h('div', { class: 'chips' }, tipos.map(t => h('button', { type: 'button', 'data-acc': 'anadir-elemento', 'data-v': t, onclick: () => { p.elementos.push(elementoNuevo(t, d.ref_ultima)); cambio(); repintar(); } }, NOMBRE_ELEMENTO[t]))));
@@ -281,16 +282,18 @@ export async function pintarFicha(App, id) {
     return caja;
   }
 
-  // Cuerpos de armario, de izquierda a derecha, con su ancho y su interior.
-  function cuerpos() {
-    if (!d.cuerpos) d.cuerpos = [];
+  // Cuerpos de izquierda a derecha, con su ancho y su interior: los del hueco del armario
+  // o, en el vestidor, los de cada pared (cuadrados contra su largo).
+  function cuerpos(dueno = d, cuadreDe = () => cuadreCuerpos(d), conTitulo = true) {
+    if (!dueno.cuerpos) dueno.cuerpos = [];
+    const lista = dueno.cuerpos;
     const zona = h('div', { class: 'modulos' }), cuadre = h('small', { class: 'cuadre', 'data-acc': 'cuadre-cuerpos' });
     let abierto = null;
-    const pintarCuadre = () => { cuadre.textContent = textoCuadre(cuadreCuerpos(d), 'cm'); };
+    const pintarCuadre = () => { cuadre.textContent = textoCuadre(cuadreDe(), 'cm'); };
     const interiores = AJ.interiores.concat([['otro', 'Otro']]);
     const repintar = () => {
-      zona.replaceChildren(...listaOrdenada({ lista: d.cuerpos, atributo: 'data-cuerpo', abierto: () => abierto, alAbrir: idc => { abierto = idc; }, repintar,
-        resumen: c => 'Cuerpo ' + (d.cuerpos.indexOf(c) + 1) + (c.interior ? ' · ' + (c.interior === 'otro' ? c.nombre || 'otro' : nombreInterior(c.interior, AJ).toLowerCase()) : ''),
+      zona.replaceChildren(...listaOrdenada({ lista, atributo: 'data-cuerpo', abierto: () => abierto, alAbrir: idc => { abierto = idc; }, repintar,
+        resumen: c => 'Cuerpo ' + (lista.indexOf(c) + 1) +(c.interior ? ' · ' + (c.interior === 'otro' ? c.nombre || 'otro' : nombreInterior(c.interior, AJ).toLowerCase()) : ''),
         editor: c => [campoMedida({ etiqueta: 'Ancho', acc: 'ancho', valor: c.ancho, mal: c.mal && c.mal.ancho, unidad: 'cm', rapidos: AJ.modulo_anchos, alCambiar: (v, t) => { anotarMedida(c, 'ancho', v, t); cambio(); pintarCuadre(); } }),
           h('label', { class: 'et' }, 'Interior'),
           h('div', { class: 'chips' }, interiores.map(([v, t]) => h('button', { type: 'button', 'data-acc': 'interior', 'data-v': v, class: c.interior === v ? 'on' : '', onclick: () => { c.interior = c.interior === v ? null : v; cambio(); repintar(); } }, t))),
@@ -299,8 +302,8 @@ export async function pintarFicha(App, id) {
     };
     refrescos.push(pintarCuadre);
     repintar();
-    return [h('h2', {}, 'Cuerpos, de izquierda a derecha'), zona, cuadre,
-      h('button', { type: 'button', class: 'ancho', 'data-acc': 'anadir-cuerpo', onclick: () => { const c = { id: nuevoId(), ancho: null, interior: null, nombre: '' }; d.cuerpos.push(c); abierto = c.id; cambio(); repintar(); } }, '+ Añadir cuerpo')];
+    return [conTitulo ? h('h2', {}, 'Cuerpos, de izquierda a derecha') : h('label', { class: 'et' }, 'Cuerpos, de izquierda a derecha'), zona, cuadre,
+      h('button', { type: 'button', class: 'ancho', 'data-acc': 'anadir-cuerpo', onclick: () => { const c = { id: nuevoId(), ancho: null, interior: null, nombre: '' }; lista.push(c); abierto = c.id; cambio(); repintar(); } }, '+ Añadir cuerpo')];
   }
 
   const texto = (obj, k, acc, ph) => h('input', { 'data-acc': acc, placeholder: ph, value: obj[k] || '', oninput: ev => { obj[k] = ev.target.value; cambio(); } });
@@ -378,7 +381,10 @@ export async function pintarFicha(App, id) {
     if (ficha.tipo === 'puerta') return [h('div', { class: 'tarjeta' }, h('b', {}, 'Para todas las puertas'), h('div', { class: 'dos' }, texto(d, 'modelo', 'puertas-modelo', 'Modelo'), texto(d, 'color', 'puertas-color', 'Color'))), ...puertas()];
     if (ficha.tipo === 'cocina') return [acabados(), electro(), ...paredes(TIPOS_ELEMENTO.cocina)];
     if (ficha.tipo === 'armario') {
-      const r = [h('div', { class: 'tarjeta' },
+      // El vestidor se mide por paredes: el hueco y la lista general de cuerpos solo se ven si ya tenía datos de antes.
+      const ves = ficha.subtipo === 'vestidor';
+      const huecoViejo = ['ancho_arriba', 'ancho_medio', 'ancho_abajo', 'alto_izq', 'alto_der', 'diag_1', 'diag_2', 'fondo', 'rodapie_alto', 'rodapie_grosor'].some(k => d[k] !== null && d[k] !== undefined);
+      const r = ves && !huecoViejo ? [] : [h('div', { class: 'tarjeta' },
         h('label', { class: 'et' }, 'Ancho del hueco'),
         h('small', { class: 'ayuda' }, 'Mídelo arriba, en medio y abajo. Si no coinciden, las paredes no están rectas y se avisa.'),
         h('div', { class: 'dos' }, medida(d, 'ancho_arriba', 'Arriba'), medida(d, 'ancho_medio', 'En medio')), medida(d, 'ancho_abajo', 'Abajo'),
@@ -395,7 +401,7 @@ export async function pintarFicha(App, id) {
         h('div', { class: 'dos' }, medida(d, 'rodapie_alto', 'Alto de rodapié'), medida(d, 'rodapie_grosor', 'Grosor de rodapié')),
         ficha.subtipo === 'corredera' ? campoEntero({ etiqueta: 'Número de hojas', acc: 'hojas', valor: d.hojas, alCambiar: v => { d.hojas = v; cambio(); } }) : null,
         ficha.subtipo === 'abatible' ? campoEntero({ etiqueta: 'Número de puertas', acc: 'puertas', valor: d.puertas, alCambiar: v => { d.puertas = v; cambio(); } }) : null)];
-      r.push(...cuerpos());
+      if (!ves || (d.cuerpos || []).length) r.push(...cuerpos());
       // En el vestidor los enchufes van en sus paredes; la lista aparte solo se ve si ya tenía alguno.
       if (ficha.subtipo !== 'vestidor' || (d.enchufes || []).length) r.push(...enchufes());
       if (ficha.subtipo === 'vestidor') r.push(...paredes(TIPOS_ELEMENTO.vestidor));

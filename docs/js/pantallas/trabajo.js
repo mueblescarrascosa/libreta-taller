@@ -45,7 +45,8 @@ export async function pintarTrabajo(App, id) {
     lista.replaceChildren(...(fichas.length
       ? fichas.map(f => {
         const n = normalizarFicha(f), sin = faltan(n), av = avisos(n, unidad, { margen: AJ.margen }).length;
-        const pend = [sin.length ? (sin.length === 1 ? 'Falta 1 medida' : 'Faltan ' + sin.length + ' medidas') : null, av ? (av === 1 ? '1 aviso' : av + ' avisos') : null].filter(Boolean);
+        // Lo que falta, con nombre (en el móvil no se ve el «title»): hasta 3 y «y N más».
+        const pend = [...sin.slice(0, 3), sin.length > 3 ? 'y ' + (sin.length - 3) + ' más' : null, av ? (av === 1 ? '1 aviso' : av + ' avisos') : null].filter(Boolean);
         return h('a', { class: 'fila', href: '#/ficha/' + f.id, 'data-acc': 'abrir-ficha', 'data-tipo': f.tipo, title: sin.join('\n') },
           h('b', {}, tituloFicha(f)),
           h('small', {}, [f.nombre && f.tipo !== 'armario' ? NOMBRE_TIPO[f.tipo] : null, ...resumenCorto(n).split(' · ')]
