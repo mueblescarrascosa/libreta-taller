@@ -7,7 +7,7 @@ import { paredesVecinas } from '../modulos.js';
 import { escenaPerspectiva, vistaDe, svgPerspectiva } from '../perspectiva.js';
 const mayus = t => (t ? t[0].toUpperCase() + t.slice(1) : '');
 import { bloquesResumen, textoResumen, unidadesDe, urlWhatsapp } from '../resumen.js';
-import { recuentoPuertas, textoTrabajo } from '../trabajos.js';
+import { recuentoPuertas, textoTrabajo, ordenFichas } from '../trabajos.js';
 import { geometriaPlanta, svgPlanta } from '../plano-vista.js';
 import { generarPdf, aclararDibujos } from '../pdf.js';
 import { geometriaAlzado, svgAlzado } from '../alzado.js';
@@ -233,8 +233,8 @@ export async function pintarResumenTrabajo(App, id) {
   const trabajo = await App.almacen.leer('trabajos', id);
   if (!trabajo || trabajo.borrado_at) return App.ir('#/');
   const AJ = App.ajustes(), u = trabajo.unidad || AJ.unidad;
-  const fichas = vivos(await App.almacen.todos('fichas')).filter(f => f.trabajo_id === id)
-    .sort((a, b) => String(a.creado_at).localeCompare(String(b.creado_at))).map(normalizarFicha);
+  const fichas = ordenFichas(vivos(await App.almacen.todos('fichas')).filter(f => f.trabajo_id === id))
+    .map(normalizarFicha);
   const aviso = h('p', { class: 'aviso-resumen' }), doc = h('article', { class: 'resumen-doc' });
   // Qué fichas van (todas al principio): lo marcado es lo que se ve, se imprime y se envía.
   const sel = new Set(fichas.map(f => f.id)), elegidas = () => fichas.filter(f => sel.has(f.id));

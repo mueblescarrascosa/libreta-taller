@@ -242,3 +242,30 @@ export function textoTrabajo({ trabajo, fichas, ajustes, abre = true }) {
   fichas.forEach(f => bloques.push(...bloquesResumen({ ficha: normalizarFicha(f), trabajo, ajustes }).slice(1)));
   return bloques.map(b => b.join('\n')).join('\n\n');
 }
+
+// Orden de las fichas de un trabajo, sin separarlas: por categoría (puertas, cocina, armarios —el vestidor al final—, notas)
+// y, dentro de cada una, de abajo a arriba por la zona del nombre (sótano, bajo, piso 1, piso 2… ático) y de menos a más
+// por los números; si empatan, por orden de creación.
+const ORDEN_TIPO = { puerta: 0, cocina: 1, armario: 2, nota: 9 };
+const sinTildes = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+export function alturaZona(nombre) {
+  const t = sinTildes(nombre);
+  if (/sotano|semisotano/.test(t)) return -1;
+  if (/\b(bajo|baja|planta baja|pb)\b/.test(t)) return 0;
+  if (/atico|bajo cubierta|buhardilla/.test(t)) return 900;
+  const n = t.match(/(?:piso|planta|p)\s*(\d+)/) || t.match(/(\d+)\s*(?:º|o|ª)?\s*(?:piso|planta)/);
+  return n ? Number(n[1]) : null;
+}
+export function ordenFichas(fichas) {
+  const clave = f => [ORDEN_TIPO[f.tipo] ?? 5, f.tipo === 'armario' ? (f.subtipo === 'vestidor' ? 1 : 0) : 0];
+  return fichas.slice().sort((a, b) => {
+    const ka = clave(a), kb = clave(b);
+    if (ka[0] !== kb[0]) return ka[0] - kb[0];
+    if (ka[1] !== kb[1]) return ka[1] - kb[1];
+    const za = alturaZona(a.nombre), zb = alturaZona(b.nombre);
+    if (za !== null && zb !== null && za !== zb) return za - zb;
+    if ((za === null) !== (zb === null)) return za === null ? 1 : -1;
+    const n = String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { numeric: true, sensitivity: 'base' });
+    return n || String(a.creado_at).localeCompare(String(b.creado_at));
+  });
+}

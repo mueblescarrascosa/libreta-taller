@@ -3,7 +3,7 @@ import { h, segmentado, tituloFicha, vivos, icono, NOMBRE_TIPO, NOMBRE_SUBTIPO }
 import { textoResumen, urlWhatsapp } from '../resumen.js';
 import { fichaNueva, avisos, normalizarFicha } from '../modelo.js';
 import { unidadDe } from '../unidades.js';
-import { resumenCorto, faltan } from '../trabajos.js';
+import { resumenCorto, faltan, ordenFichas } from '../trabajos.js';
 
 const RETARDO = 300;
 export const ESTADOS = [['medir', 'Por medir'], ['medido', 'Medido'], ['enviado', 'Enviado'], ['fabricacion', 'En fabricación'], ['montado', 'Montado']];
@@ -41,7 +41,7 @@ export async function pintarTrabajo(App, id) {
 
   // Cada ficha con lo que tiene y lo que le falta, para verlo antes de irse de la obra.
   async function cargar() {
-    const fichas = vivos(await App.almacen.todos('fichas')).filter(f => f.trabajo_id === id).sort((a, b) => String(a.creado_at).localeCompare(String(b.creado_at)));
+    const fichas = ordenFichas(vivos(await App.almacen.todos('fichas')).filter(f => f.trabajo_id === id));
     const unidad = unidadDe(trabajo, AJ);
     lista.replaceChildren(...(fichas.length
       ? fichas.map(f => {
