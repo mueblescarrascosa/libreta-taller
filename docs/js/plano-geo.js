@@ -67,10 +67,12 @@ function enderezarTramos(vs, cerrada) {
   let ref = Math.atan2(largo[1].y - largo[0].y, largo[1].x - largo[0].x);
   const alEje = Math.round(ref / (90 * GRADO)) * 90 * GRADO;
   if (Math.abs(ref - alEje) < 10 * GRADO) ref = alEje; // casi recto respecto a la pantalla: recto del todo
+  // Los tramos cortos (pilares, mochetas) tiemblan más al dibujarlos: se les da más margen.
+  const masLargo = dist(...largo);
   let lineas = tramos.map(([a, b]) => {
     let ang = Math.atan2(b.y - a.y, b.x - a.x), recta = false;
-    const k = Math.round((ang - ref) / (90 * GRADO));
-    if (Math.abs(ang - ref - k * 90 * GRADO) < 15 * GRADO) { ang = ref + k * 90 * GRADO; recta = true; }
+    const k = Math.round((ang - ref) / (90 * GRADO)), tol = dist(a, b) < 0.2 * masLargo ? 25 : 15;
+    if (Math.abs(ang - ref - k * 90 * GRADO) < tol * GRADO) { ang = ref + k * 90 * GRADO; recta = true; }
     return { p: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, d: { x: Math.cos(ang), y: Math.sin(ang) }, a, b, recta, l: dist(a, b) };
   });
   // Un tramo corto en diagonal entre dos rectos es el temblor de una esquina, no una pared: se quita.
@@ -98,6 +100,94 @@ function enderezarTramos(vs, cerrada) {
   return r;
 }
 
+// Abierta: el interior queda a la derecha del recorrido, como en las cerradas (cerrándola con la cuerda).
+// Cerrada: en sentido horario y empezando en la esquina de arriba a la izquierda (la pared A es la de arriba).
+function orientar(vs, cerrada, diag) {
+  if (!cerrada && vs.length >= 3 && areaPantalla(vs) < 0) vs.reverse();
+  if (cerrada) {
+    if (areaPantalla(vs) < 0) vs.reverse();
+    const tope = Math.min(...vs.map(v => v.y)), tol = 0.02 * diag;
+    let ini = 0;
+    vs.forEach((v, i) => { const w = vs[ini]; if (v.y <= tope + tol && (w.y > tope + tol || v.x < w.x)) ini = i; });
+    vs = vs.slice(ini).concat(vs.slice(0, ini));
+  }
+  return vs;
+}
+
+// ── Pilares y columnas ──
+// Un saliente estrecho hacia dentro de la habitación no son paredes: es un pilar de la pared que lo lleva.
+// En medio de una pared deja esquinas 90-270-270-90 con tres tramos cortos; en un rincón, 90-270-90 con dos.
+// Corto = como mucho la cuarta parte de la pared más larga (y más corto que las paredes que lo llevan).
+const linea = (a, b) => { const l = dist(a, b) || 1; return { p: a, d: { x: (b.x - a.x) / l, y: (b.y - a.y) / l } }; };
+function interiores(vs, cerrada) {
+  const n = vs.length;
+  return vs.map((v, i) => {
+    if (!cerrada && (i === 0 || i === n - 1)) return null;
+    const a = vs[(i - 1 + n) % n], b = vs[(i + 1) % n];
+    const g = ((Math.atan2(b.y - v.y, b.x - v.x) - Math.atan2(v.y - a.y, v.x - a.x)) / GRADO % 360 + 540) % 360 - 180;
+    const x = 180 - g, r = Math.round(x / 90) * 90;
+    return Math.abs(x - r) < 3 ? r : null; // solo esquinas rectas
+  });
+}
+function buscarPilar(vs, cerrada) {
+  const n = vs.length, m = cerrada ? n : n - 1, ang = interiores(vs, cerrada);
+  const tramo = j => dist(vs[((j % n) + n) % n], vs[((j + 1) % n + n) % n]);
+  const largoMax = Math.max(...Array.from({ length: m }, (_, j) => tramo(j))), corto = 0.25 * largoMax;
+  const A = k => ang[((k % n) + n) % n];
+  const vale = j => cerrada || (j >= 0 && j < m);
+  // En medio: tramos j (pared), j+1..j+3 (pilar), j+4 (la misma pared).
+  if (cerrada ? n >= 7 : n >= 6) for (let j = 0; j < m; j++) {
+    if (!vale(j + 4)) break;
+    if (A(j + 1) !== 90 || A(j + 2) !== 270 || A(j + 3) !== 270 || A(j + 4) !== 90) continue;
+    const p = [tramo(j + 1), tramo(j + 2), tramo(j + 3)], pared = Math.min(tramo(j), tramo(j + 4));
+    if (Math.max(...p) > corto || Math.max(...p) >= pared || Math.abs(p[0] - p[2]) > 0.5 * Math.max(p[0], p[2])) continue;
+    const quitar = [1, 2, 3, 4].map(k => (j + k) % n);
+    return { tipo: 'medio', j: j % n, vertices: vs.filter((_, i) => !quitar.includes(i)), pilar: { punto: vs[(j + 1) % n], dir: linea(vs[j % n], vs[(j + 1) % n]).d, ref: 'izq', distancia: null } };
+  }
+  // En un rincón: tramos j (pared), j+1..j+2 (pilar), j+3 (la pared de al lado).
+  if (n >= 5) for (let j = 0; j < m; j++) {
+    if (!vale(j + 3)) break;
+    if (A(j + 1) !== 90 || A(j + 2) !== 270 || A(j + 3) !== 90) continue;
+    const p = [tramo(j + 1), tramo(j + 2)], pared = Math.min(tramo(j), tramo(j + 3));
+    if (Math.max(...p) > corto || Math.max(...p) >= pared) continue;
+    const i0 = j % n, esquina = cortar(linea(vs[i0], vs[(j + 1) % n]), linea(vs[(j + 3) % n], vs[(j + 4) % n]));
+    if (!esquina) continue;
+    // El pilar va en la pared paralela a su cara ancha (el segundo tramo corto), pegado a la esquina.
+    const ancho = linea(vs[(j + 2) % n], vs[(j + 3) % n]).d, dA = linea(vs[i0], vs[(j + 1) % n]).d;
+    const enA = Math.abs(ancho.x * dA.x + ancho.y * dA.y) > 0.7;
+    const r = []; vs.forEach((v, i) => { if (i === (j + 1) % n) r.push(esquina); else if (i !== (j + 2) % n && i !== (j + 3) % n) r.push(v); });
+    const pilar = enA
+      ? { punto: vs[(j + 1) % n], dir: dA, ref: 'der', distancia: 0 }
+      : { punto: vs[(j + 3) % n], dir: linea(vs[(j + 3) % n], vs[(j + 4) % n]).d, ref: 'izq', distancia: 0 };
+    return { tipo: 'rincon', j: j % n, esquina, vertices: r, pilar };
+  }
+  return null;
+}
+// Pared (índice) a la que pertenece un punto: la más cercana; y si quedó en sentido contrario, se cambia el lado.
+function paredDe(vs, cerrada, pl) {
+  const m = cerrada ? vs.length : vs.length - 1;
+  let mejor = 0, dm = Infinity;
+  for (let i = 0; i < m; i++) {
+    const a = vs[i], b = vs[(i + 1) % vs.length], l = dist(a, b) || 1;
+    const t = Math.max(0, Math.min(1, ((pl.punto.x - a.x) * (b.x - a.x) + (pl.punto.y - a.y) * (b.y - a.y)) / (l * l)));
+    const d = dist(pl.punto, { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+    const par = Math.abs(((b.x - a.x) * pl.dir.x + (b.y - a.y) * pl.dir.y) / l) > 0.7;
+    if (par && d < dm) { dm = d; mejor = i; }
+  }
+  const a = vs[mejor], b = vs[(mejor + 1) % vs.length], alReves = (b.x - a.x) * pl.dir.x + (b.y - a.y) * pl.dir.y < 0;
+  const ref = alReves ? (pl.ref === 'der' ? 'izq' : 'der') : pl.ref;
+  return { pared: mejor, ref, distancia: pl.distancia };
+}
+
+// Planos ya guardados con un pilar dibujado como paredes: el primero que haya (o null).
+// tipo 'rincon': paredes j (la que lo lleva), j+1 (lo que sobresale), j+2 (ancho), j+3 (la de al lado).
+// tipo 'medio': j, j+1 (sobresale), j+2 (ancho), j+3 (vuelve), j+4 (sigue la pared j).
+export function pilarDibujado(plano) {
+  if (!plano || !plano.vertices || plano.vertices.length < 5) return null;
+  const r = buscarPilar(plano.vertices.map(v => ({ x: v.x, y: v.y })), !!plano.cerrada);
+  return r ? { tipo: r.tipo, j: r.j, vertices: r.vertices } : null;
+}
+
 export function enderezar(puntos) {
   const pts = [];
   (puntos || []).forEach(p => { if (!pts.length || dist(pts[pts.length - 1], p) > 0.5) pts.push({ x: p.x, y: p.y }); });
@@ -113,17 +203,18 @@ export function enderezar(puntos) {
   if (vs.length < 2 || (cerrada && vs.length < 3)) return null;
   vs = enderezarTramos(vs, cerrada);
   if (vs.length < 2) return null;
-  // Abierta: el interior queda a la derecha del recorrido, como en las cerradas (cerrándola con la cuerda).
-  if (!cerrada && vs.length >= 3 && areaPantalla(vs) < 0) vs.reverse();
-  if (cerrada) {
-    if (areaPantalla(vs) < 0) vs.reverse();
-    // Empieza en la esquina de arriba a la izquierda: la pared A es la de arriba, de izquierda a derecha.
-    const tope = Math.min(...vs.map(v => v.y)), tol = 0.02 * diag;
-    let ini = 0;
-    vs.forEach((v, i) => { const w = vs[ini]; if (v.y <= tope + tol && (w.y > tope + tol || v.x < w.x)) ini = i; });
-    vs = vs.slice(ini).concat(vs.slice(0, ini));
+  vs = orientar(vs, cerrada, diag);
+  // Pilares fuera de las paredes (se guardan aparte, con la figura completa por si se quieren como paredes).
+  let limpio = vs.map(v => ({ x: v.x, y: v.y }));
+  const sueltos = [];
+  for (let k = 0; k < 12; k++) {
+    const r = buscarPilar(limpio, cerrada);
+    if (!r) break;
+    sueltos.push(r.pilar); limpio = r.vertices;
   }
-  return { vertices: vs, cerrada };
+  if (!sueltos.length) return { vertices: vs, cerrada, pilares: [] };
+  limpio = orientar(enderezarTramos(limpio, cerrada), cerrada, diag);
+  return { vertices: limpio, cerrada, pilares: sueltos.map(p => paredDe(limpio, cerrada, p)), conPilares: vs };
 }
 
 // ── Comprobación de medidas ──

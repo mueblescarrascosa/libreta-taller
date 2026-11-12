@@ -69,6 +69,8 @@ export function abrirPlano({ plano = null, largos = {}, unidad = 'm', margen = 1
         if (!r2) { st.aviso = 'No he entendido el dibujo. Repítelo con un trazo continuo, sin levantar el dedo.'; linea.setAttribute('points', ''); pintarPanel(); return; }
         st.aviso = ''; st.sel = 0;
         st.plano = conLargos({ vertices: r2.vertices, cerrada: r2.cerrada });
+        // Pilares y columnas no son paredes: quedan como mocheta de su pared, salvo que se pida lo contrario.
+        if (r2.pilares && r2.pilares.length) { st.plano.pilares = r2.pilares; st.plano.conPilares = r2.conPilares; }
         pintar();
       };
       svg.addEventListener('pointerup', fin); svg.addEventListener('pointercancel', fin);
@@ -212,6 +214,14 @@ export function abrirPlano({ plano = null, largos = {}, unidad = 'm', margen = 1
         filas.push(el('div', { class: 'fila-pared' }, el('b', {}, 'Pared ' + n[i]),
           ...campo('largo-pared', p.largos[i], unidad, v => { p.largos[i] = v; }),
           el('button', { type: 'button', class: 'prin', 'data-acc': 'siguiente-pared', onclick: () => { st.sel = (st.sel + 1) % m; pintar(); const x = panel.querySelector('[data-acc="largo-pared"]'); if (x) x.focus(); } }, 'Siguiente')));
+      }
+      if (p.pilares && p.pilares.length) {
+        const cuales = [...new Set(p.pilares.map(x => n[x.pared]))].join(', '), uno = p.pilares.length === 1;
+        filas.push(el('div', { class: 'aviso-pilares', 'data-acc': 'aviso-pilares' },
+          el('span', {}, '▪ ' + (uno ? 'Pilar' : p.pilares.length + ' pilares') + ' en ' + cuales + ': ' + (uno ? 'irá' : 'irán') + ' como mocheta, no como paredes. '),
+          el('button', { type: 'button', class: 'mini', 'data-acc': 'pilares-paredes', onclick: () => {
+            st.plano = conLargos({ vertices: p.conPilares, cerrada: p.cerrada }); st.sel = 0; st.esquina = null; st.diag = null; pintar();
+          } }, 'Hacerlos paredes')));
       }
       filas.push(el('div', { class: 'chips' },
         el('button', { type: 'button', 'data-acc': 'anadir-diagonal', class: st.diag ? 'on' : '', onclick: () => { st.diag = st.diag ? null : []; st.esquina = null; pintar(); } }, st.diag ? 'Toca dos esquinas…' : 'Añadir diagonal'),

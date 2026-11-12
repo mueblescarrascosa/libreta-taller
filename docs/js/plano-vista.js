@@ -1,7 +1,7 @@
 // Planta dibujada a partir de las paredes de la ficha: forma (del plano a mano o, si no hay, en ángulo recto),
 // largos a escala y cada elemento en su sitio según su distancia y su referencia.
-import { aEscala, comprobar, planoPorDefecto, letras } from './plano-geo.js';
-import { camposDeElemento, paredNueva, nombreElemento, USOS, textoAzulejo, extraPilar, tamanoHumos } from './modelo.js';
+import { aEscala, comprobar, planoPorDefecto, letras, pilarDibujado } from './plano-geo.js';
+import { camposDeElemento, paredNueva, elementoNuevo, nombreElemento, USOS, textoAzulejo, extraPilar, tamanoHumos } from './modelo.js';
 import { verMedida } from './unidades.js';
 import { nombreModulo, esColumna, medidasModulo, situarMuebles } from './modulos.js';
 
@@ -153,9 +153,83 @@ export function aplicarPlano(datos, plano) {
     if (previa) return Object.assign({}, previa, plano.largos ? { largo: hay(largo) ? largo : null } : {});
     return Object.assign(paredNueva([]), { letra, largo: hay(largo) ? largo : null });
   });
+  // Pilares que el dibujo sacó de las paredes: van como mocheta de su pared (si no tenía ya bastantes).
+  (plano.pilares || []).forEach((pl, j, todos) => {
+    const p = paredes[pl.pared];
+    if (!p) return;
+    const quiere = todos.filter(x => x.pared === pl.pared).length, tiene = (p.elementos || []).filter(e => e.tipo === 'pilar').length;
+    if (tiene >= quiere) return;
+    const e = Object.assign(elementoNuevo('pilar', pl.ref), { distancia: pl.distancia ?? null, fondo: null });
+    paredes[pl.pared] = Object.assign({}, p, { elementos: (p.elementos || []).concat([e]) });
+  });
   const sobran = existentes.filter(p => !paredes.some(x => x.letra === p.letra));
   const guardado = { vertices: plano.vertices, cerrada: plano.cerrada, esquinas: plano.esquinas || [], diagonales: plano.diagonales || [] };
   return Object.assign({}, datos, { paredes: paredes.concat(sobran), plano: guardado });
+}
+
+// ── Pilares dibujados como paredes (planos de antes) ──
+// Qué paredes parecen un pilar y en qué pared quedaría: {paredes: ['E','F'], en: 'D'} o null.
+export function pilarEnParedes(datos) {
+  const c = datos && datos.plano && pilarDibujado(datos.plano);
+  if (!c) return null;
+  const n = datos.plano.vertices.length, nom = letras(datos.plano.cerrada ? n : n - 1), k = i => nom[(c.j + i) % n];
+  return { paredes: c.tipo === 'rincon' ? [k(1), k(2)] : [k(1), k(2), k(3)], en: k(0), tipo: c.tipo };
+}
+// Pasa a mocheta los pilares dibujados como paredes. Lo que sobresale (1.ª pared corta) es el fondo y la cara (2.ª) el ancho.
+// La pared que lo lleva y la de al lado crecen hasta la esquina de verdad; lo medido desde la cara del pilar queda «desde el pilar».
+export function pasarAPilar(datos) {
+  let d = JSON.parse(JSON.stringify(datos));
+  for (let veces = 0; veces < 8; veces++) {
+    const c = d.plano && pilarDibujado(d.plano);
+    if (!c) break;
+    d = unPilar(d, c);
+  }
+  return d;
+}
+function unPilar(d, c) {
+  const pl = d.plano, n = pl.vertices.length, m = pl.cerrada ? n : n - 1, nom = letras(m);
+  const idx = k => ((k % n) + n) % n, pared = k => d.paredes.find(p => p.letra === nom[idx(k)]) || paredNueva([]);
+  const suma = (...v) => (v.every(hay) ? v.reduce((a, b) => a + b, 0) : null);
+  const j = c.j, host = pared(j), cortos = [];
+  const juntar = (a, b) => { ['elementos', 'bajos', 'altos', 'cuerpos'].forEach(k => { if ((b[k] || []).length) a[k] = (a[k] || []).concat(b[k]); }); };
+  const pilar = Object.assign(elementoNuevo('pilar', 'izq'), { fondo: pared(j + 1).largo ?? null, ancho: pared(j + 2).largo ?? null });
+  let quitar;
+  if (c.tipo === 'rincon') {
+    const otra = pared(j + 3);
+    cortos.push(pared(j + 1), pared(j + 2));
+    Object.assign(pilar, { ref: 'der', distancia: 0 });
+    (host.elementos || []).forEach(e => { if (e.tipo !== 'pilar' && e.ref === 'der') e.desde = 'pilar'; });
+    (otra.elementos || []).forEach(e => { if (e.tipo !== 'pilar' && e.ref !== 'der') e.desde = 'pilar'; });
+    host.largo = suma(host.largo, pilar.ancho); otra.largo = suma(otra.largo, pilar.fondo);
+    quitar = [idx(j + 2), idx(j + 3)];
+  } else {
+    const sigue = pared(j + 4), L1 = host.largo, L2 = sigue.largo;
+    cortos.push(pared(j + 1), pared(j + 2), pared(j + 3));
+    pilar.distancia = hay(L1) ? L1 : null;
+    (host.elementos || []).forEach(e => { if (e.ref === 'der' && hay(e.distancia)) e.distancia = suma(e.distancia, pilar.ancho, L2); });
+    (sigue.elementos || []).forEach(e => { if (e.ref !== 'der' && hay(e.distancia)) e.distancia = suma(e.distancia, L1, pilar.ancho); });
+    host.largo = suma(L1, pilar.ancho, L2);
+    juntar(host, Object.assign({}, sigue, { elementos: sigue.elementos }));
+    quitar = [idx(j + 1), idx(j + 2), idx(j + 3), idx(j + 4)];
+  }
+  cortos.forEach(p => juntar(host, p));
+  host.elementos = (host.elementos || []).concat([pilar]);
+  // Paredes en el orden nuevo: la que empezaba en cada esquina que queda (en el rincón, la esquina nueva es la de la pared de al lado).
+  const quedan = [], esquinas = [], nuevo = [];
+  for (let k = 0; k < n; k++) {
+    if (quitar.includes(k)) continue;
+    nuevo[k] = quedan.length;
+    const rin = c.tipo === 'rincon' && k === idx(j + 1);
+    if (k < m || pl.cerrada) quedan.push(rin ? pared(j + 3) : pared(k));
+    esquinas.push(rin ? { estado: 'escuadra', sentido: null, mm: null, en: 1000 } : (pl.esquinas || [])[k] || { estado: 'escuadra', sentido: null, mm: null, en: 1000 });
+  }
+  if (!pl.cerrada) quedan.splice(c.vertices.length - 1);
+  const fuera = new Set([...cortos, c.tipo === 'medio' ? pared(j + 4) : null].filter(Boolean));
+  const letrasNuevas = letras(quedan.length);
+  const enPlano = quedan.map((p, i) => Object.assign(p, { letra: letrasNuevas[i] }));
+  const sobran = d.paredes.filter(p => !enPlano.includes(p) && !fuera.has(p) && !nom.includes(p.letra));
+  const diagonales = (pl.diagonales || []).filter(g => nuevo[g.de] !== undefined && nuevo[g.a] !== undefined).map(g => Object.assign({}, g, { de: nuevo[g.de], a: nuevo[g.a] }));
+  return Object.assign(d, { paredes: enPlano.concat(sobran), plano: Object.assign({}, pl, { vertices: c.vertices, esquinas, diagonales }) });
 }
 
 // Dibujo SVG de la planta. Solo en el navegador.

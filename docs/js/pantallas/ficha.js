@@ -10,7 +10,7 @@ import { TIPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, m
 import { seccionAdjuntos } from './adjuntos.js';
 import { textoResumen, urlWhatsapp } from '../resumen.js';
 import { huella } from '../sincro.js';
-import { geometriaPlanta, svgPlanta, aplicarPlano } from '../plano-vista.js';
+import { geometriaPlanta, svgPlanta, aplicarPlano, pilarEnParedes, pasarAPilar } from '../plano-vista.js';
 import { abrirPlano } from '../plano-editor.js';
 import { geometriaAlzado, svgAlzado } from '../alzado.js';
 
@@ -277,6 +277,14 @@ export async function pintarFicha(App, id) {
       if (g.paredes.length) hijos.push(svgPlanta(g));
       if (g.paredes.length && !g.aEscala) hijos.push(h('small', { class: 'ayuda' }, 'Sin escala: faltan largos o las medidas no cierran.'));
       if (!d.plano && d.paredes.length >= 5) hijos.push(h('small', { class: 'ayuda', 'data-acc': 'aviso-forma' }, 'Con 5 o más paredes el dibujo es aproximado (todas en ángulo recto). Pulsa «Dibujar la forma» para que se parezca.'));
+      // Planos de antes con un pilar dibujado como paredes: se ofrece pasarlo a mocheta de su pared.
+      const pp = pilarEnParedes(d);
+      if (pp) hijos.push(h('div', { class: 'aviso-pilares', 'data-acc': 'pilar-en-paredes' },
+        h('span', {}, '▪ Las paredes ' + pp.paredes.join(' y ') + ' parecen un pilar. '),
+        h('button', { type: 'button', class: 'mini', 'data-acc': 'pasar-a-pilar', onclick: () => {
+          if (!confirm('¿Pasar ' + pp.paredes.join(' y ') + ' a pilar de la pared ' + pp.en + '? Las paredes de después cambian de letra.')) return;
+          Object.assign(d, pasarAPilar(d)); cambio(); repintar(); pintarPlanta();
+        } }, 'Pasar a pilar de ' + pp.en)));
       if (g.sinSituar.length) hijos.push(h('small', { class: 'ayuda', 'data-acc': 'sin-situar' }, 'Sin situar (falta la distancia o el largo de su pared): ' + g.sinSituar.map(e => e.etiqueta + ' en ' + e.pared).join(', ') + '.'));
       zonaPlanta.replaceChildren(...hijos);
       pintarAlzado();

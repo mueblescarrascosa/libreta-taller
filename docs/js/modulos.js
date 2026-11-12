@@ -78,7 +78,32 @@ const suma = lista => (lista || []).reduce((s, m) => s + (hay(m.ancho) ? m.ancho
 const resto = (largo, s) => (hay(largo) ? largo - s : null);
 
 // Lo que ocupan los bajos en una pared (con lo que entran los rinconeros de las de al lado) y lo que queda (negativo: se pasa).
-export function cuadreBajos(p, datos) { const e = rinconerosQueEntran(datos, p), s = suma(p.bajos) + e.izq + e.der; return { suma: s, resto: resto(p.largo, s) }; }
+// Si la fila toca un pilar (de la pared o de la de al lado, en esa esquina), lo dice: hay que cajear, y el cuadre es hasta la pared siguiente.
+export function cuadreBajos(p, datos) {
+  const e = rinconerosQueEntran(datos, p), s = suma(p.bajos) + e.izq + e.der, c = { suma: s, resto: resto(p.largo, s) };
+  const L = p.largo, ocupa = [];
+  if (e.izq + suma(p.bajos) > 0) ocupa.push([0, e.izq + suma(p.bajos)]);
+  if (e.der && hay(L)) ocupa.push([L - e.der, L]);
+  const choca = tramosPilar(datos, p).some(([a, b]) => ocupa.some(([x, y]) => x < b - 1 && a < y - 1));
+  if (choca) { const v = paredesVecinas(datos, p).der; Object.assign(c, { choca: true, hasta: v ? v.letra : null }); }
+  return c;
+}
+// Lo que ocupan los pilares a lo largo de una pared (mm desde la izquierda): los suyos y lo que sobresalen los de las
+// paredes de al lado pegados a esta esquina.
+const PEGADO = 50;
+function tramosPilar(datos, p) {
+  const L = p.largo, r = [], pilares = q => (q.elementos || []).filter(x => x.tipo === 'pilar' && hay(x.distancia) && hay(x.ancho));
+  pilares(p).forEach(x => {
+    const a = x.ref === 'der' ? (hay(L) ? L - x.distancia - x.ancho : null) : x.distancia;
+    if (a !== null) r.push([a, a + x.ancho]);
+  });
+  const enPunta = (q, lado) => pilares(q).find(x => hay(x.fondo) && ((x.ref === 'der') === (lado === 'der') ? x.distancia <= PEGADO : hay(q.largo) && q.largo - x.distancia - x.ancho <= PEGADO));
+  const v = paredesVecinas(datos, p);
+  const pi = v.izq && v.izq !== p && enPunta(v.izq, 'der'), pd = v.der && v.der !== p && enPunta(v.der, 'izq');
+  if (pi) r.push([0, pi.fondo]);
+  if (pd && hay(L)) r.push([L - pd.fondo, L]);
+  return r;
+}
 // Arriba ocupan los altos y también las columnas de abajo, que llegan hasta arriba. El alto sobre frigo va encima de su columna: no suma.
 export function cuadreAltos(p) { const s = suma((p.altos || []).filter(m => m.tipo !== 'alto_frigo')) + suma((p.bajos || []).filter(esColumna)); return { suma: s, resto: resto(p.largo, s) }; }
 
@@ -119,14 +144,20 @@ export function cuadreCuerposPared(p) { const s = suma(p.cuerpos); return { suma
 // Texto del cuadre para enseñar debajo de cada fila: «quedan 23 cm» o «te pasas 5 cm».
 export function textoCuadre(c, unidad) {
   if (!hay(c.resto) || !c.suma) return '';
+  const n = v => verMedida(Math.abs(v), unidad) + ' ' + unidad;
+  if (c.choca) {
+    const con = c.hasta ? ' la pared ' + c.hasta : '';
+    const t = c.resto === 0 ? 'cuadra justo' + (con ? ' con' + con : '') : c.resto > 0 ? 'te falta ' + n(c.resto) + (con ? ' para' + con : '') : 'te pasas ' + n(c.resto) + (con ? ' de' + con : '');
+    return 'Choca con el pilar (cajear) · ' + t;
+  }
   if (c.resto === 0) return 'Cuadra justo';
-  return c.resto > 0 ? 'Quedan ' + verMedida(c.resto, unidad) + ' ' + unidad : 'Te pasas ' + verMedida(-c.resto, unidad) + ' ' + unidad;
+  return c.resto > 0 ? 'Quedan ' + n(c.resto) : 'Te pasas ' + n(c.resto);
 }
 
 // Avisos: pasarse del largo de la pared o del hueco. Quedarse corto no es aviso (se enseña como «quedan»).
 export function avisosModulos(ficha, unidad) {
   const l = [], d = ficha.datos, pasa = (campo, que, c) => {
-    if (hay(c.resto) && c.resto < 0) l.push({ campo, texto: que + ': te pasas ' + verMedida(-c.resto, unidad) + ' ' + unidad });
+    if (hay(c.resto) && c.resto < 0) l.push({ campo, texto: que + ': ' + (c.choca ? textoCuadre(c, unidad).replace('Choca', 'choca') : 'te pasas ' + verMedida(-c.resto, unidad) + ' ' + unidad) });
   };
   (d.paredes || []).forEach(p => {
     pasa('pared.' + p.id, 'Bajos de la pared ' + p.letra, cuadreBajos(p, d));
