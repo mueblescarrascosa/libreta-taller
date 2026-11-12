@@ -382,3 +382,7 @@ button { background: #fffef9; border-color: var(--borde); }
 /* 1.15.1: elegir qué paredes salen de frente (no sale en el PDF ni al imprimir) */
 .elegir-frentes { margin: 8px 0 0; }
 .papel .elegir-fichas { display: none !important; }
+
+/* 1.19.0: material para pedir */
+.material p { margin: 2px 0; }
+.material p.sub { padding-left: 10px; color: var(--tenue); }

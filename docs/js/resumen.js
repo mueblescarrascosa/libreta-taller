@@ -1,6 +1,7 @@
 // Resumen de una ficha como texto para WhatsApp (*negrita*), con las medidas en su unidad.
 import { verMedida } from './unidades.js';
 import { tituloFicha } from './util.js';
+import { textoMaterial } from './material.js';
 import { resumenPuerta, nombreElemento, camposDeElemento, textoAzulejo, extraPilar, tamanoHumos, esquinaDe, textoDescuadre } from './modelo.js';
 import { textoModulo, cuadreBajos, cuadreAltos, cuadreCuerposPared, textoCuadre, nombreLineal, nombreInterior, textoInteriores, textoRincon, textoElectro, paredesVecinas } from './modulos.js';
 
@@ -110,6 +111,9 @@ export function bloquesResumen({ ficha, trabajo, ajustes }) {
     (d.paredes || []).forEach(p => bloques.push(bloquePared(p, pared, u, ajustes, d)));
     const islas = (d.islas || []).filter(x => hay(x.largo) || hay(x.fondo) || hay(x.distancia));
     if (islas.length) bloques.push(['*Islas y penínsulas*', ...islas.map(x => lineaIsla(x, u))]);
+    // Material para pedir (orientativo).
+    const mat = textoMaterial(ficha, u, ajustes);
+    if (mat.length) bloques.push(['*Material (orientativo)*', ...mat]);
   } else {
     bloques.push(cab);
   }

@@ -8,6 +8,7 @@ import { campoMedida, campoEntero } from '../campos.js';
 import { verMedida } from '../unidades.js';
 import { TIPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, medidasModulo, anchosDe, FORMAS_RINCONERO, LADOS_RINCONERO, paredesVecinas, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, FORMAS_RINCON_CUERPO, LADOS_RINCON_CUERPO, INTERIOR_RINCON, textoRincon, textoCuadre, lineaNueva, nombreLineal, nombreInterior, interioresDe, elegirInterior, textoInteriores, acabadosNuevos, MATERIALES_ENCIMERA, ELECTRO, datosElectro, electroNuevo } from '../modulos.js';
 import { seccionAdjuntos } from './adjuntos.js';
+import { textoMaterial } from '../material.js';
 import { textoResumen, urlWhatsapp } from '../resumen.js';
 import { huella } from '../sincro.js';
 import { geometriaPlanta, svgPlanta, aplicarPlano, pilarEnParedes, pilaresEnParedes, pasarAPilar } from '../plano-vista.js';
@@ -606,6 +607,16 @@ export async function pintarFicha(App, id) {
     if ((ac.lineales || []).length) t.push(ac.lineales.length + ' lineal' + (ac.lineales.length > 1 ? 'es' : ''));
     return t.join(' · ');
   };
+  // Material para pedir (encimera, lineales, herrajes), sacado de lo medido; se rehace con cada cambio.
+  const resumenMaterial = () => { const l = textoMaterial(ficha, unidad, AJ); return l.length ? l[0].replace(/:.*/, '') + (l.length > 1 ? ' y más' : '') : ''; };
+  function material() {
+    const caja = h('div', { class: 'tarjeta material', 'data-acc': 'material' });
+    const pintar = () => { const l = textoMaterial(ficha, unidad, AJ);
+      caja.replaceChildren(...(l.length ? l.map(t => h('p', { class: t.startsWith('- ') ? 'sub' : '' }, t)) : [h('p', { class: 'ayuda' }, 'Aún no hay muebles con medida.')]),
+        h('small', { class: 'ayuda' }, 'Orientativo: sale de los muebles medidos. Lo medido y lo pedido mandan.')); };
+    pintar(); refrescos.push(() => { if (caja.isConnected) pintar(); });
+    return caja;
+  }
   const resumenElectro = () => (d.electro || []).map(e => (e.clave === 'otro' ? e.nombre || 'otro' : datosElectro(e.clave)[1].toLowerCase())).join(', ');
   // Acabados: frentes (puertas), interior (cascos) y, en la cocina, encimera y lineales. vestidor: solo frentes y cascos.
   function acabados(vestidor = false) {
@@ -693,7 +704,7 @@ export async function pintarFicha(App, id) {
         segmentado({ acc: 'medida-de', opciones: [['premarco', 'Premarco'], ['puerta', 'Puerta']], valor: d.medida === 'premarco' ? 'premarco' : 'puerta',
           alCambiar: v => { d.medida = v; cambio(); repintarPuertas(); } })),
       h('div', { class: 'dos' }, texto(d, 'modelo', 'puertas-modelo', 'Modelo'), texto(d, 'color', 'puertas-color', 'Color'))), ...puertas()];
-    if (ficha.tipo === 'cocina') return [...paredes(TIPOS_ELEMENTO.cocina), ...islas(), plegable('acabados', 'Acabados', acabados(), resumenAcabados), plegable('electro', 'Electrodomésticos', electro(), resumenElectro)];
+    if (ficha.tipo === 'cocina') return [...paredes(TIPOS_ELEMENTO.cocina), ...islas(), plegable('acabados', 'Acabados', acabados(), resumenAcabados), plegable('electro', 'Electrodomésticos', electro(), resumenElectro), plegable('material', 'Material', material(), resumenMaterial)];
     if (ficha.tipo === 'armario') {
       // El vestidor se mide por paredes: el hueco y la lista general de cuerpos solo se ven si ya tenía datos de antes.
       const ves = ficha.subtipo === 'vestidor';
@@ -717,7 +728,7 @@ export async function pintarFicha(App, id) {
       if (!ves || (d.cuerpos || []).length) r.push(...cuerpos());
       // En el vestidor los enchufes van en sus paredes; la lista aparte solo se ve si ya tenía alguno.
       if (ficha.subtipo !== 'vestidor' || (d.enchufes || []).length) r.push(...enchufes());
-      if (ficha.subtipo === 'vestidor') r.push(...paredes(TIPOS_ELEMENTO.vestidor), plegable('acabados', 'Acabados', acabados(true), resumenAcabados));
+      if (ficha.subtipo === 'vestidor') r.push(...paredes(TIPOS_ELEMENTO.vestidor), plegable('acabados', 'Acabados', acabados(true), resumenAcabados), plegable('material', 'Material', material(), resumenMaterial));
       return r;
     }
     return [];
