@@ -128,8 +128,15 @@ export function recuentoPuertas(fichas, unidad, ajustes = AJUSTES_FABRICA) {
   [['Con condena', p => p.condena], ['Con vidriera', p => p.vidriera], ['Correderas', p => p.tipo === 'corredera'], ['Dobles', p => p.tipo === 'doble'], ['Con paño fijo', p => p.fijo || p.tipo === 'fija']]
     .forEach(([t, fn]) => { const n = cuenta(fn); if (n) lineas.push(t + ': ' + n); });
   if (entrada.length) {
-    const medida = p => (hay(p.ancho) && hay(p.alto) ? v(p.ancho) + ' × ' + v(p.alto) : hay(p.ancho) ? v(p.ancho) + ' de ancho' : hay(p.alto) ? v(p.alto) + ' de alto' : 'sin medidas') + (p.medida === 'premarco' && (hay(p.ancho) || hay(p.alto)) ? ' (premarco)' : '');
-    lineas.push('Aparte, de entrada (otro grosor): ' + entrada.length + ' · ' + entrada.map(p => (p.nombre ? p.nombre + ' ' : '') + medida(p)).join(', '));
+    // «Entrada: 3 de 82 × 203»: del premarco, la puerta que toca; si no, su medida tal cual.
+    const cuantas = new Map();
+    entrada.forEach(p => {
+      const q = p.medida === 'premarco' && hay(p.ancho) && hay(p.alto) ? puertaParaPremarco(p.ancho, p.alto, ajustes) : null;
+      const k = q && q.ancho && q.alto ? v(q.ancho.w) + ' × ' + v(q.alto.w)
+        : (hay(p.ancho) && hay(p.alto) ? v(p.ancho) + ' × ' + v(p.alto) : hay(p.ancho) ? v(p.ancho) + ' de ancho' : hay(p.alto) ? v(p.alto) + ' de alto' : 'sin medidas') + (p.medida === 'premarco' && (hay(p.ancho) || hay(p.alto)) ? ' (premarco)' : '');
+      cuantas.set(k, (cuantas.get(k) || 0) + 1);
+    });
+    lineas.push('Entrada: ' + [...cuantas].sort((a, b) => b[1] - a[1]).map(([k, n]) => k === 'sin medidas' ? n + ' sin medidas' : n + ' de ' + k).join(', '));
   }
   const titulo = 'Puertas: ' + todas.length + (entrada.length && puertas.length ? ' (' + puertas.length + ' de paso y ' + entrada.length + ' de entrada)' : '');
   return { total: todas.length, paso: puertas.length, entrada: entrada.length, titulo, lineas };
