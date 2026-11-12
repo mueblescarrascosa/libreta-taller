@@ -2,9 +2,9 @@
 // Dibujo sencillo de cajas de colores (como los alzados), hecho a mano: funciona sin conexión y sale en el PDF.
 // Todo va en mm: x e y como en la planta (y hacia abajo), z hacia arriba desde el suelo.
 import { geometriaPlanta } from './plano-vista.js';
-import { ALTURAS } from './alzado.js';
+import { ALTURAS, frigoLibre } from './alzado.js';
 import { piezasInterior, textoInteriores } from './modulos.js';
-import { frenteModulo, frenteCuerpo } from './frentes.js';
+import { frenteModulo, frenteCuerpo, puertasCuerpo, frenteFrigoLibre } from './frentes.js';
 
 export const OJOS = 1750;
 const FOV = 90 * Math.PI / 180, CERCA = 60;
@@ -14,7 +14,7 @@ const COLOR = {
   suelo: ['#ece6da', '#d6cfc0'], pared: ['#faf8f3', '#6b7280'], azulejo: ['#ccfbf1', '#5eead4'], ventana: ['#bae6fd', '#0369a1'], puerta: ['#e5e7eb', '#374151'],
   bajo: ['#f5ede4', '#92400e'], cuerpo: ['#f5ede4', '#92400e'], barra: ['#57534e', '#44403c'], estante: ['#c08a4a', '#92400e'], zapato: ['#a8a29e', '#78716c'],
   cajon: ['#fde68a', '#92400e'], hoja: ['#fbf6f0', '#92400e'], hoja_alto: ['#e8f0fe', '#1d4ed8'], tirador: ['#57534e', '#44403c'], electro: ['#3f3f46', '#18181b'],
-  cristal: ['#52525b', '#a1a1aa'], campana: ['#a1a1aa', '#52525b'], zocalo: ['#d6c3ae', '#92400e'], tablero: ['#e2cdb5', '#92400e'], pantalonero: ['#fef3c7', '#78350f'], encimera: ['#9ca3af', '#4b5563'], columna: ['#e7d8c9', '#92400e'], alto: ['#dbeafe', '#1d4ed8'], pilar: ['#d1d5db', '#6b7280'], isla: ['#fef3c7', '#b45309'],
+  cristal: ['#52525b', '#a1a1aa'], acero: ['#e2e8f0', '#64748b'], campana: ['#a1a1aa', '#52525b'], zocalo: ['#d6c3ae', '#92400e'], tablero: ['#e2cdb5', '#92400e'], pantalonero: ['#fef3c7', '#78350f'], encimera: ['#9ca3af', '#4b5563'], columna: ['#e7d8c9', '#92400e'], alto: ['#dbeafe', '#1d4ed8'], pilar: ['#d1d5db', '#6b7280'], isla: ['#fef3c7', '#b45309'],
 };
 
 // mm por unidad de la planta: 1 si está a escala; si no, lo que dicen los largos (la mediana).
@@ -61,23 +61,25 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null } = {}) {
 
   // Caja: tapa, fondo y los cuatro lados, con su normal hacia fuera.
   // detalles: trozos en la cara de delante (t0-t1 a lo ancho, de 0 a 1; z0-z1 de alto), p. ej. el interior de un armario.
-  const caja = (r, z0, z1, color, texto, tapa, detalles = []) => {
-    const c = { x: r.reduce((s, p) => s + p.x, 0) / 4, y: r.reduce((s, p) => s + p.y, 0) / 4 }, caras = [];
-    for (let i = 0; i < 4; i++) {
-      const p = r[i], q = r[(i + 1) % 4], m = { x: (p.x + q.x) / 2 - c.x, y: (p.y + q.y) / 2 - c.y }, l = Math.hypot(m.x, m.y) || 1;
+  // fi: el lado de delante (de r[fi] a r[fi + 1]); en las cajas normales, el 2. Vale también para piezas de cinco lados (chaflán).
+  const caja = (r, z0, z1, color, texto, tapa, detalles = [], fi = 2) => {
+    const n = r.length, c = { x: r.reduce((s, p) => s + p.x, 0) / n, y: r.reduce((s, p) => s + p.y, 0) / n }, caras = [], A = r[fi], Bf = r[(fi + 1) % n];
+    for (let i = 0; i < n; i++) {
+      const p = r[i], q = r[(i + 1) % n], m = { x: (p.x + q.x) / 2 - c.x, y: (p.y + q.y) / 2 - c.y }, l = Math.hypot(m.x, m.y) || 1;
       caras.push(cara([[p.x, p.y, z0], [q.x, q.y, z0], [q.x, q.y, z1], [p.x, p.y, z1]], color, [m.x / l, m.y / l, 0]));
     }
     caras.push(cara(r.map(p => [p.x, p.y, z1]), tapa || color, [0, 0, 1]), cara(r.map(p => [p.x, p.y, z0]), color, [0, 0, -1]));
     // El rótulo, en la cara de delante (la que no toca la pared: de r[2] a r[3]).
-    const fr = { x: (r[2].x + r[3].x) / 2, y: (r[2].y + r[3].y) / 2 }, nf = { x: fr.x - c.x, y: fr.y - c.y }, ln = Math.hypot(nf.x, nf.y) || 1;
-    const nx = nf.x / ln * 4, ny = nf.y / ln * 4, en = t => ({ x: r[3].x + (r[2].x - r[3].x) * t + nx, y: r[3].y + (r[2].y - r[3].y) * t + ny });
+    const fr = { x: (A.x + Bf.x) / 2, y: (A.y + Bf.y) / 2 }, nf = { x: fr.x - c.x, y: fr.y - c.y }, ln = Math.hypot(nf.x, nf.y) || 1;
+    const nx = nf.x / ln * 4, ny = nf.y / ln * 4, en = t => ({ x: Bf.x + (A.x - Bf.x) * t + nx, y: Bf.y + (A.y - Bf.y) * t + ny });
     detalles.forEach(q => { const a = en(q.t0), b = en(q.t1);
       caras.push(cara([[a.x, a.y, q.z0], [b.x, b.y, q.z0], [b.x, b.y, q.z1], [a.x, a.y, q.z1]], q.color, [nf.x / ln, nf.y / ln, 0])); });
     cajas.push({ caras, huella: r, z0, z1, color, centro: [c.x, c.y, (z0 + z1) / 2], texto: texto ? { p: [fr.x + nf.x / ln * 5, fr.y + nf.y / ln * 5, (z0 + z1) / 2], texto, n: [nf.x / ln, nf.y / ln, 0] } : null });
   };
   // Mueble cajeado: si se mete en un pilar, se quita ese trozo y queda en piezas alrededor (cada una, una caja).
   const pilares = geo.elementos.filter(el => el.tipo === 'pilar' && el.rect).map(el => el.rect.map(P));
-  const mueble = (r, z0, z1, color, texto, tapa, detalles = []) => {
+  const mueble = (r, z0, z1, color, texto, tapa, detalles = [], fi = 2) => {
+    if (r.length !== 4) return caja(r, z0, z1, color, texto, tapa, detalles, fi);
     const L = Math.hypot(r[1].x - r[0].x, r[1].y - r[0].y) || 1, D = Math.hypot(r[3].x - r[0].x, r[3].y - r[0].y) || 1;
     const u = { x: (r[1].x - r[0].x) / L, y: (r[1].y - r[0].y) / L }, v = { x: (r[3].x - r[0].x) / D, y: (r[3].y - r[0].y) / D };
     let piezas = [{ s0: 0, s1: L, t0: 0, t1: D }];
@@ -104,11 +106,13 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null } = {}) {
   const encimera = ALTURAS.encimera, grueso = ALTURAS.grueso_encimera, arriba = Math.min(ALTURAS.altos_hasta, techo), col = Math.min(ALTURAS.columna, techo);
   // Muebles en mm; donde dos se pisan (en las esquinas), el que llega de la otra pared se recorta.
   const mods = geo.modulos.filter(m => m.tipo !== 'hueco').map(m => Object.assign({}, m, { r: m.rect.map(P) }));
-  recortarSolapes(mods.filter(m => !m.alto).sort((a, b) => !!a.sinTexto - !!b.sinTexto));
+  recortarSolapes(mods.filter(m => !m.alto && !m.chaflan).sort((a, b) => !!a.sinTexto - !!b.sinTexto));
   recortarSolapes(mods.filter(m => m.alto).sort((a, b) => !!a.sinTexto - !!b.sinTexto));
   const bajoEncimera = encimera - grueso;
   // Frentes (puertas, cajones, tiradores, horno…) como detalles de la cara de delante.
-  const ancho = r => Math.hypot(r[1].x - r[0].x, r[1].y - r[0].y) || 1;
+  // Ancho del frente: en el chaflán, la diagonal (de r[1] a r[2]).
+  const ancho = r => (r.length === 5 ? Math.hypot(r[2].x - r[1].x, r[2].y - r[1].y) : Math.hypot(r[1].x - r[0].x, r[1].y - r[0].y)) || 1;
+  const fiDe = m => (m.chaflan ? 1 : 2);
   const detallesDe = (lista, w, alto = false) => lista.map(q => ({ t0: q.x0 / w, t1: q.x1 / w, z0: q.z0, z1: q.z1, color: q.k === 'hoja' && alto ? 'hoja_alto' : q.k }));
   mods.filter(m => m.r).forEach(m => {
     const t = m.sinTexto ? '' : [m.nombre, m.medidas].filter(Boolean).join(' ');
@@ -118,23 +122,32 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null } = {}) {
     const conAlto = m.tipo === 'columna_frigo' && geo.modulos.some(a => a.alto && a.tipo === 'alto_frigo' && a.pared === m.pared && Math.hypot(a.rect[0].x - m.rect[0].x, a.rect[0].y - m.rect[0].y) < 1e-6 + 0.01 * Math.hypot(m.rect[1].x - m.rect[0].x, m.rect[1].y - m.rect[0].y));
     if (m.tipo === 'cuerpo') {
       // Cuerpo de vestidor: abierto, con su interior en la cara de delante.
-      const ancho = Math.hypot(m.r[1].x - m.r[0].x, m.r[1].y - m.r[0].y) || 1, mm = v => Math.max(0, Math.min(1, v / ancho)), ti = textoInteriores(m.dato, ajustes);
+      const ancho = (m.chaflan ? Math.hypot(m.r[2].x - m.r[1].x, m.r[2].y - m.r[1].y) : Math.hypot(m.r[1].x - m.r[0].x, m.r[1].y - m.r[0].y)) || 1, mm = v => Math.max(0, Math.min(1, v / ancho)), ti = textoInteriores(m.dato, ajustes);
       const det = piezasInterior(m.dato, col).map(q => q.tipo === 'barra' ? { t0: mm(40), t1: mm(ancho - 40), z0: q.z - 12, z1: q.z + 12, color: 'barra' }
         : q.tipo === 'estante' ? { t0: mm(15), t1: mm(ancho - 15), z0: q.z - 9, z1: q.z + 9, color: 'estante' }
         : q.tipo === 'zapato' ? { t0: mm(25), t1: mm(ancho - 25), z0: q.z - 8, z1: q.z + 8, color: 'zapato' }
         : q.tipo === 'pantalonero' ? (wp => ({ t0: mm((ancho - wp) / 2), t1: mm((ancho + wp) / 2), z0: q.z0, z1: q.z1, color: 'pantalonero' }))(Math.min(q.ancho || ancho - 80, ancho - 40))
         : { t0: mm(30), t1: mm(ancho - 30), z0: q.z0, z1: q.z1, color: 'cajon' });
-      return mueble(m.r, 0, col, 'cuerpo', m.sinTexto ? '' : m.nombre.replace('Cuerpo ', 'C') + (m.rincon ? ' rincón' : '') + (ti ? ' ' + ti : ''), null, det.concat(detallesDe(frenteCuerpo(ancho, col), ancho)));
+      return mueble(m.r, 0, col, 'cuerpo', m.sinTexto ? '' : m.nombre.replace('Cuerpo ', 'C') + (m.rincon ? ' rincón' : '') + (ti ? ' ' + ti : ''), null, (m.dato && m.dato.puertas ? [] : det).concat(detallesDe(frenteCuerpo(ancho, col).concat(puertasCuerpo(ancho, col, m.dato && m.dato.puertas)), ancho)), fiDe(m));
     }
     const w = ancho(m.r);
     if (m.columna) { const top = conAlto ? Math.min(ALTURAS.frigo, techo) : col;
-      return mueble(m.r, 0, top, 'columna', t, null, detallesDe(frenteModulo(m.tipo, w, 0, top, { columna: true }), w)); }
-    mueble(m.r, 0, bajoEncimera, 'bajo', t, null, [{ t0: 0, t1: 1, z0: 0, z1: ALTURAS.zocalo, color: 'zocalo' }].concat(detallesDe(frenteModulo(m.tipo, w, ALTURAS.zocalo, bajoEncimera), w)));
+      const fl = m.tipo === 'columna_frigo' && frigoLibre(d);
+      return mueble(m.r, 0, top, 'columna', t, null, detallesDe(fl ? frenteFrigoLibre(w, fl === 'americano') : frenteModulo(m.tipo, w, 0, top, { columna: true }), w)); }
+    mueble(m.r, 0, bajoEncimera, 'bajo', t, null, [{ t0: 0, t1: 1, z0: 0, z1: ALTURAS.zocalo, color: 'zocalo' }].concat(detallesDe(frenteModulo(m.chaflan ? 'bajo' : m.tipo, w, ALTURAS.zocalo, bajoEncimera), w)), fiDe(m));
+    // Encimera del chaflán: la misma pieza, con 2 cm de vuelo en la diagonal.
+    if (m.chaflan) {
+      const [a, b] = [m.r[1], m.r[2]], dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1, c = m.r.reduce((s, p) => ({ x: s.x + p.x / 5, y: s.y + p.y / 5 }), { x: 0, y: 0 });
+      let n = { x: -dy / l, y: dx / l };
+      if ((a.x - c.x) * n.x + (a.y - c.y) * n.y < 0) n = { x: -n.x, y: -n.y };
+      const sale = p => ({ x: p.x + n.x * 20, y: p.y + n.y * 20 });
+      caja([m.r[0], sale(a), sale(b), m.r[3], m.r[4]], bajoEncimera, encimera, 'encimera', '', 'encimera', [], 1);
+    }
   });
   // La encimera: una pieza seguida por cada tramo de bajos, con 2 cm de vuelo por delante; en la esquina, la de una pared llega hasta el canto de la otra.
   const tramos = [];
   geo.paredes.forEach(pa => {
-    const bajos = mods.filter(m => m.r && !m.alto && !m.columna && m.tipo !== 'cuerpo' && m.pared === pa.letra);
+    const bajos = mods.filter(m => m.r && !m.alto && !m.columna && !m.chaflan && m.tipo !== 'cuerpo' && m.pared === pa.letra);
     if (!bajos.length) return;
     const r0 = P(pa.a), q = { x: P(pa.b).x - r0.x, y: P(pa.b).y - r0.y }, ql = Math.hypot(q.x, q.y) || 1, u = { x: q.x / ql, y: q.y / ql };
     const pos = v => (v.x - r0.x) * u.x + (v.y - r0.y) * u.y;
@@ -151,7 +164,15 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null } = {}) {
   });
   recortarSolapes(mods.filter(m => m.r && !m.alto && (m.columna || m.tipo === 'cuerpo')).map(m => ({ fijo: true, r: m.r })).concat(losas));
   losas.forEach(l => { if (l.r) mueble(l.r, bajoEncimera, encimera, 'encimera', '', 'encimera'); });
-  (geo.islas || []).forEach(x => { const r = x.rect.map(P); caja(r, 0, bajoEncimera, 'isla', x.nombre); caja(r, bajoEncimera, encimera, 'encimera', '', 'encimera'); });
+  // Islas y penínsulas con sus frentes: la isla, hacia su pared (donde se trabaja); la península, por un lado largo.
+  // Se reparten en muebles de 90 cm como mucho.
+  (geo.islas || []).forEach(x => {
+    const q = x.rect.map(P), r = x.tipo === 'peninsula' ? [q[3], q[0], q[1], q[2]] : [q[2], q[3], q[0], q[1]], w = ancho(r), n = Math.max(1, Math.ceil(w / 900)), wi = w / n;
+    const det = [{ t0: 0, t1: 1, z0: 0, z1: ALTURAS.zocalo, color: 'zocalo' }];
+    for (let i = 0; i < n; i++) det.push(...frenteModulo('bajo', wi, ALTURAS.zocalo, bajoEncimera).map(f => ({ t0: (i * wi + f.x0) / w, t1: (i * wi + f.x1) / w, z0: f.z0, z1: f.z1, color: f.k })));
+    caja(r, 0, bajoEncimera, 'isla', x.nombre, null, det);
+    caja(q, bajoEncimera, encimera, 'encimera', '', 'encimera');
+  });
   geo.elementos.forEach(el => {
     if (el.tipo === 'pilar' && el.rect) return caja(el.rect.map(P), 0, techo, 'pilar', 'Pilar');
     const e = eje(el.pared), dt = el.dato || {};

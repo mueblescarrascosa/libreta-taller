@@ -53,9 +53,10 @@ function lineaModulos(nombre, lista, cuadre) {
 }
 
 // «50 barra + cajonera»; el de rincón, «rincón en L 100×100 barra (sigue en B)».
+const conPuertas = c => (c.puertas ? ' con puertas ' + (c.puertas === 'corredera' ? 'correderas' : 'abatibles') : '');
 const textoCuerpo = (c, ajustes, sigue) => (c.rincon
-  ? unir([textoRincon(c), textoInteriores(c, ajustes) || null], ' ') + (sigue ? ' (sigue en ' + sigue + ')' : '')
-  : unir([hay(c.ancho) ? verMedida(c.ancho, 'cm') : '?', textoInteriores(c, ajustes) || null], ' '));
+  ? unir([textoRincon(c), textoInteriores(c, ajustes) || null], ' ') + conPuertas(c) + (sigue ? ' (sigue en ' + sigue + ')' : '')
+  : unir([hay(c.ancho) ? verMedida(c.ancho, 'cm') : '?', textoInteriores(c, ajustes) || null], ' ') + conPuertas(c));
 
 function bloquePared(p, ud, u, ajustes, d) {
   const l = [unir(['*Pared ' + p.letra + '*', hay(p.largo) ? verMedida(p.largo, ud) + ' ' + ud : null, hay(p.alto) ? 'alto ' + verMedida(p.alto, ud) + ' ' + ud : null])];

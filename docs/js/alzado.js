@@ -6,12 +6,15 @@ import { situarMuebles, situarCuerpos, esColumna, nombreModulo, medidasModulo, i
 import { verMedida } from './unidades.js';
 import { corta } from './plano-vista.js';
 import { encajarRotulo, textoRotulo } from './rotulos.js';
-import { frenteModulo, frenteCuerpo } from './frentes.js';
+import { frenteModulo, frenteCuerpo, puertasCuerpo, frenteFrigoLibre } from './frentes.js';
 
 const hay = v => v !== null && v !== undefined;
 // Alturas orientativas (mm desde el suelo).
 export const ALTURAS = { techo: 2500, zocalo: 100, encimera: 850, grueso_encimera: 30, altos_desde: 1450, altos_hasta: 2150, columna: 2150, frigo: 1850 };
 const PUNTOS = ['humos', 'desague', 'toma', 'agua', 'gas', 'enchufe', 'otro'];
+
+// El frigorífico, si es de libre instalación: 'libre' o 'americano' (de los electrodomésticos de la cocina); si no, null.
+export const frigoLibre = d => { const f = (d.electro || []).find(e => e.clave === 'frigo' && (e.tipo === 'libre' || e.tipo === 'americano')); return f ? f.tipo : null; };
 
 export function geometriaAlzado(d, pared, ajustes = null) {
   const L = pared.largo;
@@ -46,7 +49,7 @@ export function geometriaAlzado(d, pared, ajustes = null) {
     if (esColumna(m)) {
       const h = m.tipo === 'columna_frigo' && frigosConAlto.has(desde) ? ALTURAS.frigo : col;
       pieza('columna', desde, 0, hasta - desde, h, texto, m.tipo);
-      return frente(frenteModulo(m.tipo, hasta - desde, 0, h, { columna: true }), desde);
+      return frente(m.tipo === 'columna_frigo' && frigoLibre(d) ? frenteFrigoLibre(hasta - desde, frigoLibre(d) === 'americano') : frenteModulo(m.tipo, hasta - desde, 0, h, { columna: true }), desde);
     }
     bajo(desde, hasta - desde, texto, m.tipo);
   });
@@ -61,7 +64,7 @@ export function geometriaAlzado(d, pared, ajustes = null) {
   // en las puntas, lo que entra del cuerpo de rincón de la pared de al lado (con su interior, sin rótulo).
   const cuerpo = (cu, xc, w, texto) => {
     pieza('cuerpo', xc, 0, w, col, texto);
-    frente(frenteCuerpo(w, col), xc);
+    frente(frenteCuerpo(w, col).concat(puertasCuerpo(w, col, cu && cu.puertas)), xc);
     piezasInterior(cu, col).forEach(q => {
       if (q.tipo === 'barra') pieza('int_barra', xc + 40, q.z - 12, w - 80, 24);
       if (q.tipo === 'estante') pieza('int_estante', xc + 15, q.z - 9, w - 30, 18);
@@ -132,6 +135,7 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
     f_tablero: { fill: '#e2cdb5', stroke: '#92400e', 'stroke-width': s * 0.2 },
     f_hoja: { fill: '#fbf6f0', stroke: '#92400e', 'stroke-width': s * 0.25 },
     f_hoja_alto: { fill: '#dbeafe', stroke: '#1d4ed8', 'stroke-width': s * 0.25 },
+    f_acero: { fill: '#e2e8f0', stroke: '#64748b', 'stroke-width': s * 0.3 },
     f_tirador: { fill: '#57534e', stroke: 'none' },
     f_electro: { fill: '#3f3f46', stroke: '#18181b', 'stroke-width': s * 0.25 },
     f_cristal: { fill: '#52525b', stroke: '#a1a1aa', 'stroke-width': s * 0.2 },
@@ -140,7 +144,7 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
     ventana: { fill: '#e0f2fe', stroke: '#0284c7', 'stroke-width': s * 0.5 },
     puerta: { fill: '#fef3c7', stroke: '#92400e', 'stroke-width': s * 0.5 },
   };
-  const orden = ['azulejo', 'pilar', 'ventana', 'puerta', 'zocalo', 'bajo', 'encimera', 'columna', 'cuerpo', 'int_estante', 'int_zapato', 'int_cajon', 'int_pantalonero', 'int_barra', 'hueco', 'alto', 'f_zocalo', 'f_tablero', 'f_hoja', 'f_hoja_alto', 'f_electro', 'f_cristal', 'f_campana', 'f_tirador'];
+  const orden = ['azulejo', 'pilar', 'ventana', 'puerta', 'zocalo', 'bajo', 'encimera', 'columna', 'cuerpo', 'int_estante', 'int_zapato', 'int_cajon', 'int_pantalonero', 'int_barra', 'hueco', 'alto', 'f_zocalo', 'f_tablero', 'f_hoja', 'f_hoja_alto', 'f_acero', 'f_electro', 'f_cristal', 'f_campana', 'f_tirador'];
   const rotulos = [];
   orden.forEach(clase => g.piezas.filter(p => p.clase === clase).forEach(p => {
     caja(p, ESTILO[clase]);

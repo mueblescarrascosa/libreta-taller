@@ -1,7 +1,7 @@
 // Material para pedir, sacado de lo medido: encimera (piezas, uniones en las esquinas y huecos), lineales en metros
 // y herrajes (bisagras, guías, tiradores, patas, barras…). Orientativo: lo medido y lo pedido mandan.
 import { situarMuebles, situarCuerpos, esColumna, piezasInterior, paredesVecinas } from './modulos.js';
-import { frenteModulo } from './frentes.js';
+import { frenteModulo, puertasCuerpo } from './frentes.js';
 import { ALTURAS } from './alzado.js';
 import { verMedida } from './unidades.js';
 
@@ -80,12 +80,17 @@ export function materialCocina(d) {
 
 // Vestidor: barras (metros y soportes), estantes, cajones y patas de los cuerpos.
 export function materialVestidor(d) {
-  const r = { barras: 0, barras_mm: 0, estantes: 0, cajones: 0, zapateros: 0, pantaloneros: 0, patas: 0 };
+  const r = { barras: 0, barras_mm: 0, estantes: 0, cajones: 0, zapateros: 0, pantaloneros: 0, patas: 0, puertas: 0, bisagras: 0, correderas: 0, tiradores: 0 };
   (d.paredes || []).forEach(p => {
     const sc = situarCuerpos(p, d);
     sc.cuerpos.forEach(({ c, desde, hasta }) => {
       const w = hasta - desde;
       r.patas += 4;
+      puertasCuerpo(w, ALTURAS.columna, c.puertas).forEach(q => {
+        if (q.k === 'tirador') r.tiradores++;
+        if (q.pieza === 'puerta') { r.puertas++; r.bisagras += 4; }
+        if (q.pieza === 'corredera') r.correderas++;
+      });
       piezasInterior(c, ALTURAS.columna).forEach(q => {
         if (q.tipo === 'barra') { r.barras++; r.barras_mm += w - 40; }
         if (q.tipo === 'estante') r.estantes++;
@@ -129,6 +134,9 @@ export function textoMaterial(ficha, unidad = 'cm', ajustes = null) {
     if (r.cajones) t.push(r.cajones + ' cajones (guías)');
     if (r.zapateros) t.push(r.zapateros + ' zapateros');
     if (r.pantaloneros) t.push(r.pantaloneros + (r.pantaloneros > 1 ? ' pantaloneros' : ' pantalonero'));
+    if (r.puertas) t.push(r.puertas + (r.puertas > 1 ? ' puertas (' : ' puerta (') + r.bisagras + ' bisagras)');
+    if (r.correderas) t.push(r.correderas + ' hojas correderas (con su kit)');
+    if (r.tiradores) t.push(r.tiradores + ' tiradores');
     if (r.patas) t.push(r.patas + ' patas');
     if (t.length) l.push('Herrajes: ' + t.join(', '));
   }

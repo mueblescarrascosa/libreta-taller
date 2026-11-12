@@ -103,3 +103,41 @@ export function frenteCuerpo(ancho, alto) {
     { k: 'tablero', x0: ancho - t, x1: ancho, z0: 0, z1: alto }, { k: 'tablero', x0: t, x1: ancho - t, z0: alto - t, z1: alto },
     { k: 'tablero', x0: t, x1: ancho - t, z0: z, z1: z + t }];
 }
+
+// Puertas de un cuerpo de vestidor (si las lleva): abatibles (de 60 cm como mucho cada una) o correderas (2 hojas, 3 si pasa de 1,5 m).
+// Van por delante del interior, entre los laterales y del zócalo al techo del cuerpo.
+export function puertasCuerpo(ancho, alto, tipo) {
+  const r = [], t = 19, z0 = 80 + FRENTE.holgura, x0 = t, x1 = ancho - t;
+  if (!tipo || !(ancho > 2 * t)) return r;
+  if (tipo === 'corredera') {
+    const n = ancho > 1500 ? 3 : 2, w = (x1 - x0) / n, solape = 30;
+    for (let i = 0; i < n; i++) {
+      const a = x0 + i * w - (i ? solape / 2 : 0), b = x0 + (i + 1) * w + (i < n - 1 ? solape / 2 : 0);
+      r.push({ k: 'hoja', x0: a, x1: b, z0, z1: alto - t, pieza: 'corredera' });
+      const tx = i === 0 ? b - 50 - GRUESO_T : a + 50;
+      r.push({ k: 'tirador', x0: tx, x1: tx + GRUESO_T, z0: alto / 2 - 150, z1: alto / 2 + 150 });
+    }
+    return r;
+  }
+  const n = Math.max(1, Math.ceil((x1 - x0) / 600)), w = (x1 - x0) / n;
+  for (let i = 0; i < n; i++) {
+    const a = x0 + i * w, b = a + w, g = FRENTE.holgura, abre = i % 2 ? 'izq' : 'der';
+    r.push({ k: 'hoja', x0: a + g, x1: b - g, z0, z1: alto - t - g, pieza: 'puerta' });
+    const tx = abre === 'der' ? b - g - 40 - GRUESO_T : a + g + 40;
+    r.push({ k: 'tirador', x0: tx, x1: tx + GRUESO_T, z0: 950, z1: 950 + TIRADOR * 1.5 });
+  }
+  return r;
+}
+
+// Frigorífico de libre instalación (sin puerta de mueble): una o, si es americano, dos puertas de acero.
+export function frenteFrigoLibre(ancho, americano) {
+  const r = [], alto = 1850, m = 15;
+  if (americano) {
+    r.push({ k: 'acero', x0: m, x1: ancho / 2 - 3, z0: 20, z1: alto }, { k: 'acero', x0: ancho / 2 + 3, x1: ancho - m, z0: 20, z1: alto });
+    r.push({ k: 'tirador', x0: ancho / 2 - 40, x1: ancho / 2 - 26, z0: 900, z1: 1500 }, { k: 'tirador', x0: ancho / 2 + 26, x1: ancho / 2 + 40, z0: 900, z1: 1500 });
+  } else {
+    r.push({ k: 'acero', x0: m, x1: ancho - m, z0: 20, z1: 650 }, { k: 'acero', x0: m, x1: ancho - m, z0: 660, z1: alto });
+    r.push({ k: 'tirador', x0: m + 30, x1: m + 44, z0: 400, z1: 620 }, { k: 'tirador', x0: m + 30, x1: m + 44, z0: 700, z1: 1100 });
+  }
+  return r;
+}

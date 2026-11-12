@@ -572,14 +572,16 @@ export async function pintarFicha(App, id) {
     };
     const repintar = () => {
       zona.replaceChildren(...listaOrdenada({ lista, atributo: 'data-cuerpo', abierto: () => abierto, alAbrir: idc => { abierto = idc; }, repintar,
-        resumen: c => 'Cuerpo ' + (lista.indexOf(c) + 1) + (c.rincon ? ' · ' + textoRincon(c) : '') + (interioresDe(c).length ? ' · ' + textoInteriores(c, AJ) : ''),
+        resumen: c => 'Cuerpo ' + (lista.indexOf(c) + 1) + (c.rincon ? ' · ' + textoRincon(c) : '') + (interioresDe(c).length ? ' · ' + textoInteriores(c, AJ) : '') + (c.puertas ? ' · puertas ' + (c.puertas === 'corredera' ? 'correderas' : 'abatibles') : ''),
         editor: c => [enPared ? editorRincon(c) : null,
           campoMedida({ etiqueta: c.rincon && c.rincon !== 'recto' ? 'Ancho en esta pared' : 'Ancho', acc: 'ancho', valor: c.ancho, mal: c.mal && c.mal.ancho, unidad: 'cm', rapidos: c.rincon && c.rincon !== 'recto' ? LADOS_RINCON_CUERPO : AJ.modulo_anchos, alCambiar: (v, t) => { anotarMedida(c, 'ancho', v, t); cambio(); pintarCuadre(); } }),
           c.rincon && c.rincon !== 'recto' ? campoMedida({ etiqueta: 'En la pared ' + (vecinaDe(c) ? vecinaDe(c).letra : 'de al lado'), acc: 'lado2', valor: c.lado2, unidad: 'cm', rapidos: LADOS_RINCON_CUERPO, alCambiar: v => { c.lado2 = v; cambio(); pintarCuadre(); } }) : null,
           h('label', { class: 'et' }, 'Interior'),
           h('small', { class: 'ayuda' }, c.rincon && c.rincon !== 'recto' ? 'En el rincón: estantes o barra.' : 'Hasta dos (p. ej. barra y cajonera); la doble barra va sola.'),
           h('div', { class: 'chips' }, interiores.filter(([v]) => !(c.rincon && c.rincon !== 'recto') || INTERIOR_RINCON.includes(v)).map(([v, t]) => h('button', { type: 'button', 'data-acc': 'interior', 'data-v': v, class: interioresDe(c).includes(v) ? 'on' : '', onclick: () => { elegirInterior(c, v); cambio(); repintar(); } }, t))),
-          interioresDe(c).includes('otro') ? h('input', { 'data-acc': 'nombre-cuerpo', placeholder: '¿Qué interior?', value: c.nombre || '', oninput: ev => { c.nombre = ev.target.value; cambio(); } }) : null] }));
+          interioresDe(c).includes('otro') ? h('input', { 'data-acc': 'nombre-cuerpo', placeholder: '¿Qué interior?', value: c.nombre || '', oninput: ev => { c.nombre = ev.target.value; cambio(); } }) : null,
+          enPared ? h('label', { class: 'et' }, 'Puertas') : null,
+          enPared ? segmentado({ acc: 'puertas-cuerpo', opciones: [['abatible', 'Abatibles'], ['corredera', 'Correderas']], valor: c.puertas || null, permitirVacio: true, alCambiar: v => { c.puertas = v || null; cambio(); repintar(); } }) : null] }));
       pintarCuadre(); refrescarAvisos();
     };
     refrescos.push(pintarCuadre);

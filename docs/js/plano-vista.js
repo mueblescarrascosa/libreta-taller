@@ -104,7 +104,7 @@ export function geometriaPlanta(d, { margen = 10, unidad = 'cm' } = {}) {
       // Lo que entra de un rinconero de la pared de al lado: un trozo sin rótulo en esa punta.
       if (sit.entran.izq) geo.modulos.push({ tipo: 'rinconero', nombre: '', ancho: sit.entran.izq, columna: false, pared: letra, dentro, sinTexto: true, rect: caja(0, sit.entran.izq, FONDO_MODULO) });
       if (sit.entran.der && hay(L)) geo.modulos.push({ tipo: 'rinconero', nombre: '', ancho: sit.entran.der, columna: false, pared: letra, dentro, sinTexto: true, rect: caja(L - sit.entran.der, L, FONDO_MODULO) });
-      for (const b of sit.bajos) geo.modulos.push({ tipo: b.m.tipo, nombre: nombreModulo(b.m), medidas: medidasModulo(b.m), ancho: b.m.ancho, columna: esColumna(b.m), pared: letra, dentro, rect: caja(b.desde, b.hasta, FONDO_MODULO) });
+      for (const b of sit.bajos) geo.modulos.push({ tipo: b.m.tipo, nombre: nombreModulo(b.m), medidas: medidasModulo(b.m), ancho: b.m.ancho, columna: esColumna(b.m), pared: letra, dentro, dato: b.m, rect: caja(b.desde, b.hasta, FONDO_MODULO) });
       for (const a of sit.altos) geo.modulos.push({ tipo: a.m.tipo, nombre: nombreModulo(a.m), medidas: medidasModulo(a.m), ancho: a.m.ancho, alto: true, columna: false, pared: letra, dentro, rect: caja(a.desde, a.hasta, FONDO_ALTO) });
       // Cuerpos del vestidor, igual que los bajos, y lo que entra del cuerpo de rincón de la pared de al lado.
       const sc = situarCuerpos(pared, d), fc = FONDO_MODULO;
@@ -134,6 +134,18 @@ export function geometriaPlanta(d, { margen = 10, unidad = 'cm' } = {}) {
     // Separación de la pared (solo islas): de la pared al borde, por el centro.
     if (x.tipo !== 'peninsula' && sep > 0) cotas.push({ a: e.en(s0 + ancho / 2), b: mas(e.en(s0 + ancho / 2), D, sep * k), texto: verMedida(sep, unidad) });
     geo.islas.push({ tipo: x.tipo, nombre: nombre + (medidas ? ' ' + medidas : ''), rect, cotas, pared: x.pared });
+  });
+
+  // Rincón en chaflán: el mueble y su trozo en la pared de al lado son una sola pieza de cinco lados, con el frente en diagonal
+  // (frente: el lado de delante, de rect[1] a rect[2]).
+  const igual = (p, q) => Math.hypot(p.x - q.x, p.y - q.y) < 1e-6 * (1 + Math.abs(p.x) + Math.abs(p.y)) + 0.5;
+  geo.modulos.filter(m => !m.sinTexto && ((m.tipo === 'rinconero' && m.dato && m.dato.forma === 'chaflan') || (m.tipo === 'cuerpo' && m.rincon === 'chaflan'))).forEach(m => {
+    const der = (m.dato && m.dato.gira) !== 'izq';
+    const otro = geo.modulos.find(o => o.sinTexto && o.tipo === m.tipo && o !== m && (der ? igual(o.rect[0], m.rect[1]) : igual(o.rect[1], m.rect[0])));
+    if (!otro) return;
+    m.rect = der ? [m.rect[0], m.rect[3], otro.rect[2], otro.rect[1], m.rect[1]] : [otro.rect[0], otro.rect[3], m.rect[2], m.rect[1], m.rect[0]];
+    m.chaflan = true;
+    geo.modulos.splice(geo.modulos.indexOf(otro), 1);
   });
 
   // Paredes de la ficha que el plano no tiene: se avisan y sus elementos van a «sin situar».
@@ -291,7 +303,7 @@ export function svgPlanta(geo) {
     // El rótulo, dentro de su mueble y sin pisar otros: los altos en su caja; los bajos, si hay altos, en la parte que queda libre.
     // Si no cabe, girado, en dos líneas o con letra menor.
     const [f0, f1] = m.alto || !hayAltos ? [0, 1] : [0.6, 1], en = (p, q, f) => ({ x: p.x + (q.x - p.x) * f, y: p.y + (q.y - p.y) * f });
-    const zona = [en(a, d2, f0), en(b, c2, f0), en(b, c2, f1), en(a, d2, f1)];
+    const zona = m.chaflan ? m.rect : [en(a, d2, f0), en(b, c2, f0), en(b, c2, f1), en(a, d2, f1)];
     const hueco = { x0: Math.min(...zona.map(p => p.x)), x1: Math.max(...zona.map(p => p.x)), y0: Math.min(...zona.map(p => p.y)), y1: Math.max(...zona.map(p => p.y)) };
     const tamanos = [2.6, 2.3, 2, 1.8].map(k => k * s), color = m.alto ? '#1e3a8a' : '#78350f';
     const r = encajarRotulo(t, hueco, { tamanos, ancho: 0.62, puestos }) || encajarRotulo(t, hueco, { tamanos: [1.8 * s], ancho: 0.62, margen: 1.3 })
