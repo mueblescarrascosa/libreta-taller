@@ -371,3 +371,10 @@ button { background: #fffef9; border-color: var(--borde); }
 .papel svg.planta, .papel svg.alzado, .papel svg.perspectiva { border-color: #c4c4c4 !important; }
 /* Cualquier chip elegido (interiores, usos…) se ve marcado como los demás botones elegidos. */
 .chips button.on { background: var(--oscuro); border-color: var(--oscuro); color: #fff; }
+
+/* 1.14.3: botón «A dónde abren» del recuento (no sale al imprimir ni en el PDF) */
+.recuento .tit { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.ver-abre { min-height: 32px; padding: 2px 10px; font-size: 13px; font-weight: 600; }
+.ver-abre.on { background: var(--oscuro); border-color: var(--oscuro); color: #fff; }
+.papel .ver-abre { display: none !important; }
+@media print { .ver-abre { display: none !important; } }

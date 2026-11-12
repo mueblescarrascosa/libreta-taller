@@ -44,4 +44,18 @@ prueba('las de entrada van aparte: otro grosor, no se juntan con las de paso', (
   igual(r.lineas[0], '2 de 82 × 203 · premarcos 86×206, 86×205');
   afirma(r.lineas.includes('Entrada: 3 de 82 × 203'), r.lineas.join(' | '));
 });
+
+prueba('a dónde abren (si se pide) y las correderas marcadas', () => {
+  const f = fichaNueva('puerta', null, 't');
+  f.datos.medida = 'premarco';
+  f.datos.puertas = [['Salón', 860, 2060, 'izq'], ['Cocina', 860, 2050, 'der'], ['Aseo', 860, 2050, 'izq'], ['Entrada', 860, 2050, 'der'], ['Baño', 900, 2100, null, 'corredera']]
+    .map(([nombre, ancho, alto, mano, tipo]) => Object.assign(puertaNueva(null), { nombre, ancho, alto, mano, tipo: tipo || null }));
+  const r = recuentoPuertas([f], 'cm', undefined, { abre: true });
+  igual(r.lineas[0], '3 de 82 × 203 (2 ← izq., 1 dcha. →) · premarcos 86×206, 86×205 ×2');
+  afirma(r.lineas.includes('1 de 90 × 210 (premarco) corredera'), r.lineas.join(' | '));
+  afirma(r.lineas.includes('Entrada: 1 de 82 × 203 (1 dcha. →)'), r.lineas.join(' | '));
+  const sin = recuentoPuertas([f], 'cm');
+  igual(sin.lineas[0], '3 de 82 × 203 · premarcos 86×206, 86×205 ×2');
+  afirma(sin.lineas.includes('Entrada: 1 de 82 × 203'), sin.lineas.join(' | '));
+});
 fin();

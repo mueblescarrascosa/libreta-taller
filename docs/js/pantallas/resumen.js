@@ -188,11 +188,19 @@ export async function pintarResumenTrabajo(App, id) {
   const aviso = h('p', { class: 'aviso-resumen' }), doc = h('article', { class: 'resumen-doc' });
   // Qué fichas van (todas al principio): lo marcado es lo que se ve, se imprime y se envía.
   const sel = new Set(fichas.map(f => f.id)), elegidas = () => fichas.filter(f => sel.has(f.id));
+  // A dónde abre cada puerta en el recuento: se recuerda en este móvil.
+  let abre = true;
+  try { abre = localStorage.getItem('med-recuento-abre') !== 'no'; } catch (e) { /* sin almacenamiento */ }
   const main = App.marco('resumen', 'Resumen del trabajo', '#/trabajo/' + id,
-    acciones({ doc, titulo: tituloLargo(trabajo.nombre ? trabajo : Object.assign({}, trabajo, { nombre: 'Trabajo' }), 'Medidas'), aviso, texto: () => textoTrabajo({ trabajo, fichas: elegidas(), ajustes: AJ }), editar: () => App.ir('#/trabajo/' + id) }));
+    acciones({ doc, titulo: tituloLargo(trabajo.nombre ? trabajo : Object.assign({}, trabajo, { nombre: 'Trabajo' }), 'Medidas'), aviso, texto: () => textoTrabajo({ trabajo, fichas: elegidas(), ajustes: AJ, abre }), editar: () => App.ir('#/trabajo/' + id) }));
   async function pintarDoc() {
-    const lista = elegidas(), r = recuentoPuertas(lista, u, AJ), partes = [cabecera(trabajo)];
-    if (r.total) partes.push(h('section', { class: 'recuento' }, h('p', { class: 'tit' }, h('b', {}, r.titulo)), ...r.lineas.map(t => h('p', {}, t))));
+    const lista = elegidas(), r = recuentoPuertas(lista, u, AJ, { abre }), partes = [cabecera(trabajo)];
+    const botonAbre = () => h('button', { type: 'button', class: 'no-imprimir ver-abre' + (abre ? ' on' : ''), 'data-acc': 'ver-abre', onclick: async () => {
+      abre = !abre;
+      try { localStorage.setItem('med-recuento-abre', abre ? 'si' : 'no'); } catch (e) { /* sin almacenamiento */ }
+      await pintarDoc();
+    } }, abre ? '✓ A dónde abren' : 'A dónde abren');
+    if (r.total) partes.push(h('section', { class: 'recuento' }, h('p', { class: 'tit' }, h('b', {}, r.titulo), r.paso + r.entrada > 0 ? botonAbre() : null), ...r.lineas.map(t => h('p', {}, t))));
     for (const f of lista) partes.push(h('div', { class: 'ficha-resumen' }, ...(await nodosFicha(App, f, trabajo, AJ))));
     if (!lista.length) partes.push(h('p', { class: 'vacio' }, fichas.length ? 'No has marcado ninguna ficha.' : 'Este trabajo aún no tiene fichas.'));
     partes.push(h('footer', {}, COPYRIGHT));

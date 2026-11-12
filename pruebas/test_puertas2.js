@@ -52,6 +52,13 @@ prueba('tabla de puertas compacta, reordenar y elegir qué fichas van en el resu
   afirma((await a.page.innerText('.resumen-doc')).includes('Llamar al pintor'));
   await a.page.click('[data-acc="elegir-tipo"][data-v="puerta"]');
   await a.page.waitForFunction(() => !document.querySelector('.resumen-doc').innerText.includes('Llamar al pintor'));
+  // «A dónde abren» se quita y se pone, y se recuerda.
+  igual(await a.page.innerText('[data-acc="ver-abre"]'), '✓ A dónde abren');
+  await a.page.click('[data-acc="ver-abre"]');
+  await a.page.waitForFunction(() => document.querySelector('[data-acc="ver-abre"]').textContent === 'A dónde abren');
+  igual(await a.page.evaluate(() => localStorage.getItem('med-recuento-abre')), 'no');
+  await a.page.click('[data-acc="ver-abre"]');
+  await a.page.waitForFunction(() => document.querySelector('[data-acc="ver-abre"].on'));
   await a.page.evaluate(() => { window.open = u => { window.__url = u; }; });
   await a.page.click('header [data-acc="enviar-texto"]'); await a.page.waitForFunction(() => window.__url);
   const t = await a.page.evaluate(() => decodeURIComponent(window.__url));

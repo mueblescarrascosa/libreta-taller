@@ -95,11 +95,18 @@ export function puertaParaPremarco(ancho, alto, aj = AJUSTES_FABRICA) {
 
 // Recuento de todas las puertas de un trabajo para el pedido: lo medido como premarco, agrupado por la puerta que hay que pedir;
 // lo medido como puerta, por su medida.
-export function recuentoPuertas(fichas, unidad, ajustes = AJUSTES_FABRICA) {
+// opc.abre: al lado de cada medida, a dónde abren («3 ← izq., 1 dcha. →»).
+export function recuentoPuertas(fichas, unidad, ajustes = AJUSTES_FABRICA, opc = {}) {
   const todas = fichas.map(normalizarFicha).filter(f => f.tipo === 'puerta').flatMap(f => (f.datos.puertas || []).map(p => (f.datos.medida === 'premarco' ? Object.assign({}, p, { medida: 'premarco' }) : p)));
   // Las de entrada son de otro grosor: se piden aparte y no se juntan con las de paso.
   const puertas = todas.filter(p => !esDeEntrada(p)), entrada = todas.filter(esDeEntrada);
   const v = mm => verMedida(mm, unidad), grupos = new Map();
+  const abren = l => {
+    if (!opc.abre) return '';
+    const i = l.filter(p => p.mano === 'izq').length, d = l.filter(p => p.mano === 'der').length;
+    return i || d ? ' (' + [i ? i + ' ← izq.' : null, d ? d + ' dcha. →' : null].filter(Boolean).join(', ') + ')' : '';
+  };
+  const clase = p => (p.tipo === 'corredera' ? ' corredera' + (p.medida === 'premarco' ? '' : 's') : p.tipo === 'doble' ? ' doble' : '');
   // Con paño fijo cuenta el ancho de la puerta, no el del hueco entero.
   const pedido = new Map(), sinPuerta = [];
   puertas.map(p => (p.fijo ? Object.assign({}, p, { ancho: anchoPuerta(p) }) : p)).forEach(p => {
@@ -107,21 +114,22 @@ export function recuentoPuertas(fichas, unidad, ajustes = AJUSTES_FABRICA) {
     if (p.medida === 'premarco' && hay(p.ancho) && hay(p.alto) && p.tipo !== 'doble' && p.tipo !== 'corredera') {
       const q = puertaParaPremarco(p.ancho, p.alto, ajustes), pre = v(p.ancho) + '×' + v(p.alto);
       if (!q.ancho || !q.alto) { sinPuerta.push(pre); return; }
-      const k = q.ancho.w + 'x' + q.alto.w, g = pedido.get(k) || { q, n: 0, pre: [] };
+      const k = q.ancho.w + 'x' + q.alto.w, g = pedido.get(k) || { q, n: 0, pre: [], l: [] };
       const reb = [q.ancho.rebaje ? 'rebajar ' + v(q.ancho.rebaje) + ' ' + unidad + ' de ancho' : null, q.alto.rebaje ? 'rebajar ' + v(q.alto.rebaje) + ' ' + unidad + ' de alto' : null].filter(Boolean).join(' y ');
-      g.n++; g.pre.push(pre + (reb ? ' (' + reb + ')' : '')); pedido.set(k, g);
+      g.n++; g.l.push(p); g.pre.push(pre + (reb ? ' (' + reb + ')' : '')); pedido.set(k, g);
       return;
     }
     let k = hay(p.ancho) && hay(p.alto) ? 'de ' + v(p.ancho) + ' × ' + v(p.alto) : hay(p.ancho) ? 'de ' + v(p.ancho) + ' de ancho' : hay(p.alto) ? 'de ' + v(p.alto) + ' de alto' : 'sin medidas';
     if (p.medida === 'premarco' && k !== 'sin medidas') k += ' (premarco)';
-    grupos.set(k, (grupos.get(k) || 0) + 1);
+    k += clase(p);
+    grupos.set(k, (grupos.get(k) || []).concat([p]));
   });
   // Premarcos iguales juntos («86×204 ×2»).
   const juntos = l => [...l.reduce((m, t) => m.set(t, (m.get(t) || 0) + 1), new Map())].map(([t, n]) => (n > 1 ? t + ' ×' + n : t)).join(', ');
   const lineas = [...pedido.values()].sort((a, b) => b.n - a.n || b.q.ancho.w - a.q.ancho.w)
-    .map(g => g.n + ' de ' + v(g.q.ancho.w) + ' × ' + v(g.q.alto.w) + (g.q.ancho.extra ? ' (no todos los fabricantes)' : '') + ' · premarco' + (g.pre.length > 1 ? 's ' : ' ') + juntos(g.pre));
+    .map(g => g.n + ' de ' + v(g.q.ancho.w) + ' × ' + v(g.q.alto.w) + (g.q.ancho.extra ? ' (no todos los fabricantes)' : '') + abren(g.l) + ' · premarco' + (g.pre.length > 1 ? 's ' : ' ') + juntos(g.pre));
   if (sinPuerta.length) lineas.push(sinPuerta.length + ' sin puerta que encaje · premarco' + (sinPuerta.length > 1 ? 's ' : ' ') + juntos(sinPuerta));
-  lineas.push(...[...grupos].sort((a, b) => (a[0] === 'sin medidas') - (b[0] === 'sin medidas') || b[1] - a[1]).map(([k, n]) => n + ' ' + k));
+  lineas.push(...[...grupos].sort((a, b) => a[0].startsWith('sin medidas') - b[0].startsWith('sin medidas') || b[1].length - a[1].length).map(([k, l]) => l.length + ' ' + k + abren(l)));
   const cuenta = fn => puertas.filter(fn).length;
   const izq = cuenta(p => p.mano === 'izq'), der = cuenta(p => p.mano === 'der');
   if (izq || der) lineas.push('Abren a la izquierda: ' + izq + ' · a la derecha: ' + der);
@@ -134,9 +142,9 @@ export function recuentoPuertas(fichas, unidad, ajustes = AJUSTES_FABRICA) {
       const q = p.medida === 'premarco' && hay(p.ancho) && hay(p.alto) ? puertaParaPremarco(p.ancho, p.alto, ajustes) : null;
       const k = q && q.ancho && q.alto ? v(q.ancho.w) + ' × ' + v(q.alto.w)
         : (hay(p.ancho) && hay(p.alto) ? v(p.ancho) + ' × ' + v(p.alto) : hay(p.ancho) ? v(p.ancho) + ' de ancho' : hay(p.alto) ? v(p.alto) + ' de alto' : 'sin medidas') + (p.medida === 'premarco' && (hay(p.ancho) || hay(p.alto)) ? ' (premarco)' : '');
-      cuantas.set(k, (cuantas.get(k) || 0) + 1);
+      cuantas.set(k, (cuantas.get(k) || []).concat([p]));
     });
-    lineas.push('Entrada: ' + [...cuantas].sort((a, b) => b[1] - a[1]).map(([k, n]) => k === 'sin medidas' ? n + ' sin medidas' : n + ' de ' + k).join(', '));
+    lineas.push('Entrada: ' + [...cuantas].sort((a, b) => b[1].length - a[1].length).map(([k, l]) => (k === 'sin medidas' ? l.length + ' sin medidas' : l.length + ' de ' + k) + abren(l)).join(', '));
   }
   const titulo = 'Puertas: ' + todas.length + (entrada.length && puertas.length ? ' (' + puertas.length + ' de paso y ' + entrada.length + ' de entrada)' : '');
   return { total: todas.length, paso: puertas.length, entrada: entrada.length, titulo, lineas };
@@ -226,10 +234,10 @@ export function fichasDePlantilla(trabajoId, { puertas, cocina, armarios = {} })
 }
 
 // Texto de todo el trabajo: cabecera, recuento de puertas y cada ficha.
-export function textoTrabajo({ trabajo, fichas, ajustes }) {
+export function textoTrabajo({ trabajo, fichas, ajustes, abre = true }) {
   const u = (trabajo && trabajo.unidad) || ajustes.unidad, bloques = [];
   bloques.push(['*' + (trabajo.nombre || 'Trabajo') + '*', [trabajo.cliente, trabajo.direccion].filter(hay).join(' · ')].filter(hay));
-  const r = recuentoPuertas(fichas, u, ajustes);
+  const r = recuentoPuertas(fichas, u, ajustes, { abre });
   if (r.total) bloques.push(['*' + r.titulo + '*', ...r.lineas]);
   fichas.forEach(f => bloques.push(...bloquesResumen({ ficha: normalizarFicha(f), trabajo, ajustes }).slice(1)));
   return bloques.map(b => b.join('\n')).join('\n\n');
