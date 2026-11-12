@@ -4,6 +4,7 @@
 import { geometriaPlanta } from './plano-vista.js';
 import { ALTURAS } from './alzado.js';
 import { piezasInterior, textoInteriores } from './modulos.js';
+import { frenteModulo, frenteCuerpo } from './frentes.js';
 
 export const OJOS = 1750;
 const FOV = 90 * Math.PI / 180, CERCA = 60;
@@ -12,7 +13,8 @@ const hay = v => v !== null && v !== undefined;
 const COLOR = {
   suelo: ['#ece6da', '#d6cfc0'], pared: ['#faf8f3', '#6b7280'], azulejo: ['#ccfbf1', '#5eead4'], ventana: ['#bae6fd', '#0369a1'], puerta: ['#e5e7eb', '#374151'],
   bajo: ['#f5ede4', '#92400e'], cuerpo: ['#f5ede4', '#92400e'], barra: ['#57534e', '#44403c'], estante: ['#c08a4a', '#92400e'], zapato: ['#a8a29e', '#78716c'],
-  cajon: ['#fde68a', '#92400e'], pantalonero: ['#fef3c7', '#78350f'], encimera: ['#9ca3af', '#4b5563'], columna: ['#e7d8c9', '#92400e'], alto: ['#dbeafe', '#1d4ed8'], pilar: ['#d1d5db', '#6b7280'], isla: ['#fef3c7', '#b45309'],
+  cajon: ['#fde68a', '#92400e'], hoja: ['#fbf6f0', '#92400e'], hoja_alto: ['#e8f0fe', '#1d4ed8'], tirador: ['#57534e', '#44403c'], electro: ['#3f3f46', '#18181b'],
+  cristal: ['#52525b', '#a1a1aa'], campana: ['#a1a1aa', '#52525b'], zocalo: ['#d6c3ae', '#92400e'], tablero: ['#e2cdb5', '#92400e'], pantalonero: ['#fef3c7', '#78350f'], encimera: ['#9ca3af', '#4b5563'], columna: ['#e7d8c9', '#92400e'], alto: ['#dbeafe', '#1d4ed8'], pilar: ['#d1d5db', '#6b7280'], isla: ['#fef3c7', '#b45309'],
 };
 
 // mm por unidad de la planta: 1 si está a escala; si no, lo que dicen los largos (la mediana).
@@ -105,9 +107,13 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null } = {}) {
   recortarSolapes(mods.filter(m => !m.alto).sort((a, b) => !!a.sinTexto - !!b.sinTexto));
   recortarSolapes(mods.filter(m => m.alto).sort((a, b) => !!a.sinTexto - !!b.sinTexto));
   const bajoEncimera = encimera - grueso;
+  // Frentes (puertas, cajones, tiradores, horno…) como detalles de la cara de delante.
+  const ancho = r => Math.hypot(r[1].x - r[0].x, r[1].y - r[0].y) || 1;
+  const detallesDe = (lista, w, alto = false) => lista.map(q => ({ t0: q.x0 / w, t1: q.x1 / w, z0: q.z0, z1: q.z1, color: q.k === 'hoja' && alto ? 'hoja_alto' : q.k }));
   mods.filter(m => m.r).forEach(m => {
     const t = m.sinTexto ? '' : [m.nombre, m.medidas].filter(Boolean).join(' ');
-    if (m.alto) return mueble(m.r, m.tipo === 'alto_frigo' ? ALTURAS.frigo : ALTURAS.altos_desde, arriba, 'alto', t);
+    if (m.alto) { const y0 = m.tipo === 'alto_frigo' ? ALTURAS.frigo : ALTURAS.altos_desde, w = ancho(m.r);
+      return mueble(m.r, y0, arriba, 'alto', t, null, detallesDe(frenteModulo(m.tipo, w, y0, arriba), w, true)); }
     // La columna del frigo con un alto encima llega hasta el frigo; el alto va encima.
     const conAlto = m.tipo === 'columna_frigo' && geo.modulos.some(a => a.alto && a.tipo === 'alto_frigo' && a.pared === m.pared && Math.hypot(a.rect[0].x - m.rect[0].x, a.rect[0].y - m.rect[0].y) < 1e-6 + 0.01 * Math.hypot(m.rect[1].x - m.rect[0].x, m.rect[1].y - m.rect[0].y));
     if (m.tipo === 'cuerpo') {
@@ -118,10 +124,12 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null } = {}) {
         : q.tipo === 'zapato' ? { t0: mm(25), t1: mm(ancho - 25), z0: q.z - 8, z1: q.z + 8, color: 'zapato' }
         : q.tipo === 'pantalonero' ? (wp => ({ t0: mm((ancho - wp) / 2), t1: mm((ancho + wp) / 2), z0: q.z0, z1: q.z1, color: 'pantalonero' }))(Math.min(q.ancho || ancho - 80, ancho - 40))
         : { t0: mm(30), t1: mm(ancho - 30), z0: q.z0, z1: q.z1, color: 'cajon' });
-      return mueble(m.r, 0, col, 'cuerpo', m.sinTexto ? '' : m.nombre.replace('Cuerpo ', 'C') + (m.rincon ? ' rincón' : '') + (ti ? ' ' + ti : ''), null, det);
+      return mueble(m.r, 0, col, 'cuerpo', m.sinTexto ? '' : m.nombre.replace('Cuerpo ', 'C') + (m.rincon ? ' rincón' : '') + (ti ? ' ' + ti : ''), null, det.concat(detallesDe(frenteCuerpo(ancho, col), ancho)));
     }
-    if (m.columna) return mueble(m.r, 0, conAlto ? Math.min(ALTURAS.frigo, techo) : col, 'columna', t);
-    mueble(m.r, 0, bajoEncimera, 'bajo', t);
+    const w = ancho(m.r);
+    if (m.columna) { const top = conAlto ? Math.min(ALTURAS.frigo, techo) : col;
+      return mueble(m.r, 0, top, 'columna', t, null, detallesDe(frenteModulo(m.tipo, w, 0, top, { columna: true }), w)); }
+    mueble(m.r, 0, bajoEncimera, 'bajo', t, null, [{ t0: 0, t1: 1, z0: 0, z1: ALTURAS.zocalo, color: 'zocalo' }].concat(detallesDe(frenteModulo(m.tipo, w, ALTURAS.zocalo, bajoEncimera), w)));
   });
   // La encimera: una pieza seguida por cada tramo de bajos, con 2 cm de vuelo por delante; en la esquina, la de una pared llega hasta el canto de la otra.
   const tramos = [];
@@ -217,11 +225,14 @@ export function vistaPorDefecto(esc, W = 1000, H = 640) {
   const pol = esc.ejes.map(e => e.a).concat([esc.ejes[esc.ejes.length - 1].b]);
   const dentro = p => { let c = false; for (let i = 0, j = pol.length - 1; i < pol.length; j = i++) { const A = pol[i], B = pol[j]; if ((A.y > p.y) !== (B.y > p.y) && p.x < (B.x - A.x) * (p.y - A.y) / (B.y - A.y) + A.x) c = !c; } return c; };
   const aPared = p => Math.min(...esc.ejes.map(e => { const t = Math.max(0, Math.min(e.lon, (p.x - e.a.x) * e.u.x + (p.y - e.a.y) * e.u.y)); return Math.hypot(p.x - e.a.x - e.u.x * t, p.y - e.a.y - e.u.y * t); }));
+  // No dentro de un mueble (con un poco de holgura): ahí no se puede estar de pie.
+  const suelo = esc.cajas.filter(c => c.z0 < 10 && c.color !== 'pilar').map(c => c.huella);
+  const enMueble = p => { const q = [{ x: p.x - 200, y: p.y - 200 }, { x: p.x + 200, y: p.y - 200 }, { x: p.x + 200, y: p.y + 200 }, { x: p.x - 200, y: p.y + 200 }]; return suelo.some(h => !separadas(h, q, 0)); };
   let mejor = base, nm = nota(base);
-  const c = esc.caja, N = 8;
+  const c = esc.caja, N = 10;
   for (let i = 1; i < N; i++) for (let j = 1; j < N; j++) {
     const p = { x: c.x0 + (c.x1 - c.x0) * i / N, y: c.y0 + (c.y1 - c.y0) * j / N };
-    if (!dentro(p) || aPared(p) < 700) continue;
+    if (!dentro(p) || aPared(p) < 350 || enMueble(p)) continue;
     for (let g = -180; g < 180; g += 10) {
       const v = { x: Math.round(p.x), y: Math.round(p.y), ang: g }, s = nota(v);
       if (s > nm + 0.01) { mejor = v; nm = s; }

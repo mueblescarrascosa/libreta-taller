@@ -99,7 +99,9 @@ export function piezasInterior(c, H) {
   let zonas;
   if (l.length === 1) zonas = [[l[0], 0, H]];
   else {
-    const abajo = DE_ABAJO.test(l[1]) || !DE_ABAJO.test(l[0]) ? 1 : 0, corte = Math.min(1000, H / 2);
+    // Abajo va el pantalonero siempre; si no lo hay, la cajonera o el zapatero.
+    const peso = k => (/pantal/.test(k) ? 2 : DE_ABAJO.test(k) ? 1 : 0);
+    const abajo = peso(l[1]) >= peso(l[0]) ? 1 : 0, corte = Math.min(1000, H / 2);
     zonas = [[l[1 - abajo], corte, H], [l[abajo], 0, corte]];
   }
   const r = [];
@@ -114,8 +116,12 @@ export function piezasInterior(c, H) {
       if (top < z1 - 100) r.push({ tipo: 'estante', z: top });
     }
     if (t === 'zapatero') for (let z = z0 + 150; z < Math.min(z1, z0 + 1100) - 100; z += 250) r.push({ tipo: 'zapato', z });
-    // Pantalonero: una franja arriba de su zona, de 40 cm de ancho (el doble, 80).
-    if (t === 'pantalonero') { const alto = Math.min(900, z1 - z0 - 250); if (alto > 0) r.push({ tipo: 'pantalonero', z0: Math.round(z1 - 150 - alto), z1: z1 - 150, ancho: anchoPantalonero(k) }); }
+    // Pantalonero: siempre abajo de su zona, de 40 cm de ancho (el doble, 80); si queda sitio encima, un estante.
+    if (t === 'pantalonero') {
+      const alto = Math.min(900, z1 - z0 - 150);
+      if (alto > 0) r.push({ tipo: 'pantalonero', z0: z0 + 100, z1: z0 + 100 + alto, ancho: anchoPantalonero(k) });
+      if (alto > 0 && z1 - (z0 + 100 + alto) > 450) r.push({ tipo: 'estante', z: z0 + 130 + alto });
+    }
   });
   return r;
 }

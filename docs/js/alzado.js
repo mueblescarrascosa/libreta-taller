@@ -6,6 +6,7 @@ import { situarMuebles, situarCuerpos, esColumna, nombreModulo, medidasModulo, i
 import { verMedida } from './unidades.js';
 import { corta } from './plano-vista.js';
 import { encajarRotulo, textoRotulo } from './rotulos.js';
+import { frenteModulo, frenteCuerpo } from './frentes.js';
 
 const hay = v => v !== null && v !== undefined;
 // Alturas orientativas (mm desde el suelo).
@@ -19,6 +20,8 @@ export function geometriaAlzado(d, pared, ajustes = null) {
   const arriba = Math.min(ALTURAS.altos_hasta, techo), col = Math.min(ALTURAS.columna, techo);
   const g = { letra: pared.letra, largo: L, techo, techoMedido: hay(d.alto_techo), piezas: [], puntos: [] };
   const pieza = (clase, x, y, w, h, texto, tipo) => { if (w > 0 && h > 0) g.piezas.push({ clase, tipo: tipo || clase, x, y, w, h, texto: texto || '' }); };
+  // Puertas, cajones, tiradores y electrodomésticos de un mueble (frentes.js), en su sitio.
+  const frente = (lista, x, alto = false) => lista.forEach(q => pieza('f_' + q.k + (alto && q.k === 'hoja' ? '_alto' : ''), x + q.x0, q.z0, q.x1 - q.x0, q.z1 - q.z0));
 
   // Azulejo de la pared: toda o en franja (las zonas van con los elementos).
   if (pared.azulejo === 'toda') pieza('azulejo', 0, 0, L, techo);
@@ -32,6 +35,7 @@ export function geometriaAlzado(d, pared, ajustes = null) {
   const bajo = (x, w, texto, tipo) => {
     pieza('zocalo', x, 0, w, ALTURAS.zocalo);
     pieza('bajo', x, ALTURAS.zocalo, w, ALTURAS.encimera - ALTURAS.grueso_encimera - ALTURAS.zocalo, texto, tipo);
+    frente(frenteModulo(tipo, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera), x);
     pieza('encimera', x, ALTURAS.encimera - ALTURAS.grueso_encimera, w, ALTURAS.grueso_encimera);
   };
   if (sit.entran.izq) bajo(0, sit.entran.izq, '', 'rinconero');
@@ -39,19 +43,25 @@ export function geometriaAlzado(d, pared, ajustes = null) {
   sit.bajos.forEach(({ m, desde, hasta }) => {
     const texto = (m.tipo === 'rinconero' ? 'Rinc.' : nombreModulo(m)) + ' ' + medidasModulo(m);
     if (m.tipo === 'hueco') return pieza('hueco', desde, 0, hasta - desde, ALTURAS.encimera, texto);
-    if (esColumna(m)) return pieza('columna', desde, 0, hasta - desde, m.tipo === 'columna_frigo' && frigosConAlto.has(desde) ? ALTURAS.frigo : col, texto, m.tipo);
+    if (esColumna(m)) {
+      const h = m.tipo === 'columna_frigo' && frigosConAlto.has(desde) ? ALTURAS.frigo : col;
+      pieza('columna', desde, 0, hasta - desde, h, texto, m.tipo);
+      return frente(frenteModulo(m.tipo, hasta - desde, 0, h, { columna: true }), desde);
+    }
     bajo(desde, hasta - desde, texto, m.tipo);
   });
   sit.altos.forEach(({ m, desde, hasta }) => {
     if (m.tipo === 'hueco') return;
     const y0 = m.tipo === 'alto_frigo' ? ALTURAS.frigo : ALTURAS.altos_desde;
     pieza('alto', desde, y0, hasta - desde, arriba - y0, nombreModulo(m) + ' ' + medidasModulo(m), m.tipo);
+    frente(frenteModulo(m.tipo, hasta - desde, y0, arriba), desde, true);
   });
 
   // Cuerpos del vestidor, de izquierda a derecha, con su interior dibujado (barras, estantes, cajones…);
   // en las puntas, lo que entra del cuerpo de rincón de la pared de al lado (con su interior, sin rótulo).
   const cuerpo = (cu, xc, w, texto) => {
     pieza('cuerpo', xc, 0, w, col, texto);
+    frente(frenteCuerpo(w, col), xc);
     piezasInterior(cu, col).forEach(q => {
       if (q.tipo === 'barra') pieza('int_barra', xc + 40, q.z - 12, w - 80, 24);
       if (q.tipo === 'estante') pieza('int_estante', xc + 15, q.z - 9, w - 30, 18);
@@ -117,11 +127,20 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
     int_cajon: { fill: '#fde68a', stroke: '#92400e', 'stroke-width': s * 0.3 },
     int_pantalonero: { fill: '#fef3c7', stroke: '#78350f', 'stroke-width': s * 0.25, 'stroke-dasharray': s * 0.8 + ' ' + s * 0.5 },
     hueco: { fill: 'none', stroke: '#a8a29e', 'stroke-width': s * 0.3, 'stroke-dasharray': s + ' ' + s },
+    // Frentes: puertas y cajones un poco más claros que el mueble, tiradores y electrodomésticos oscuros.
+    f_zocalo: { fill: '#d6c3ae', stroke: '#92400e', 'stroke-width': s * 0.2 },
+    f_tablero: { fill: '#e2cdb5', stroke: '#92400e', 'stroke-width': s * 0.2 },
+    f_hoja: { fill: '#fbf6f0', stroke: '#92400e', 'stroke-width': s * 0.25 },
+    f_hoja_alto: { fill: '#dbeafe', stroke: '#1d4ed8', 'stroke-width': s * 0.25 },
+    f_tirador: { fill: '#57534e', stroke: 'none' },
+    f_electro: { fill: '#3f3f46', stroke: '#18181b', 'stroke-width': s * 0.25 },
+    f_cristal: { fill: '#52525b', stroke: '#a1a1aa', 'stroke-width': s * 0.2 },
+    f_campana: { fill: '#a1a1aa', stroke: '#52525b', 'stroke-width': s * 0.25 },
     alto: { fill: '#bfdbfe', stroke: '#1d4ed8', 'stroke-width': s * 0.4 },
     ventana: { fill: '#e0f2fe', stroke: '#0284c7', 'stroke-width': s * 0.5 },
     puerta: { fill: '#fef3c7', stroke: '#92400e', 'stroke-width': s * 0.5 },
   };
-  const orden = ['azulejo', 'pilar', 'ventana', 'puerta', 'zocalo', 'bajo', 'encimera', 'columna', 'cuerpo', 'int_estante', 'int_zapato', 'int_cajon', 'int_pantalonero', 'int_barra', 'hueco', 'alto'];
+  const orden = ['azulejo', 'pilar', 'ventana', 'puerta', 'zocalo', 'bajo', 'encimera', 'columna', 'cuerpo', 'int_estante', 'int_zapato', 'int_cajon', 'int_pantalonero', 'int_barra', 'hueco', 'alto', 'f_zocalo', 'f_tablero', 'f_hoja', 'f_hoja_alto', 'f_electro', 'f_cristal', 'f_campana', 'f_tirador'];
   const rotulos = [];
   orden.forEach(clase => g.piezas.filter(p => p.clase === clase).forEach(p => {
     caja(p, ESTILO[clase]);
