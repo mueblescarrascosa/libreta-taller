@@ -116,10 +116,16 @@ prueba('con la columna nueva: teléfono, llamar, WhatsApp, estado y archivados',
   igual(await a.page.getAttribute('[data-acc="llamar"]', 'href'), 'tel:600112233');
   igual(await a.page.getAttribute('[data-acc="whatsapp-cliente"]', 'href'), 'https://wa.me/34600112233');
   await a.page.click('[data-acc="estado-trabajo"][data-v="montado"]'); await a.page.waitForTimeout(400); await guardado(a);
-  igual(a.nube.med_trabajos[0].datos, { telefono: '600 11 22 33', estado: 'montado' });
+  const td = a.nube.med_trabajos[0].datos;
+  igual([td.telefono, td.estado, /^\d{4}-\d\d-\d\d$/.test(td.fechas.montado)], ['600 11 22 33', 'montado', true]);
+  afirma(/^Montado el \d\d\/\d\d\/\d{4}$/.test(await a.page.innerText('[data-acc="fechas-estado"]')), 'fecha del estado');
   await irA(a, '#/', 'inicio');
   igual((await a.page.$$('[data-acc="abrir-trabajo"]')).length, 0, 'el montado sigue en la lista');
   await a.page.click('[data-acc="ver-archivados"]'); igual((await a.page.$$('[data-acc="abrir-trabajo"]')).length, 1);
+  // Filtro por estado: solo salen los estados que tienen algún trabajo.
+  igual(await a.page.$$eval('[data-acc="filtro-estado"]', b => b.map(x => x.textContent)), ['Todos', 'Montado 1']);
+  await a.page.click('[data-acc="ver-archivados"]'); await a.page.click('[data-acc="filtro-estado"][data-v="montado"]');
+  igual((await a.page.$$('[data-acc="abrir-trabajo"]')).length, 1);
 }));
 
 // ── Mejora 4: lista de fichas ──

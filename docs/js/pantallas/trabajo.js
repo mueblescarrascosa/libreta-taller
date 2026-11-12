@@ -8,6 +8,13 @@ import { resumenCorto, faltan, ordenFichas } from '../trabajos.js';
 const RETARDO = 300;
 export const ESTADOS = [['medir', 'Por medir'], ['medido', 'Medido'], ['enviado', 'Enviado'], ['fabricacion', 'En fabricación'], ['montado', 'Montado']];
 export const NOMBRE_ESTADO = Object.fromEntries(ESTADOS);
+// Al cambiar de estado se apunta el día (AAAA-MM-DD), para ver cuándo se midió, se envió, se montó…
+export function ponerEstado(td, v, hoy = new Date()) {
+  td.estado = v || null;
+  if (v) { const p = n => String(n).padStart(2, '0'); td.fechas = Object.assign({}, td.fechas, { [v]: hoy.getFullYear() + '-' + p(hoy.getMonth() + 1) + '-' + p(hoy.getDate()) }); }
+}
+// «Medido el 12/11/2026 · Enviado el 15/11/2026», en el orden de los estados.
+export const textoFechas = td => ESTADOS.filter(([k]) => td.fechas && td.fechas[k]).map(([k, t]) => t + ' el ' + td.fechas[k].split('-').reverse().join('/')).join(' · ');
 
 // Teléfono para llamar (tal cual, sin espacios) y para WhatsApp (con el 34 delante si es un número español sin prefijo).
 export const telLlamar = t => String(t || '').replace(/[^\d+]/g, '');
@@ -85,10 +92,12 @@ export async function pintarTrabajo(App, id) {
       const wa = h('a', { class: 'boton-enlace', 'data-acc': 'whatsapp-cliente', target: '_blank', rel: 'noopener' }, 'WhatsApp');
       const pintarTel = () => { const t = telLlamar(td.telefono); llamar.hidden = wa.hidden = !t; llamar.href = 'tel:' + t; wa.href = 'https://wa.me/' + telWhatsapp(td.telefono); };
       pintarTel();
+      const fechas = h('small', { class: 'ayuda fechas-estado', 'data-acc': 'fechas-estado' }, textoFechas(td));
       const tel = h('input', { 'data-acc': 'telefono', type: 'tel', placeholder: 'Teléfono', value: td.telefono || '', oninput: ev => { td.telefono = ev.target.value; cambio(); pintarTel(); } });
       tarjeta.append(h('div', { class: 'con-boton' }, tel, llamar, wa),
         h('label', { class: 'et' }, 'Estado'),
-        h('div', { class: 'seg-varias' }, segmentado({ acc: 'estado-trabajo', opciones: ESTADOS, valor: td.estado || null, permitirVacio: true, alCambiar: v => { td.estado = v; cambio(); } })));
+        h('div', { class: 'seg-varias' }, segmentado({ acc: 'estado-trabajo', opciones: ESTADOS, valor: td.estado || null, permitirVacio: true, alCambiar: v => { ponerEstado(td, v); cambio(); fechas.textContent = textoFechas(td); } })),
+        fechas);
     }
     tarjeta.append(h('label', { class: 'et' }, 'Unidad de este trabajo'),
       segmentado({ acc: 'unidad', opciones: [['mm', 'Milímetros'], ['cm', 'Centímetros']], valor: trabajo.unidad, alCambiar: v => { trabajo.unidad = v; App.guardarFila('trabajos', trabajo); } }));
