@@ -3,7 +3,7 @@
 import { aEscala, comprobar, planoPorDefecto, letras, pilarDibujado } from './plano-geo.js';
 import { camposDeElemento, paredNueva, elementoNuevo, nombreElemento, USOS, textoAzulejo, extraPilar, tamanoHumos, esquinaDe, esquinaDescuadrada, textoDescuadre } from './modelo.js';
 import { verMedida } from './unidades.js';
-import { nombreModulo, esColumna, medidasModulo, situarMuebles } from './modulos.js';
+import { nombreModulo, esColumna, medidasModulo, situarMuebles, situarCuerpos } from './modulos.js';
 
 const FONDO_MODULO = 600, FONDO_ALTO = 350;
 // Ancho orientativo (mm) de lo que se mide al centro, solo para el dibujo: no es la medida real de la caja.
@@ -105,16 +105,12 @@ export function geometriaPlanta(d, { margen = 10, unidad = 'cm' } = {}) {
       if (sit.entran.der && hay(L)) geo.modulos.push({ tipo: 'rinconero', nombre: '', ancho: sit.entran.der, columna: false, pared: letra, dentro, sinTexto: true, rect: caja(L - sit.entran.der, L, FONDO_MODULO) });
       for (const b of sit.bajos) geo.modulos.push({ tipo: b.m.tipo, nombre: nombreModulo(b.m), medidas: medidasModulo(b.m), ancho: b.m.ancho, columna: esColumna(b.m), pared: letra, dentro, rect: caja(b.desde, b.hasta, FONDO_MODULO) });
       for (const a of sit.altos) geo.modulos.push({ tipo: a.m.tipo, nombre: nombreModulo(a.m), medidas: medidasModulo(a.m), ancho: a.m.ancho, alto: true, columna: false, pared: letra, dentro, rect: caja(a.desde, a.hasta, FONDO_ALTO) });
-      let s = 0;
-      // Cuerpos del vestidor, igual que los bajos.
-      s = 0;
-      for (const [i, cu] of (pared.cuerpos || []).entries()) {
-        if (!hay(cu.ancho)) break;
-        const pa = en(s), pb = en(s + cu.ancho), f = FONDO_MODULO * k;
-        geo.modulos.push({ tipo: 'cuerpo', nombre: 'Cuerpo ' + (i + 1), ancho: cu.ancho, columna: false, pared: letra, dentro, dato: cu,
-          rect: [pa, pb, { x: pb.x + dentro.x * f, y: pb.y + dentro.y * f }, { x: pa.x + dentro.x * f, y: pa.y + dentro.y * f }] });
-        s += cu.ancho;
-      }
+      // Cuerpos del vestidor, igual que los bajos, y lo que entra del cuerpo de rincón de la pared de al lado.
+      const sc = situarCuerpos(pared, d), fc = FONDO_MODULO;
+      if (sc.entran.izq) geo.modulos.push({ tipo: 'cuerpo', nombre: '', ancho: sc.entran.izq, columna: false, pared: letra, dentro, sinTexto: true, dato: sc.entran.cIzq, rect: caja(0, sc.entran.izq, fc) });
+      if (sc.entran.der && hay(L)) geo.modulos.push({ tipo: 'cuerpo', nombre: '', ancho: sc.entran.der, columna: false, pared: letra, dentro, sinTexto: true, dato: sc.entran.cDer, rect: caja(L - sc.entran.der, L, fc) });
+      sc.cuerpos.forEach(({ c: cu, desde, hasta }) => geo.modulos.push({ tipo: 'cuerpo', nombre: 'Cuerpo ' + ((pared.cuerpos || []).indexOf(cu) + 1), ancho: cu.ancho, columna: false, pared: letra, dentro, dato: cu,
+        rincon: cu.rincon || null, rect: caja(desde, hasta, fc) }));
     }
   }
   // Islas y penínsulas: en su sitio respecto a su pared, con las cotas al suelo (separación y distancia desde la esquina).

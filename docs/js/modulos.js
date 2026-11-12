@@ -184,8 +184,43 @@ export function cuadreCuerpos(d) {
   return { suma: s, resto: anchos.length ? Math.min(...anchos) - s : null };
 }
 
-// Cuerpos de una pared (vestidor) contra su largo.
-export function cuadreCuerposPared(p) { const s = suma(p.cuerpos); return { suma: s, resto: resto(p.largo, s) }; }
+// ── Cuerpos de rincón del vestidor ──
+// En L o en chaflán: ocupan su ancho en esta pared y «lado2» en la de al lado (la de «gira»). Recto (rincón ciego):
+// llega a la esquina y en la otra pared ocupa su fondo (60). Como el rinconero de la cocina.
+export const FORMAS_RINCON_CUERPO = [['L', 'En L'], ['recto', 'Recto (ciego)'], ['chaflan', 'Chaflán']];
+export const LADOS_RINCON_CUERPO = [900, 1000, 1100, 1200];
+export const FONDO_CUERPO = 600;
+// En L y en chaflán el interior es de estantes o barra.
+export const INTERIOR_RINCON = ['barra', 'estantes', 'otro'];
+const ocupaCuerpo = c => (c.rincon === 'recto' ? FONDO_CUERPO : hay(c.lado2) ? c.lado2 : null);
+export function cuerposQueEntran(datos, p) {
+  const r = { izq: 0, der: 0, cIzq: null, cDer: null }, v = paredesVecinas(datos, p);
+  (v.izq && v.izq !== p ? v.izq.cuerpos || [] : []).forEach(c => { if (c.rincon && c.gira !== 'izq' && ocupaCuerpo(c)) { r.izq += ocupaCuerpo(c); r.cIzq = c; } });
+  (v.der && v.der !== p ? v.der.cuerpos || [] : []).forEach(c => { if (c.rincon && c.gira === 'izq' && ocupaCuerpo(c)) { r.der += ocupaCuerpo(c); r.cDer = c; } });
+  return r;
+}
+// Dónde va cada cuerpo a lo largo de la pared (mm desde la izquierda), seguidos desde lo que entre del rincón de la anterior.
+export function situarCuerpos(p, datos) {
+  const e = cuerposQueEntran(datos, p), lista = [];
+  let s = e.izq;
+  for (const c of p.cuerpos || []) {
+    if (!hay(c.ancho) || c.ancho <= 0) break;
+    lista.push({ c, desde: s, hasta: s + c.ancho });
+    s += c.ancho;
+  }
+  return { cuerpos: lista, entran: e };
+}
+export function textoRincon(c) {
+  if (!c || !c.rincon) return '';
+  const m = hay(c.ancho) ? verMedida(c.ancho, 'cm') + (c.rincon !== 'recto' && hay(c.lado2) ? '×' + verMedida(c.lado2, 'cm') : '') : '';
+  return 'rincón ' + (c.rincon === 'recto' ? 'recto' : c.rincon === 'chaflan' ? 'en chaflán' : 'en L') + (m ? ' ' + m : '');
+}
+
+// Cuerpos de una pared (vestidor) contra su largo, con lo que entre de los rincones de las paredes de al lado.
+export function cuadreCuerposPared(p, datos = null) {
+  const e = datos ? cuerposQueEntran(datos, p) : { izq: 0, der: 0 }, s = suma(p.cuerpos) + e.izq + e.der;
+  return { suma: s, resto: resto(p.largo, s) };
+}
 
 // Texto del cuadre para enseñar debajo de cada fila: «quedan 23 cm» o «te pasas 5 cm».
 export function textoCuadre(c, unidad) {
@@ -208,7 +243,7 @@ export function avisosModulos(ficha, unidad) {
   (d.paredes || []).forEach(p => {
     pasa('pared.' + p.id, 'Bajos de la pared ' + p.letra, cuadreBajos(p, d));
     pasa('pared.' + p.id, 'Altos de la pared ' + p.letra, cuadreAltos(p));
-    pasa('pared.' + p.id, 'Cuerpos de la pared ' + p.letra, cuadreCuerposPared(p));
+    pasa('pared.' + p.id, 'Cuerpos de la pared ' + p.letra, cuadreCuerposPared(p, d));
     (p.cuerpos || []).forEach((c, i) => avisoPantalonero(l, 'pared.' + p.id, 'Cuerpo ' + (i + 1) + ' de la pared ' + p.letra, c, unidad));
   });
   if (ficha.tipo === 'armario') {

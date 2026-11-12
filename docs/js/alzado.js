@@ -2,7 +2,7 @@
 // ventanas, puertas, pilares, azulejo y las tomas en su punto, con la altura al lado.
 // Las alturas de los muebles son orientativas (las de una cocina normal); lo medido manda.
 import { camposDeElemento, extraPilar, pilarDeVecina } from './modelo.js';
-import { situarMuebles, esColumna, nombreModulo, medidasModulo, interioresDe, textoInteriores, piezasInterior } from './modulos.js';
+import { situarMuebles, situarCuerpos, esColumna, nombreModulo, medidasModulo, interioresDe, textoInteriores, piezasInterior } from './modulos.js';
 import { verMedida } from './unidades.js';
 import { corta } from './plano-vista.js';
 
@@ -47,12 +47,10 @@ export function geometriaAlzado(d, pared, ajustes = null) {
     pieza('alto', desde, y0, hasta - desde, arriba - y0, nombreModulo(m) + ' ' + medidasModulo(m), m.tipo);
   });
 
-  // Cuerpos del vestidor, de izquierda a derecha, con su interior dibujado (barras, estantes, cajones…).
-  let xc = 0;
-  for (const [i, cu] of (pared.cuerpos || []).entries()) {
-    if (!hay(cu.ancho) || cu.ancho <= 0) break;
-    const w = cu.ancho, ti = textoInteriores(cu, ajustes);
-    pieza('cuerpo', xc, 0, w, col, 'C' + (i + 1) + (ti ? ' ' + ti : ''));
+  // Cuerpos del vestidor, de izquierda a derecha, con su interior dibujado (barras, estantes, cajones…);
+  // en las puntas, lo que entra del cuerpo de rincón de la pared de al lado (con su interior, sin rótulo).
+  const cuerpo = (cu, xc, w, texto) => {
+    pieza('cuerpo', xc, 0, w, col, texto);
     piezasInterior(cu, col).forEach(q => {
       if (q.tipo === 'barra') pieza('int_barra', xc + 40, q.z - 12, w - 80, 24);
       if (q.tipo === 'estante') pieza('int_estante', xc + 15, q.z - 9, w - 30, 18);
@@ -60,8 +58,14 @@ export function geometriaAlzado(d, pared, ajustes = null) {
       if (q.tipo === 'cajon') pieza('int_cajon', xc + 30, q.z0, w - 60, q.z1 - q.z0);
       if (q.tipo === 'pantalonero') { const wp = Math.min(q.ancho || w - 80, w - 40); pieza('int_pantalonero', xc + (w - wp) / 2, q.z0, wp, q.z1 - q.z0); }
     });
-    xc += w;
-  }
+  };
+  const sc = situarCuerpos(pared, d);
+  if (sc.entran.izq) cuerpo(sc.entran.cIzq, 0, sc.entran.izq, '');
+  if (sc.entran.der) cuerpo(sc.entran.cDer, L - sc.entran.der, sc.entran.der, '');
+  sc.cuerpos.forEach(({ c: cu, desde, hasta }) => {
+    const ti = textoInteriores(cu, ajustes), n = (pared.cuerpos || []).indexOf(cu) + 1;
+    cuerpo(cu, desde, hasta - desde, 'C' + n + (cu.rincon ? ' rincón' : '') + (ti ? ' ' + ti : ''));
+  });
 
   // Elementos de la pared, en su sitio (con el pilar si se midió desde él).
   (pared.elementos || []).forEach(e => {

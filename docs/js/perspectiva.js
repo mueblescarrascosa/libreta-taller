@@ -89,7 +89,7 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null } = {}) {
         : q.tipo === 'zapato' ? { t0: mm(25), t1: mm(ancho - 25), z0: q.z - 8, z1: q.z + 8, color: 'zapato' }
         : q.tipo === 'pantalonero' ? (wp => ({ t0: mm((ancho - wp) / 2), t1: mm((ancho + wp) / 2), z0: q.z0, z1: q.z1, color: 'pantalonero' }))(Math.min(q.ancho || ancho - 80, ancho - 40))
         : { t0: mm(30), t1: mm(ancho - 30), z0: q.z0, z1: q.z1, color: 'cajon' });
-      return caja(m.rect, 0, col, 'cuerpo', m.nombre.replace('Cuerpo ', 'C') + (ti ? ' ' + ti : ''), null, det);
+      return caja(m.rect, 0, col, 'cuerpo', m.sinTexto ? '' : m.nombre.replace('Cuerpo ', 'C') + (m.rincon ? ' rincón' : '') + (ti ? ' ' + ti : ''), null, det);
     }
     if (m.columna) return caja(m.rect, 0, conAlto ? Math.min(ALTURAS.frigo, techo) : col, 'columna', t);
     caja(m.rect, 0, encimera, 'bajo', t, 'encimera');

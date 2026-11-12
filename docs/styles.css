@@ -369,3 +369,5 @@ button { background: #fffef9; border-color: var(--borde); }
 .papel td { border-bottom: 1px solid #c4c4c4; }
 .papel header { border-bottom-width: 1.5px !important; }
 .papel svg.planta, .papel svg.alzado, .papel svg.perspectiva { border-color: #c4c4c4 !important; }
+/* Cualquier chip elegido (interiores, usos…) se ve marcado como los demás botones elegidos. */
+.chips button.on { background: var(--oscuro); border-color: var(--oscuro); color: #fff; }

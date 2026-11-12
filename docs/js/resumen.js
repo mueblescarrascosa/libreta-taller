@@ -2,7 +2,7 @@
 import { verMedida } from './unidades.js';
 import { tituloFicha } from './util.js';
 import { resumenPuerta, nombreElemento, camposDeElemento, textoAzulejo, extraPilar, tamanoHumos, esquinaDe, textoDescuadre } from './modelo.js';
-import { textoModulo, cuadreBajos, cuadreAltos, cuadreCuerposPared, textoCuadre, nombreLineal, nombreInterior, textoInteriores, textoElectro, paredesVecinas } from './modulos.js';
+import { textoModulo, cuadreBajos, cuadreAltos, cuadreCuerposPared, textoCuadre, nombreLineal, nombreInterior, textoInteriores, textoRincon, textoElectro, paredesVecinas } from './modulos.js';
 
 const hay = v => v !== null && v !== undefined && v !== '';
 const unir = (partes, sep = ' · ') => partes.filter(hay).join(sep);
@@ -51,7 +51,10 @@ function lineaModulos(nombre, lista, cuadre) {
   return '- ' + nombre + ': ' + t + (c ? ' (' + c.charAt(0).toLowerCase() + c.slice(1) + ')' : '');
 }
 
-const textoCuerpo = (c, ajustes) => unir([hay(c.ancho) ? verMedida(c.ancho, 'cm') : '?', textoInteriores(c, ajustes) || null], ' ');
+// «50 barra + cajonera»; el de rincón, «rincón en L 100×100 barra (sigue en B)».
+const textoCuerpo = (c, ajustes, sigue) => (c.rincon
+  ? unir([textoRincon(c), textoInteriores(c, ajustes) || null], ' ') + (sigue ? ' (sigue en ' + sigue + ')' : '')
+  : unir([hay(c.ancho) ? verMedida(c.ancho, 'cm') : '?', textoInteriores(c, ajustes) || null], ' '));
 
 function bloquePared(p, ud, u, ajustes, d) {
   const l = [unir(['*Pared ' + p.letra + '*', hay(p.largo) ? verMedida(p.largo, ud) + ' ' + ud : null, hay(p.alto) ? 'alto ' + verMedida(p.alto, ud) + ' ' + ud : null])];
@@ -65,8 +68,8 @@ function bloquePared(p, ud, u, ajustes, d) {
   if (az || zonas.length) l.push('- ' + (az ? az.charAt(0).toUpperCase() + az.slice(1) : 'Azulejo por zonas'));
   zonas.forEach(e => l.push('   · ' + lineaElemento(e, u, extraPilar(d, p, e) > 0).slice(2)));
   if ((p.cuerpos || []).length) {
-    const c = textoCuadre(cuadreCuerposPared(p), 'cm');
-    l.push('- Cuerpos: ' + p.cuerpos.map(x => textoCuerpo(x, ajustes)).join(', ') + (c ? ' (' + c.charAt(0).toLowerCase() + c.slice(1) + ')' : ''));
+    const c = textoCuadre(cuadreCuerposPared(p, d), 'cm'), vc = paredesVecinas(d, p);
+    l.push('- Cuerpos: ' + p.cuerpos.map(x => textoCuerpo(x, ajustes, x.rincon && vc[x.gira === 'izq' ? 'izq' : 'der'] ? vc[x.gira === 'izq' ? 'izq' : 'der'].letra : null)).join(', ') + (c ? ' (' + c.charAt(0).toLowerCase() + c.slice(1) + ')' : ''));
   }
   (p.elementos || []).filter(e => e.tipo !== 'zona').forEach(e => l.push(lineaElemento(e, u, extraPilar(d, p, e) > 0)));
   // El rinconero dice en qué pared sigue.
