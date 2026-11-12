@@ -96,7 +96,9 @@ export function puertaParaPremarco(ancho, alto, aj = AJUSTES_FABRICA) {
 // Recuento de todas las puertas de un trabajo para el pedido: lo medido como premarco, agrupado por la puerta que hay que pedir;
 // lo medido como puerta, por su medida.
 export function recuentoPuertas(fichas, unidad, ajustes = AJUSTES_FABRICA) {
-  const puertas = fichas.map(normalizarFicha).filter(f => f.tipo === 'puerta').flatMap(f => (f.datos.puertas || []).map(p => (f.datos.medida === 'premarco' ? Object.assign({}, p, { medida: 'premarco' }) : p)));
+  const todas = fichas.map(normalizarFicha).filter(f => f.tipo === 'puerta').flatMap(f => (f.datos.puertas || []).map(p => (f.datos.medida === 'premarco' ? Object.assign({}, p, { medida: 'premarco' }) : p)));
+  // Las de entrada son de otro grosor: se piden aparte y no se juntan con las de paso.
+  const puertas = todas.filter(p => !esDeEntrada(p)), entrada = todas.filter(esDeEntrada);
   const v = mm => verMedida(mm, unidad), grupos = new Map();
   // Con paño fijo cuenta el ancho de la puerta, no el del hueco entero.
   const pedido = new Map(), sinPuerta = [];
@@ -125,8 +127,15 @@ export function recuentoPuertas(fichas, unidad, ajustes = AJUSTES_FABRICA) {
   if (izq || der) lineas.push('Abren a la izquierda: ' + izq + ' · a la derecha: ' + der);
   [['Con condena', p => p.condena], ['Con vidriera', p => p.vidriera], ['Correderas', p => p.tipo === 'corredera'], ['Dobles', p => p.tipo === 'doble'], ['Con paño fijo', p => p.fijo || p.tipo === 'fija']]
     .forEach(([t, fn]) => { const n = cuenta(fn); if (n) lineas.push(t + ': ' + n); });
-  return { total: puertas.length, lineas };
+  if (entrada.length) {
+    const medida = p => (hay(p.ancho) && hay(p.alto) ? v(p.ancho) + ' × ' + v(p.alto) : hay(p.ancho) ? v(p.ancho) + ' de ancho' : hay(p.alto) ? v(p.alto) + ' de alto' : 'sin medidas') + (p.medida === 'premarco' && (hay(p.ancho) || hay(p.alto)) ? ' (premarco)' : '');
+    lineas.push('Aparte, de entrada (otro grosor): ' + entrada.length + ' · ' + entrada.map(p => (p.nombre ? p.nombre + ' ' : '') + medida(p)).join(', '));
+  }
+  const titulo = 'Puertas: ' + todas.length + (entrada.length && puertas.length ? ' (' + puertas.length + ' de paso y ' + entrada.length + ' de entrada)' : '');
+  return { total: todas.length, paso: puertas.length, entrada: entrada.length, titulo, lineas };
 }
+// «Entrada», «Entrada 2», «Puerta blindada»…: la puerta de la calle.
+export const esDeEntrada = p => /^entrada\b|blindad|acorazad/i.test(String(p.nombre || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim());
 
 // Copia completa de una ficha, con identificadores nuevos dentro (puertas, paredes, elementos, módulos…).
 export function duplicarFicha(ficha, trabajoId) {
@@ -214,7 +223,7 @@ export function textoTrabajo({ trabajo, fichas, ajustes }) {
   const u = (trabajo && trabajo.unidad) || ajustes.unidad, bloques = [];
   bloques.push(['*' + (trabajo.nombre || 'Trabajo') + '*', [trabajo.cliente, trabajo.direccion].filter(hay).join(' · ')].filter(hay));
   const r = recuentoPuertas(fichas, u, ajustes);
-  if (r.total) bloques.push(['*Puertas: ' + r.total + '*', ...r.lineas]);
+  if (r.total) bloques.push(['*' + r.titulo + '*', ...r.lineas]);
   fichas.forEach(f => bloques.push(...bloquesResumen({ ficha: normalizarFicha(f), trabajo, ajustes }).slice(1)));
   return bloques.map(b => b.join('\n')).join('\n\n');
 }

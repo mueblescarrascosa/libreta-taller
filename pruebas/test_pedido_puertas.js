@@ -34,4 +34,15 @@ prueba('lo medido como puerta sigue por su medida; los ajustes cambian las regla
   igual(puertaParaPremarco(840, 2050, aj).ancho.w, 820);
   igual(AJUSTES_FABRICA.pedido_altos, [2110, 2030]);
 });
+
+prueba('las de entrada van aparte: otro grosor, no se juntan con las de paso', () => {
+  const f = fichaNueva('puerta', null, 't');
+  f.datos.medida = 'premarco';
+  f.datos.puertas = [['Entrada', 960, 2100], ['Salón', 860, 2060], ['Habitación 1', 860, 2050]].map(([nombre, ancho, alto]) => Object.assign(puertaNueva(null), { nombre, ancho, alto }));
+  const r = recuentoPuertas([f], 'cm');
+  igual([r.total, r.paso, r.entrada, r.titulo], [3, 2, 1, 'Puertas: 3 (2 de paso y 1 de entrada)']);
+  igual(r.lineas[0], '2 de 82 × 203 · premarcos 86×206, 86×205');
+  afirma(r.lineas.includes('Aparte, de entrada (otro grosor): 1 · Entrada 96 × 210 (premarco)'), r.lineas.join(' | '));
+  afirma(!r.lineas.some(t => /de 92 ×/.test(t)), 'la de entrada no se pide como de paso');
+});
 fin();

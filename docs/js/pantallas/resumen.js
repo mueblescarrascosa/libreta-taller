@@ -192,7 +192,7 @@ export async function pintarResumenTrabajo(App, id) {
     acciones({ doc, titulo: tituloLargo(trabajo.nombre ? trabajo : Object.assign({}, trabajo, { nombre: 'Trabajo' }), 'Medidas'), aviso, texto: () => textoTrabajo({ trabajo, fichas: elegidas(), ajustes: AJ }), editar: () => App.ir('#/trabajo/' + id) }));
   async function pintarDoc() {
     const lista = elegidas(), r = recuentoPuertas(lista, u, AJ), partes = [cabecera(trabajo)];
-    if (r.total) partes.push(h('section', { class: 'recuento' }, h('p', { class: 'tit' }, h('b', {}, 'Puertas: ' + r.total)), ...r.lineas.map(t => h('p', {}, t))));
+    if (r.total) partes.push(h('section', { class: 'recuento' }, h('p', { class: 'tit' }, h('b', {}, r.titulo)), ...r.lineas.map(t => h('p', {}, t))));
     for (const f of lista) partes.push(h('div', { class: 'ficha-resumen' }, ...(await nodosFicha(App, f, trabajo, AJ))));
     if (!lista.length) partes.push(h('p', { class: 'vacio' }, fichas.length ? 'No has marcado ninguna ficha.' : 'Este trabajo aún no tiene fichas.'));
     partes.push(h('footer', {}, COPYRIGHT));
