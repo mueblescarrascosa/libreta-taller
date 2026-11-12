@@ -6,13 +6,14 @@ import { nombrarPuerta, CORTO_ELEMENTO, HUMOS_DIAMETROS, HUMOS_RECTANGULARES, is
 import { duplicarFicha } from '../trabajos.js';
 import { campoMedida, campoEntero } from '../campos.js';
 import { verMedida } from '../unidades.js';
-import { TIPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, medidasModulo, anchosDe, FORMAS_RINCONERO, LADOS_RINCONERO, paredesVecinas, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, textoCuadre, lineaNueva, nombreLineal, nombreInterior, acabadosNuevos, ELECTRO, datosElectro, electroNuevo } from '../modulos.js';
+import { TIPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, medidasModulo, anchosDe, FORMAS_RINCONERO, LADOS_RINCONERO, paredesVecinas, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, textoCuadre, lineaNueva, nombreLineal, nombreInterior, interioresDe, elegirInterior, textoInteriores, acabadosNuevos, ELECTRO, datosElectro, electroNuevo } from '../modulos.js';
 import { seccionAdjuntos } from './adjuntos.js';
 import { textoResumen, urlWhatsapp } from '../resumen.js';
 import { huella } from '../sincro.js';
 import { geometriaPlanta, svgPlanta, aplicarPlano, pilarEnParedes, pilaresEnParedes, pasarAPilar } from '../plano-vista.js';
 import { abrirPlano } from '../plano-editor.js';
 import { geometriaAlzado, svgAlzado } from '../alzado.js';
+import { vistaInteractiva, abrirPerspectivaGrande } from './perspectiva-ui.js';
 
 const RETARDO = 300;
 const nuevoId = () => crypto.randomUUID();
@@ -304,11 +305,15 @@ export async function pintarFicha(App, id) {
       if (!letras.includes(paredAlzado)) paredAlzado = letras[0] || null;
       botonesAlzado.replaceChildren(...letras.map(l => h('button', { type: 'button', 'data-acc': 'alzado-pared', 'data-v': l, class: l === paredAlzado ? 'on' : '',
         onclick: () => { paredAlzado = l; pintarAlzado(); } }, 'Pared ' + l)));
-      const p = d.paredes.find(x => x.letra === paredAlzado), g = p ? geometriaAlzado(d, p) : null;
+      const p = d.paredes.find(x => x.letra === paredAlzado), g = p ? geometriaAlzado(d, p, AJ) : null;
       zonaAlzado.replaceChildren(...(g ? [svgAlzado(g, { unidad }), g.techoMedido ? null : h('small', { class: 'ayuda' }, 'Sin la altura del techo: dibujado con 2,50 m.'),
         h('small', { class: 'ayuda' }, 'Alturas de muebles orientativas.')].filter(Boolean)
         : [h('small', { class: 'ayuda' }, 'Pon el largo de la pared para verla de frente.')]));
     }
+    // Perspectiva, de pie con los ojos a 175 cm; también a pantalla completa.
+    const zonaPersp = h('div', { class: 'zona-perspectiva' });
+    const pintarPerspectiva = () => zonaPersp.replaceChildren(vistaInteractiva({ d, margen: AJ.margen, ajustes: AJ, alGuardar: cambio,
+      alAmpliar: () => abrirPerspectivaGrande({ d, margen: AJ.margen, ajustes: AJ, alGuardar: cambio, alCerrar: pintarPerspectiva }) }));
     // Planta dibujada con las medidas: se rehace con cada cambio.
     const zonaPlanta = h('div', { class: 'zona-planta' });
     pintarPlanta = () => {
@@ -330,6 +335,7 @@ export async function pintarFicha(App, id) {
       if (g.sinSituar.length) hijos.push(h('small', { class: 'ayuda', 'data-acc': 'sin-situar' }, 'Sin situar (falta la distancia o el largo de su pared): ' + g.sinSituar.map(e => e.etiqueta + ' en ' + e.pared).join(', ') + '.'));
       zonaPlanta.replaceChildren(...hijos);
       pintarAlzado();
+      if (!document.querySelector('.capa-perspectiva')) pintarPerspectiva();
     };
     const dibujar = async () => {
       await guardarYa();
@@ -347,7 +353,8 @@ export async function pintarFicha(App, id) {
     h('div', { class: 'lateral' },
       h('div', { class: 'tarjeta' }, zonaAlto),
       (() => { const t = h('b', {}, 'Planta'); return plegarCaja(h('div', { class: 'tarjeta tarjeta-planta' }, h('div', { class: 'cab' }, t, botonForma), zonaPlanta), t, 'lat:planta'); })(),
-      (() => { const t = h('b', {}, 'Paredes de frente'); return plegarCaja(h('div', { class: 'tarjeta tarjeta-alzado' }, t, botonesAlzado, zonaAlzado), t, 'lat:alzado'); })()),
+      (() => { const t = h('b', {}, 'Paredes de frente'); return plegarCaja(h('div', { class: 'tarjeta tarjeta-alzado' }, t, botonesAlzado, zonaAlzado), t, 'lat:alzado'); })(),
+      (() => { const t = h('b', {}, 'Perspectiva'); return plegarCaja(h('div', { class: 'tarjeta tarjeta-perspectiva' }, t, zonaPersp), t, 'lat:perspectiva'); })()),
     h('h2', {}, 'Paredes'),
     zona,
     h('button', { type: 'button', class: 'ancho', 'data-acc': 'anadir-pared', onclick: () => { d.paredes.push(paredNueva(d.paredes)); cambio(); repintar(); } }, '+ Añadir pared')];
@@ -547,17 +554,18 @@ export async function pintarFicha(App, id) {
     const interiores = AJ.interiores.concat([['otro', 'Otro']]);
     const repintar = () => {
       zona.replaceChildren(...listaOrdenada({ lista, atributo: 'data-cuerpo', abierto: () => abierto, alAbrir: idc => { abierto = idc; }, repintar,
-        resumen: c => 'Cuerpo ' + (lista.indexOf(c) + 1) +(c.interior ? ' · ' + (c.interior === 'otro' ? c.nombre || 'otro' : nombreInterior(c.interior, AJ).toLowerCase()) : ''),
+        resumen: c => 'Cuerpo ' + (lista.indexOf(c) + 1) + (interioresDe(c).length ? ' · ' + textoInteriores(c, AJ) : ''),
         editor: c => [campoMedida({ etiqueta: 'Ancho', acc: 'ancho', valor: c.ancho, mal: c.mal && c.mal.ancho, unidad: 'cm', rapidos: AJ.modulo_anchos, alCambiar: (v, t) => { anotarMedida(c, 'ancho', v, t); cambio(); pintarCuadre(); } }),
           h('label', { class: 'et' }, 'Interior'),
-          h('div', { class: 'chips' }, interiores.map(([v, t]) => h('button', { type: 'button', 'data-acc': 'interior', 'data-v': v, class: c.interior === v ? 'on' : '', onclick: () => { c.interior = c.interior === v ? null : v; cambio(); repintar(); } }, t))),
-          c.interior === 'otro' ? h('input', { 'data-acc': 'nombre-cuerpo', placeholder: '¿Qué interior?', value: c.nombre || '', oninput: ev => { c.nombre = ev.target.value; cambio(); } }) : null] }));
+          h('small', { class: 'ayuda' }, 'Hasta dos (p. ej. barra y cajonera); la doble barra va sola.'),
+          h('div', { class: 'chips' }, interiores.map(([v, t]) => h('button', { type: 'button', 'data-acc': 'interior', 'data-v': v, class: interioresDe(c).includes(v) ? 'on' : '', onclick: () => { elegirInterior(c, v); cambio(); repintar(); } }, t))),
+          interioresDe(c).includes('otro') ? h('input', { 'data-acc': 'nombre-cuerpo', placeholder: '¿Qué interior?', value: c.nombre || '', oninput: ev => { c.nombre = ev.target.value; cambio(); } }) : null] }));
       pintarCuadre(); refrescarAvisos();
     };
     refrescos.push(pintarCuadre);
     repintar();
     return [conTitulo ? h('h2', {}, 'Cuerpos, de izquierda a derecha') : h('label', { class: 'et' }, 'Cuerpos, de izquierda a derecha'), zona, cuadre,
-      h('button', { type: 'button', class: 'ancho', 'data-acc': 'anadir-cuerpo', onclick: () => { const c = { id: nuevoId(), ancho: null, interior: null, nombre: '' }; lista.push(c); abierto = c.id; cambio(); repintar(); } }, '+ Añadir cuerpo')];
+      h('button', { type: 'button', class: 'ancho', 'data-acc': 'anadir-cuerpo', onclick: () => { const c = { id: nuevoId(), ancho: null, interior: null, interior2: null, nombre: '' }; lista.push(c); abierto = c.id; cambio(); repintar(); } }, '+ Añadir cuerpo')];
   }
 
   const texto = (obj, k, acc, ph) => h('input', { 'data-acc': acc, placeholder: ph, value: obj[k] || '', oninput: ev => { obj[k] = ev.target.value; cambio(); } });

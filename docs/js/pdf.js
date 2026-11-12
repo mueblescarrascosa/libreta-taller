@@ -57,11 +57,11 @@ export async function generarPdf(elemento) {
         if (!el) return;
         Object.assign(el.style, { width: ANCHO_HOJA + 'px', maxWidth: 'none', boxShadow: 'none', border: '0' });
         // Los dibujos, a todo el ancho de la hoja (en pantalla llevan un tope de altura pensado para el móvil).
-        el.querySelectorAll('svg.planta, svg.alzado').forEach(g => {
+        el.querySelectorAll('svg.planta, svg.alzado, svg.perspectiva').forEach(g => {
           const vb = g.viewBox && g.viewBox.baseVal, caja = g.parentElement.clientWidth || ANCHO_HOJA;
           if (!vb || !vb.width || !vb.height) return;
           // Tope de alto: la planta, algo más de media hoja; los alzados, dos por hoja.
-          const tope = g.classList.contains('alzado') ? 440 : 560, ancho = Math.min(caja - 4, tope * vb.width / vb.height);
+          const tope = g.classList.contains('alzado') || g.classList.contains('perspectiva') ? 440 : 560, ancho = Math.min(caja - 4, tope * vb.width / vb.height);
           Object.assign(g.style, { width: ancho + 'px', height: ancho * vb.height / vb.width + 'px', maxHeight: 'none', margin: '0 auto' });
         });
         cortes = puntosDeCorte(el);

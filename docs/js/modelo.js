@@ -23,7 +23,7 @@ export const AJUSTES_FABRICA = {
   usos_toma: [['agua', 'Agua'], ['termo', 'Termo'], ['gas', 'Gas']],
   usos_enchufe: [['general', 'General'], ['hmo', 'H/MO (columna)'], ['placa', 'Placa'], ['campana', 'Campana'], ['frigo', 'Frigorífico'], ['lavavajillas', 'Lavavajillas'], ['lavadora', 'Lavadora'], ['termo', 'Termo']],
   lineales: [['zocalo', 'Zócalo'], ['cornisa', 'Cornisa'], ['moldura', 'Moldura'], ['led', 'Tira LED'], ['tapajuntas', 'Tapajuntas']],
-  interiores: [['barra', 'Barra'], ['doble_barra', 'Doble barra'], ['estantes', 'Estantes'], ['cajonera', 'Cajonera'], ['zapatero', 'Zapatero']],
+  interiores: [['barra', 'Barra'], ['doble_barra', 'Doble barra'], ['estantes', 'Estantes'], ['cajonera', 'Cajonera'], ['zapatero', 'Zapatero'], ['pantalonero', 'Pantalonero'], ['pantalonero_doble', 'Pantalonero doble']],
 };
 export const USOS = { toma: AJUSTES_FABRICA.usos_toma, enchufe: AJUSTES_FABRICA.usos_enchufe };
 

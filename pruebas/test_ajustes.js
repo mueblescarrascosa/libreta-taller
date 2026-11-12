@@ -10,7 +10,7 @@ prueba('valores de fábrica', () => {
   igual(AJUSTES_FABRICA.usos_toma.map(u => u[0]), ['agua', 'termo', 'gas']);
   igual(AJUSTES_FABRICA.usos_enchufe.map(u => u[0]), ['general', 'hmo', 'placa', 'campana', 'frigo', 'lavavajillas', 'lavadora', 'termo']);
   igual(AJUSTES_FABRICA.lineales.map(u => u[0]), ['zocalo', 'cornisa', 'moldura', 'led', 'tapajuntas']);
-  igual(AJUSTES_FABRICA.interiores.map(u => u[0]), ['barra', 'doble_barra', 'estantes', 'cajonera', 'zapatero']);
+  igual(AJUSTES_FABRICA.interiores.map(u => u[0]), ['barra', 'doble_barra', 'estantes', 'cajonera', 'zapatero', 'pantalonero', 'pantalonero_doble']);
   igual([AJUSTES_FABRICA.margen, AJUSTES_FABRICA.paredes_m, AJUSTES_FABRICA.unidad], [10, true, 'mm']);
 });
 prueba('mezclar: lo guardado manda y lo que falta o está mal sale de fábrica', () => {

@@ -79,7 +79,7 @@ export function geometriaPlanta(d, { margen = 10, unidad = 'cm' } = {}) {
       der: i < m - 1 ? nombres[i + 1] : plano.cerrada ? nombres[0] : null };
     (pared.elementos || []).forEach(e => {
       const extra = extraPilar(d, pared, e);
-      const base = { tipo: e.tipo, etiqueta: etiqueta(e), corta: corta(e), cota: cotaDe(e, unidad, vecinas, extra > 0), pared: letra, dentro };
+      const base = { tipo: e.tipo, etiqueta: etiqueta(e), corta: corta(e), cota: cotaDe(e, unidad, vecinas, extra > 0), pared: letra, dentro, dato: e };
       if (k === null || !hay(e.distancia)) { geo.sinSituar.push(base); return; }
       const c = camposDeElemento(e.tipo), ancho = c.ancho && hay(e.ancho) ? e.ancho : 0, dist = e.distancia + extra;
       const s = e.ref === 'der' ? (c.punto === 'centro' || !ancho ? L - dist : L - dist - ancho) : dist;
@@ -111,7 +111,7 @@ export function geometriaPlanta(d, { margen = 10, unidad = 'cm' } = {}) {
       for (const [i, cu] of (pared.cuerpos || []).entries()) {
         if (!hay(cu.ancho)) break;
         const pa = en(s), pb = en(s + cu.ancho), f = FONDO_MODULO * k;
-        geo.modulos.push({ tipo: 'cuerpo', nombre: 'Cuerpo ' + (i + 1), ancho: cu.ancho, columna: false, pared: letra, dentro,
+        geo.modulos.push({ tipo: 'cuerpo', nombre: 'Cuerpo ' + (i + 1), ancho: cu.ancho, columna: false, pared: letra, dentro, dato: cu,
           rect: [pa, pb, { x: pb.x + dentro.x * f, y: pb.y + dentro.y * f }, { x: pa.x + dentro.x * f, y: pa.y + dentro.y * f }] });
         s += cu.ancho;
       }

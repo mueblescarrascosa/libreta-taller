@@ -2,7 +2,7 @@
 import { verMedida } from './unidades.js';
 import { tituloFicha } from './util.js';
 import { resumenPuerta, nombreElemento, camposDeElemento, textoAzulejo, extraPilar, tamanoHumos, esquinaDe, textoDescuadre } from './modelo.js';
-import { textoModulo, cuadreBajos, cuadreAltos, cuadreCuerposPared, textoCuadre, nombreLineal, nombreInterior, textoElectro, paredesVecinas } from './modulos.js';
+import { textoModulo, cuadreBajos, cuadreAltos, cuadreCuerposPared, textoCuadre, nombreLineal, nombreInterior, textoInteriores, textoElectro, paredesVecinas } from './modulos.js';
 
 const hay = v => v !== null && v !== undefined && v !== '';
 const unir = (partes, sep = ' · ') => partes.filter(hay).join(sep);
@@ -51,7 +51,7 @@ function lineaModulos(nombre, lista, cuadre) {
   return '- ' + nombre + ': ' + t + (c ? ' (' + c.charAt(0).toLowerCase() + c.slice(1) + ')' : '');
 }
 
-const textoCuerpo = (c, ajustes) => unir([hay(c.ancho) ? verMedida(c.ancho, 'cm') : '?', c.interior ? (c.interior === 'otro' ? c.nombre || 'otro' : nombreInterior(c.interior, ajustes).toLowerCase()) : null], ' ');
+const textoCuerpo = (c, ajustes) => unir([hay(c.ancho) ? verMedida(c.ancho, 'cm') : '?', textoInteriores(c, ajustes) || null], ' ');
 
 function bloquePared(p, ud, u, ajustes, d) {
   const l = [unir(['*Pared ' + p.letra + '*', hay(p.largo) ? verMedida(p.largo, ud) + ' ' + ud : null, hay(p.alto) ? 'alto ' + verMedida(p.alto, ud) + ' ' + ud : null])];

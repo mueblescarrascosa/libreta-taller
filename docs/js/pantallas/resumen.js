@@ -4,6 +4,7 @@ import { verMedida } from '../unidades.js';
 import { normalizarFicha, textoTipoPuerta, nombreElemento, extraPilar, tamanoHumos } from '../modelo.js';
 import { EMPRESA, COPYRIGHT } from '../config.js';
 import { paredesVecinas } from '../modulos.js';
+import { escenaPerspectiva, vistaDe, svgPerspectiva } from '../perspectiva.js';
 const mayus = t => (t ? t[0].toUpperCase() + t.slice(1) : '');
 import { bloquesResumen, textoResumen, unidadesDe, urlWhatsapp } from '../resumen.js';
 import { recuentoPuertas, textoTrabajo } from '../trabajos.js';
@@ -90,9 +91,12 @@ async function nodosFicha(App, ficha, trabajo, AJ) {
     if (g.paredes.length) nodos.push(h('div', { class: 'planta-resumen' }, svgPlanta(g)));
     // Cada pared de frente.
     d.paredes.forEach(p => {
-      const ga = geometriaAlzado(d, p);
+      const ga = geometriaAlzado(d, p, AJ);
       if (ga) nodos.push(h('div', { class: 'alzado-resumen' }, h('p', { class: 'tit' }, h('b', {}, 'Pared ' + p.letra + ' de frente')), svgAlzado(ga, { unidad: u })));
     });
+    // La perspectiva, desde donde se dejó en la ficha.
+    const esc = escenaPerspectiva(d, { margen: AJ.margen, ajustes: AJ });
+    if (esc) nodos.push(h('div', { class: 'alzado-resumen perspectiva-resumen' }, h('p', { class: 'tit' }, h('b', {}, 'Perspectiva'), ' ', h('small', {}, '(de pie, ojos a 175 cm; alturas orientativas)')), svgPerspectiva(esc, vistaDe(esc, d.vista))));
     const t = tablaInstalaciones(d, u);
     if (t) nodos.push(t);
   }

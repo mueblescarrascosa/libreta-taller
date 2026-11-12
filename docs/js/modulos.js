@@ -72,7 +72,53 @@ export function paredesVecinas(datos, p) {
 }
 const buscar = (lista, clave) => { const x = (lista || []).find(p => p[0] === clave); return x ? x[1] : null; };
 export const nombreLineal = (l, ajustes) => (l.tipo === 'otro' ? l.nombre || 'Otro' : l.nombre || buscar(ajustes.lineales, l.tipo) || l.tipo);
-export const nombreInterior = (clave, ajustes) => buscar(ajustes.interiores, clave) || clave;
+export const nombreInterior = (clave, ajustes) => buscar(ajustes && ajustes.interiores, clave) || String(clave).replace(/_/g, ' ');
+
+// ── Interiores de un cuerpo de armario: uno o dos (barra y cajonera, pantalonero y estantes…).
+// La doble barra va sola: ocupa arriba y en medio.
+export const INTERIOR_SOLO = ['doble_barra'];
+export const interioresDe = c => (c ? [c.interior, c.interior2].filter(Boolean) : []);
+export function elegirInterior(c, v) {
+  let l = interioresDe(c);
+  if (l.includes(v)) l = l.filter(x => x !== v);
+  else if (INTERIOR_SOLO.includes(v)) l = [v];
+  else { l = l.filter(x => !INTERIOR_SOLO.includes(x)); l = l.length >= 2 ? [l[0], v] : l.concat([v]); }
+  c.interior = l[0] || null; c.interior2 = l[1] || null;
+  return c;
+}
+export const textoInteriores = (c, ajustes) => interioresDe(c).map(k => (k === 'otro' ? c.nombre || 'otro' : nombreInterior(k, ajustes).toLowerCase())).join(' + ');
+// Lo que se dibuja dentro de un cuerpo de alto H (mm desde el suelo). Con dos interiores, lo de abajo (cajonera, zapatero)
+// va hasta 1 m y lo otro encima; si ninguno es «de abajo», el primero arriba.
+const DE_ABAJO = /cajon|zapat/;
+export const anchoPantalonero = k => (/pantal/.test(k || '') ? (/doble/.test(k) ? 800 : 400) : null);
+const clase = k => (/doble_barra/.test(k) ? 'doble_barra' : /pantal/.test(k) ? 'pantalonero' : /barra/.test(k) ? 'barra' : /estante|balda/.test(k) ? 'estantes'
+  : /cajon/.test(k) ? 'cajonera' : /zapat/.test(k) ? 'zapatero' : null);
+export function piezasInterior(c, H) {
+  const l = interioresDe(c);
+  if (!l.length || !(H > 0)) return [];
+  let zonas;
+  if (l.length === 1) zonas = [[l[0], 0, H]];
+  else {
+    const abajo = DE_ABAJO.test(l[1]) || !DE_ABAJO.test(l[0]) ? 1 : 0, corte = Math.min(1000, H / 2);
+    zonas = [[l[1 - abajo], corte, H], [l[abajo], 0, corte]];
+  }
+  const r = [];
+  zonas.forEach(([k, z0, z1]) => {
+    const t = clase(k);
+    if (t === 'barra') r.push({ tipo: 'barra', z: z1 - 120 });
+    if (t === 'doble_barra') r.push({ tipo: 'barra', z: z1 - 120 }, { tipo: 'barra', z: Math.round(z0 + (z1 - z0) / 2 - 80) });
+    if (t === 'estantes') for (let z = z0 + 350; z < z1 - 100; z += 350) r.push({ tipo: 'estante', z });
+    if (t === 'cajonera') {
+      const top = Math.min(z1, z0 + 900), hh = (top - z0) / 3;
+      for (let i = 0; i < 3; i++) r.push({ tipo: 'cajon', z0: Math.round(z0 + i * hh + 15), z1: Math.round(z0 + (i + 1) * hh - 15) });
+      if (top < z1 - 100) r.push({ tipo: 'estante', z: top });
+    }
+    if (t === 'zapatero') for (let z = z0 + 150; z < Math.min(z1, z0 + 1100) - 100; z += 250) r.push({ tipo: 'zapato', z });
+    // Pantalonero: una franja arriba de su zona, de 40 cm de ancho (el doble, 80).
+    if (t === 'pantalonero') { const alto = Math.min(900, z1 - z0 - 250); if (alto > 0) r.push({ tipo: 'pantalonero', z0: Math.round(z1 - 150 - alto), z1: z1 - 150, ancho: anchoPantalonero(k) }); }
+  });
+  return r;
+}
 
 const suma = lista => (lista || []).reduce((s, m) => s + (hay(m.ancho) ? m.ancho : 0), 0);
 const resto = (largo, s) => (hay(largo) ? largo - s : null);
@@ -163,9 +209,18 @@ export function avisosModulos(ficha, unidad) {
     pasa('pared.' + p.id, 'Bajos de la pared ' + p.letra, cuadreBajos(p, d));
     pasa('pared.' + p.id, 'Altos de la pared ' + p.letra, cuadreAltos(p));
     pasa('pared.' + p.id, 'Cuerpos de la pared ' + p.letra, cuadreCuerposPared(p));
+    (p.cuerpos || []).forEach((c, i) => avisoPantalonero(l, 'pared.' + p.id, 'Cuerpo ' + (i + 1) + ' de la pared ' + p.letra, c, unidad));
   });
-  if (ficha.tipo === 'armario') pasa('cuerpos', 'Los cuerpos', cuadreCuerpos(d));
+  if (ficha.tipo === 'armario') {
+    pasa('cuerpos', 'Los cuerpos', cuadreCuerpos(d));
+    (d.cuerpos || []).forEach((c, i) => avisoPantalonero(l, 'cuerpos', 'Cuerpo ' + (i + 1), c, unidad));
+  }
   return l;
+}
+// El pantalonero mide 40 cm (el doble, 80): si el cuerpo es más estrecho, no cabe.
+function avisoPantalonero(l, campo, que, c, unidad) {
+  const k = interioresDe(c).find(x => anchoPantalonero(x)), a = k && anchoPantalonero(k);
+  if (a && hay(c.ancho) && c.ancho < a) l.push({ campo, texto: que + ': el ' + (/doble/.test(k) ? 'pantalonero doble' : 'pantalonero') + ' mide ' + verMedida(a, unidad) + ' ' + unidad + ' y el cuerpo ' + verMedida(c.ancho, unidad) + ' ' + unidad });
 }
 
 export const acabadosNuevos = () => ({ bitono: null, modelo: '', color: '', modelo_altos: '', color_altos: '', modelo_bajos: '', color_bajos: '', encimera: { material: '', color: '', grueso: null }, lineales: [] });
