@@ -93,8 +93,8 @@ export function geometriaAlzado(d, pared, ajustes = null) {
       const y0 = e.altura || 0, h = e.techo ? techo - y0 : hay(e.alto) ? e.alto : 0;
       return pieza('azulejo', x, y0, ancho, h, e.nombre ? 'Az. ' + e.nombre : '');
     }
-    if (e.tipo === 'humos' && e.humos_sale === 'techo') return g.puntos.push({ tipo: e.tipo, x, y: techo, texto: corta(e), techo: true });
-    if (PUNTOS.includes(e.tipo)) g.puntos.push({ tipo: e.tipo, x, y: hay(e.altura) ? e.altura : null, texto: corta(e) });
+    if (e.tipo === 'humos' && e.humos_sale === 'techo') return g.puntos.push({ tipo: e.tipo, x, y: techo, texto: corta(e), techo: true, dato: e });
+    if (PUNTOS.includes(e.tipo)) g.puntos.push({ tipo: e.tipo, x, y: hay(e.altura) ? e.altura : null, texto: corta(e), dato: e });
   });
   // Pilar de la pared de al lado en esta esquina: también se ve aquí, con lo que sobresale allí.
   ['izq', 'der'].forEach(lado => {

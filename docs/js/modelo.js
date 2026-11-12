@@ -1,6 +1,7 @@
 // Modelo de datos: fichas, elementos, avisos y búsqueda. Sin pantallas ni red.
 import { verMedida } from './unidades.js';
 import { avisosModulos, acabadosNuevos } from './modulos.js';
+import { avisosObra } from './avisos-obra.js';
 
 const MAXIMO = 20000;
 const id = () => crypto.randomUUID();
@@ -366,6 +367,7 @@ export function avisos(ficha, unidad, { margen = AJUSTES_FABRICA.margen } = {}) 
   }
   avisosParedes(l, d.paredes, unidad, d);
   l.push(...avisosModulos(ficha, 'cm'));
+  if (ficha.tipo === 'cocina' || ficha.subtipo === 'vestidor') l.push(...avisosObra(ficha, 'cm'));
   d.libres.forEach(m => revisarMaximo(l, 'libre.' + m.id, m.nombre || 'Medida', m.mm, unidad));
   return l;
 }
