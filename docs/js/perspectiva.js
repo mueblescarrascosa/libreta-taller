@@ -73,6 +73,31 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null } = {}) {
       caras.push(cara([[a.x, a.y, q.z0], [b.x, b.y, q.z0], [b.x, b.y, q.z1], [a.x, a.y, q.z1]], q.color, [nf.x / ln, nf.y / ln, 0])); });
     cajas.push({ caras, huella: r, z0, z1, color, centro: [c.x, c.y, (z0 + z1) / 2], texto: texto ? { p: [fr.x + nf.x / ln * 5, fr.y + nf.y / ln * 5, (z0 + z1) / 2], texto, n: [nf.x / ln, nf.y / ln, 0] } : null });
   };
+  // Mueble cajeado: si se mete en un pilar, se quita ese trozo y queda en piezas alrededor (cada una, una caja).
+  const pilares = geo.elementos.filter(el => el.tipo === 'pilar' && el.rect).map(el => el.rect.map(P));
+  const mueble = (r, z0, z1, color, texto, tapa, detalles = []) => {
+    const L = Math.hypot(r[1].x - r[0].x, r[1].y - r[0].y) || 1, D = Math.hypot(r[3].x - r[0].x, r[3].y - r[0].y) || 1;
+    const u = { x: (r[1].x - r[0].x) / L, y: (r[1].y - r[0].y) / L }, v = { x: (r[3].x - r[0].x) / D, y: (r[3].y - r[0].y) / D };
+    let piezas = [{ s0: 0, s1: L, t0: 0, t1: D }];
+    pilares.filter(pi => !separadas(r, pi)).forEach(pi => {
+      const s = pi.map(q => (q.x - r[0].x) * u.x + (q.y - r[0].y) * u.y), t = pi.map(q => (q.x - r[0].x) * v.x + (q.y - r[0].y) * v.y);
+      const h = { s0: Math.min(...s), s1: Math.max(...s), t0: Math.min(...t), t1: Math.max(...t) };
+      piezas = piezas.flatMap(p => {
+        if (h.s1 <= p.s0 || h.s0 >= p.s1 || h.t1 <= p.t0 || h.t0 >= p.t1) return [p];
+        const a = Math.max(p.s0, h.s0), b = Math.min(p.s1, h.s1);
+        return [{ s0: p.s0, s1: a, t0: p.t0, t1: p.t1 }, { s0: b, s1: p.s1, t0: p.t0, t1: p.t1 },
+          { s0: a, s1: b, t0: p.t0, t1: Math.max(p.t0, h.t0) }, { s0: a, s1: b, t0: Math.min(p.t1, h.t1), t1: p.t1 }];
+      }).filter(p => p.s1 - p.s0 > 5 && p.t1 - p.t0 > 5);
+    });
+    if (piezas.length === 1 && piezas[0].s1 - piezas[0].s0 === L && piezas[0].t1 - piezas[0].t0 === D) return caja(r, z0, z1, color, texto, tapa, detalles);
+    const en = (s, t) => ({ x: r[0].x + u.x * s + v.x * t, y: r[0].y + u.y * s + v.y * t });
+    // El rótulo, en la pieza más ancha de las de delante; el interior, repartido por las de delante.
+    const delante = piezas.filter(p => p.t1 > D - 1), mayor = delante.slice().sort((a, b) => (b.s1 - b.s0) - (a.s1 - a.s0))[0];
+    piezas.forEach(p => {
+      const w = p.s1 - p.s0, det = p.t1 > D - 1 ? detalles.map(q => Object.assign({}, q, { t0: Math.max(0, (q.t0 * L - p.s0) / w), t1: Math.min(1, (q.t1 * L - p.s0) / w) })).filter(q => q.t1 > q.t0) : [];
+      caja([en(p.s0, p.t0), en(p.s1, p.t0), en(p.s1, p.t1), en(p.s0, p.t1)], z0, z1, color, p === mayor ? texto : '', tapa, det);
+    });
+  };
 
   const encimera = ALTURAS.encimera, grueso = ALTURAS.grueso_encimera, arriba = Math.min(ALTURAS.altos_hasta, techo), col = Math.min(ALTURAS.columna, techo);
   // Muebles en mm; donde dos se pisan (en las esquinas), el que llega de la otra pared se recorta.
@@ -82,7 +107,7 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null } = {}) {
   const bajoEncimera = encimera - grueso;
   mods.filter(m => m.r).forEach(m => {
     const t = m.sinTexto ? '' : [m.nombre, m.medidas].filter(Boolean).join(' ');
-    if (m.alto) return caja(m.r, m.tipo === 'alto_frigo' ? ALTURAS.frigo : ALTURAS.altos_desde, arriba, 'alto', t);
+    if (m.alto) return mueble(m.r, m.tipo === 'alto_frigo' ? ALTURAS.frigo : ALTURAS.altos_desde, arriba, 'alto', t);
     // La columna del frigo con un alto encima llega hasta el frigo; el alto va encima.
     const conAlto = m.tipo === 'columna_frigo' && geo.modulos.some(a => a.alto && a.tipo === 'alto_frigo' && a.pared === m.pared && Math.hypot(a.rect[0].x - m.rect[0].x, a.rect[0].y - m.rect[0].y) < 1e-6 + 0.01 * Math.hypot(m.rect[1].x - m.rect[0].x, m.rect[1].y - m.rect[0].y));
     if (m.tipo === 'cuerpo') {
@@ -93,10 +118,10 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null } = {}) {
         : q.tipo === 'zapato' ? { t0: mm(25), t1: mm(ancho - 25), z0: q.z - 8, z1: q.z + 8, color: 'zapato' }
         : q.tipo === 'pantalonero' ? (wp => ({ t0: mm((ancho - wp) / 2), t1: mm((ancho + wp) / 2), z0: q.z0, z1: q.z1, color: 'pantalonero' }))(Math.min(q.ancho || ancho - 80, ancho - 40))
         : { t0: mm(30), t1: mm(ancho - 30), z0: q.z0, z1: q.z1, color: 'cajon' });
-      return caja(m.r, 0, col, 'cuerpo', m.sinTexto ? '' : m.nombre.replace('Cuerpo ', 'C') + (m.rincon ? ' rincón' : '') + (ti ? ' ' + ti : ''), null, det);
+      return mueble(m.r, 0, col, 'cuerpo', m.sinTexto ? '' : m.nombre.replace('Cuerpo ', 'C') + (m.rincon ? ' rincón' : '') + (ti ? ' ' + ti : ''), null, det);
     }
-    if (m.columna) return caja(m.r, 0, conAlto ? Math.min(ALTURAS.frigo, techo) : col, 'columna', t);
-    caja(m.r, 0, bajoEncimera, 'bajo', t);
+    if (m.columna) return mueble(m.r, 0, conAlto ? Math.min(ALTURAS.frigo, techo) : col, 'columna', t);
+    mueble(m.r, 0, bajoEncimera, 'bajo', t);
   });
   // La encimera: una pieza seguida por cada tramo de bajos, con 2 cm de vuelo por delante; en la esquina, la de una pared llega hasta el canto de la otra.
   const tramos = [];
@@ -117,7 +142,7 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null } = {}) {
     return { r: [a, b, { x: b.x + t.d.x, y: b.y + t.d.y }, { x: a.x + t.d.x, y: a.y + t.d.y }] };
   });
   recortarSolapes(mods.filter(m => m.r && !m.alto && (m.columna || m.tipo === 'cuerpo')).map(m => ({ fijo: true, r: m.r })).concat(losas));
-  losas.forEach(l => { if (l.r) caja(l.r, bajoEncimera, encimera, 'encimera', '', 'encimera'); });
+  losas.forEach(l => { if (l.r) mueble(l.r, bajoEncimera, encimera, 'encimera', '', 'encimera'); });
   (geo.islas || []).forEach(x => { const r = x.rect.map(P); caja(r, 0, bajoEncimera, 'isla', x.nombre); caja(r, bajoEncimera, encimera, 'encimera', '', 'encimera'); });
   geo.elementos.forEach(el => {
     if (el.tipo === 'pilar' && el.rect) return caja(el.rect.map(P), 0, techo, 'pilar', 'Pilar');

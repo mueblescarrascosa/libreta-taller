@@ -1,7 +1,7 @@
 // Datos públicos de conexión (la clave publicable no da acceso sin sesión: lo protege RLS).
 export const SUPABASE_URL = 'https://ezbzllaowdcouwtretdg.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_JJZfWMU1LL8oXEgkmoZHvw_qv-SEYZh';
-export const VERSION = '1.14.4';
+export const VERSION = '1.14.5';
 // Nombre que sale en los resúmenes y PDF (se le pasan a albañiles, fontaneros, electricistas…).
 export const EMPRESA = 'Muebles Carrascosa';
 export const COPYRIGHT = '© 2026 Alfonso Carrascosa Martínez';

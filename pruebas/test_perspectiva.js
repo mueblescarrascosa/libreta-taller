@@ -70,6 +70,22 @@ prueba('esquina con rinconero: nada se pisa, la encimera va seguida hasta la col
   afirma(losas.every(l => l.z1 === 850 && l.z0 === 820), 'encimera de 3 cm a 85');
 });
 
+prueba('pilar: los muebles y la encimera se cajean alrededor, sin meterse en él', () => {
+  const f = fichaNueva('cocina', null, 't');
+  f.datos.alto_techo = 2400;
+  f.datos.paredes = [pared('A', 3000, { bajos: [mod('bajo', 600), mod('fregadero', 800), mod('bajo', 600)], altos: [mod('alto', 800)],
+    elementos: [Object.assign(elementoNuevo('pilar'), { ref: 'izq', distancia: 700, ancho: 300, fondo: 250 })] }), pared('B', 2000)];
+  const e = escenaPerspectiva(f.datos), pil = e.cajas.find(c => c.color === 'pilar'), resto = e.cajas.filter(c => c !== pil);
+  afirma(pil, 'hay pilar');
+  const pisan = (A, B) => { for (const R of [A, B]) for (let i = 0; i < 4; i++) { const p = R[i], q = R[(i + 1) % 4], n = { x: -(q.y - p.y), y: q.x - p.x }, l = Math.hypot(n.x, n.y);
+    const a = A.map(v => (v.x * n.x + v.y * n.y) / l), b = B.map(v => (v.x * n.x + v.y * n.y) / l);
+    if (Math.max(...a) <= Math.min(...b) + 1 || Math.max(...b) <= Math.min(...a) + 1) return false; } return true; };
+  resto.forEach(c => afirma(!pisan(c.huella, pil.huella), c.color + ' se mete en el pilar'));
+  // El fregadero (60-140) queda en 3 trozos: antes, después y delante del pilar; solo uno lleva el rótulo.
+  afirma(e.cajas.filter(c => c.texto && /Fregadero/.test(c.texto.texto)).length === 1, 'un rótulo');
+  afirma(e.cajas.filter(c => c.color === 'encimera').length >= 3, 'encimera cajeada en trozos');
+});
+
 prueba('orden de dibujo: lo de delante después, aunque sea más grande', () => {
   const caja = (x0, y0, x1, y1, z0, z1, color = 'bajo') => ({ huella: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }], z0, z1, color, centro: [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2] });
   const C = [500, 3000, 1750];
