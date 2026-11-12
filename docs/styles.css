@@ -378,3 +378,7 @@ button { background: #fffef9; border-color: var(--borde); }
 .ver-abre.on { background: var(--oscuro); border-color: var(--oscuro); color: #fff; }
 .papel .ver-abre { display: none !important; }
 @media print { .ver-abre { display: none !important; } }
+
+/* 1.15.1: elegir qué paredes salen de frente (no sale en el PDF ni al imprimir) */
+.elegir-frentes { margin: 8px 0 0; }
+.papel .elegir-fichas { display: none !important; }

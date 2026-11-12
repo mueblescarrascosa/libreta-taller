@@ -1,6 +1,7 @@
 // Planta dibujada a partir de las paredes de la ficha: forma (del plano a mano o, si no hay, en ángulo recto),
 // largos a escala y cada elemento en su sitio según su distancia y su referencia.
 import { aEscala, comprobar, planoPorDefecto, letras, pilarDibujado } from './plano-geo.js';
+import { encajarRotulo, textoRotulo } from './rotulos.js';
 import { camposDeElemento, paredNueva, elementoNuevo, nombreElemento, USOS, textoAzulejo, extraPilar, tamanoHumos, esquinaDe, esquinaDescuadrada, textoDescuadre } from './modelo.js';
 import { verMedida } from './unidades.js';
 import { nombreModulo, esColumna, medidasModulo, situarMuebles, situarCuerpos } from './modulos.js';
@@ -287,10 +288,16 @@ export function svgPlanta(geo) {
         : { fill: m.columna ? '#e7d8c9' : '#f5ede4', stroke: '#92400e' })));
     if (m.sinTexto) return;
     const [a, b, c2, d2] = m.rect, t = (m.tipo === 'rinconero' ? 'Rinc.' : m.nombre) + (m.medidas || m.medidas === '' ? (m.medidas ? ' ' + m.medidas : '') : ' ' + verMedida(m.ancho, 'cm'));
-    // Posición del rótulo a lo hondo del mueble: altos a media caja; bajos, si hay altos, en la parte que queda libre.
-    const f = m.alto ? 0.5 : hayAltos ? 0.78 : 0.5;
-    const c = { x: (a.x + b.x) / 2 + ((c2.x + d2.x) / 2 - (a.x + b.x) / 2) * f, y: (a.y + b.y) / 2 + ((c2.y + d2.y) / 2 - (a.y + b.y) / 2) * f };
-    nombres.push(() => texto(c.x, c.y, t, { 'font-size': s * 2.6, fill: m.alto ? '#1e3a8a' : '#78350f' })); puestos.push(cajaTexto(c.x, c.y, t, 2.6));
+    // El rótulo, dentro de su mueble y sin pisar otros: los altos en su caja; los bajos, si hay altos, en la parte que queda libre.
+    // Si no cabe, girado, en dos líneas o con letra menor.
+    const [f0, f1] = m.alto || !hayAltos ? [0, 1] : [0.6, 1], en = (p, q, f) => ({ x: p.x + (q.x - p.x) * f, y: p.y + (q.y - p.y) * f });
+    const zona = [en(a, d2, f0), en(b, c2, f0), en(b, c2, f1), en(a, d2, f1)];
+    const hueco = { x0: Math.min(...zona.map(p => p.x)), x1: Math.max(...zona.map(p => p.x)), y0: Math.min(...zona.map(p => p.y)), y1: Math.max(...zona.map(p => p.y)) };
+    const tamanos = [2.6, 2.3, 2, 1.8].map(k => k * s), color = m.alto ? '#1e3a8a' : '#78350f';
+    const r = encajarRotulo(t, hueco, { tamanos, ancho: 0.62, puestos }) || encajarRotulo(t, hueco, { tamanos: [1.8 * s], ancho: 0.62, margen: 1.3 })
+      || { tam: 1.8 * s, girar: false, lineas: [t], cx: (hueco.x0 + hueco.x1) / 2, cy: (hueco.y0 + hueco.y1) / 2, caja: cajaTexto((hueco.x0 + hueco.x1) / 2, (hueco.y0 + hueco.y1) / 2, t, 1.8) };
+    puestos.push(r.caja);
+    nombres.push(() => svg.append(textoRotulo(el, r, { fill: color, 'paint-order': 'stroke', stroke: '#fff', 'stroke-width': s * 1.2 })));
   });
   // Islas y penínsulas (amarillo) y sus cotas al suelo (raya de puntos con la medida en medio).
   (geo.islas || []).forEach(x => {
@@ -306,12 +313,17 @@ export function svgPlanta(geo) {
     });
   });
   // Nombres sin pisarse: si uno cae encima de otro ya puesto, se aleja de la pared con una rayita hasta su sitio.
+  // Primero hacia dentro; si por ahí está todo ocupado, el sitio libre más cercano hacia los lados o hacia fuera.
   const nombre = (c, d, t, col, tipo, { tam = 4, desde = 6 } = {}) => {
-    let paso = 0, caja;
-    do { caja = cajaTexto(c.x + d.x * s * (desde + paso * tam * 1.4), c.y + d.y * s * (desde + paso * tam * 1.4), t, tam); paso++; }
-    while (paso < 15 && puestos.some(q => pisa(caja, q)));
+    const dirs = [d, { x: -d.y, y: d.x }, { x: d.y, y: -d.x }, { x: -d.x, y: -d.y }];
+    const en = (u, k) => cajaTexto(c.x + u.x * s * (desde + k * tam * 1.4), c.y + u.y * s * (desde + k * tam * 1.4), t, tam);
+    let caja = null, paso = 0;
+    for (let k = 0; k < 15 && !caja; k++) { const b = en(d, k); if (!puestos.some(q => pisa(b, q))) { caja = b; paso = k + 1; } }
+    for (let k = 0; k < 25 && !caja; k++) for (const u of dirs.slice(1)) { const b = en(u, k + 1); if (!puestos.some(q => pisa(b, q))) { caja = b; paso = k + 2; break; } }
+    if (!caja) { caja = en(d, 0); paso = 1; }
     puestos.push(caja);
-    if (paso > 1) svg.append(el('line', { x1: c.x + d.x * s * 2, y1: c.y + d.y * s * 2, x2: caja.cx - d.x * s * 2, y2: caja.cy - d.y * s * 2, stroke: col, 'stroke-width': s * 0.3, opacity: 0.7 }));
+    if (paso > 1) { const vx = caja.cx - c.x, vy = caja.cy - c.y, l = Math.hypot(vx, vy) || 1;
+      svg.append(el('line', { x1: c.x + vx / l * s * 2, y1: c.y + vy / l * s * 2, x2: caja.cx - vx / l * s * 2, y2: caja.cy - vy / l * s * 2, stroke: col, 'stroke-width': s * 0.3, opacity: 0.7 })); }
     nombres.push(() => texto(caja.cx, caja.cy, t, Object.assign({ fill: col, 'font-size': s * tam }, tipo ? { 'data-elemento': tipo } : {})));
   };
   geo.elementos.forEach(e => {

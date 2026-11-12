@@ -101,6 +101,21 @@ async function botonesPartes(App, fichas, ver, alCambiar) {
       onclick: async () => { ver[k] = !ver[k]; guardarPartes(ver); await alCambiar(); } }, (ver[k] ? '✓ ' : '') + t))));
 }
 
+// Paredes que salen de frente: las elegidas a mano en este móvil; si no, las que tienen muebles o cotas
+// (enchufes, tomas, desagües, humos…). Ventanas, puertas y pilares no cuentan.
+const SIN_COTA = ['ventana', 'puerta', 'pilar'];
+export function paredesConAlgo(d) {
+  return (d.paredes || []).filter(p => ['bajos', 'altos', 'cuerpos'].some(k => (p[k] || []).some(m => m.tipo !== 'hueco'))
+    || (p.elementos || []).some(e => !SIN_COTA.includes(e.tipo))).map(p => p.letra);
+}
+function paredesDeFrente(ficha) {
+  try { const g = JSON.parse(localStorage.getItem('med-frente-' + ficha.id) || 'null'); if (Array.isArray(g)) return g; } catch (e) { /* sin almacenamiento */ }
+  return paredesConAlgo(ficha.datos);
+}
+function guardarFrente(ficha, letras) {
+  try { localStorage.setItem('med-frente-' + ficha.id, JSON.stringify(letras)); } catch (e) { /* sin almacenamiento */ }
+}
+
 // Lo de una ficha: título, tabla de puertas, planta, el resto en bloques y las fotos (ver: qué dibujos van).
 async function nodosFicha(App, ficha, trabajo, AJ, ver = partesGuardadas()) {
   const d = ficha.datos, { u } = unidadesDe(ficha, trabajo, AJ), nodos = [h('h2', {}, tituloFicha(ficha))];
@@ -112,10 +127,19 @@ async function nodosFicha(App, ficha, trabajo, AJ, ver = partesGuardadas()) {
     const g = geometriaPlanta(d, { margen: AJ.margen, unidad: u });
     if (g.paredes.length && ver.planta) nodos.push(h('div', { class: 'planta-resumen' }, svgPlanta(g)));
     // Cada pared de frente.
-    if (ver.frente) d.paredes.forEach(p => {
-      const ga = geometriaAlzado(d, p, AJ);
-      if (ga) nodos.push(h('div', { class: 'alzado-resumen' }, h('p', { class: 'tit' }, h('b', {}, 'Pared ' + p.letra + ' de frente')), svgAlzado(ga, { unidad: u })));
-    });
+    if (ver.frente) {
+      const dibujos = d.paredes.map(p => [p.letra, geometriaAlzado(d, p, AJ)]).filter(([, ga]) => ga)
+        .map(([letra, ga]) => [letra, h('div', { class: 'alzado-resumen' }, h('p', { class: 'tit' }, h('b', {}, 'Pared ' + letra + ' de frente')), svgAlzado(ga, { unidad: u }))]);
+      if (dibujos.length) {
+        const elegidas = new Set(paredesDeFrente(ficha)), caja = h('div', { class: 'frentes' });
+        const pintar = () => caja.replaceChildren(...dibujos.filter(([l]) => elegidas.has(l)).map(([, n]) => n));
+        const botones = h('div', { class: 'chips' }, dibujos.map(([l]) => h('button', { type: 'button', 'data-acc': 'frente-pared', 'data-v': l, class: elegidas.has(l) ? 'on' : '',
+          onclick: ev => { if (elegidas.has(l)) elegidas.delete(l); else elegidas.add(l); guardarFrente(ficha, [...elegidas]);
+            ev.currentTarget.classList.toggle('on', elegidas.has(l)); ev.currentTarget.textContent = (elegidas.has(l) ? '✓ ' : '') + l; pintar(); } }, (elegidas.has(l) ? '✓ ' : '') + l)));
+        pintar();
+        nodos.push(h('div', { class: 'elegir-fichas elegir-frentes' }, h('small', { class: 'et' }, 'Paredes de frente:'), botones), caja);
+      }
+    }
     // La perspectiva, desde donde se dejó en la ficha.
     const esc = ver.perspectiva ? escenaPerspectiva(d, { margen: AJ.margen, ajustes: AJ }) : null;
     if (esc) nodos.push(h('div', { class: 'alzado-resumen perspectiva-resumen' }, h('p', { class: 'tit' }, h('b', {}, 'Perspectiva'), ' ', h('small', {}, '(de pie, ojos a 175 cm; alturas orientativas)')), svgPerspectiva(esc, vistaDe(esc, d.vista))));

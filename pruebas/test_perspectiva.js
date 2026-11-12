@@ -90,6 +90,15 @@ prueba('pilar: los muebles y la encimera se cajean alrededor, sin meterse en él
   afirma(e.cajas.filter(c => c.color === 'encimera').length >= 3, 'encimera cajeada en trozos');
 });
 
+prueba('paredes de frente por defecto: con muebles o cotas; ventanas, puertas y pilares no cuentan', async () => {
+  globalThis.localStorage = { getItem: () => null, setItem() {} };
+  const { paredesConAlgo } = await import('../docs/js/pantallas/resumen.js').catch(() => ({}));
+  if (!paredesConAlgo) return; // la pantalla necesita el navegador: se prueba abajo
+  const d = { paredes: [pared('A', 3000, { bajos: [mod('bajo', 600)] }), pared('B', 2000, { elementos: [Object.assign(elementoNuevo('ventana'), {}), Object.assign(elementoNuevo('pilar'), {})] }),
+    pared('C', 3000, { elementos: [elementoNuevo('enchufe')] }), pared('D', 2000, { bajos: [mod('hueco', 600)] })] };
+  igual(paredesConAlgo(d), ['A', 'C']);
+});
+
 prueba('orden de dibujo: lo de delante después, aunque sea más grande', () => {
   const caja = (x0, y0, x1, y1, z0, z1, color = 'bajo') => ({ huella: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }], z0, z1, color, centro: [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2] });
   const C = [500, 3000, 1750];
@@ -128,5 +137,10 @@ prueba('en la ficha: tocar y arrastrar en la planta pequeña guarda dónde está
   igual(await a.page.evaluate(() => localStorage.getItem('med-resumen-quitar')), '["perspectiva"]');
   await a.page.click('[data-acc="parte-resumen"][data-v="perspectiva"]');
   await a.page.waitForSelector('.perspectiva-resumen svg.perspectiva');
+  // De frente: sin muebles ni cotas no sale ninguna pared; se pueden elegir a mano.
+  igual(await a.page.$$eval('[data-acc="frente-pared"]', b => b.map(x => x.textContent)), ['A', 'B', 'C', 'D']);
+  igual(await a.page.$$('.frentes .alzado-resumen').then(l => l.length), 0);
+  await a.page.click('[data-acc="frente-pared"][data-v="B"]');
+  igual(await a.page.$$eval('.frentes .alzado-resumen .tit', l => l.map(x => x.textContent)), ['Pared B de frente']);
 }));
 fin();

@@ -5,6 +5,7 @@ import { camposDeElemento, extraPilar, pilarDeVecina } from './modelo.js';
 import { situarMuebles, situarCuerpos, esColumna, nombreModulo, medidasModulo, interioresDe, textoInteriores, piezasInterior } from './modulos.js';
 import { verMedida } from './unidades.js';
 import { corta } from './plano-vista.js';
+import { encajarRotulo, textoRotulo } from './rotulos.js';
 
 const hay = v => v !== null && v !== undefined;
 // Alturas orientativas (mm desde el suelo).
@@ -127,11 +128,15 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
     if (clase === 'ventana') svg.append(el('path', { d: `M${p.x} ${Y(p.y)} L${p.x + p.w} ${Y(p.y + p.h)} M${p.x} ${Y(p.y + p.h)} L${p.x + p.w} ${Y(p.y)}`, stroke: '#7dd3fc', 'stroke-width': s * 0.25, fill: 'none' }));
     if (p.texto) rotulos.push([p, clase]);
   }));
-  // Rótulos de muebles y huecos, girados si la pieza es estrecha y alta.
+  // Rótulos de muebles y huecos, dentro de su pieza sin pisarse: en horizontal, girados, en dos líneas o con letra menor.
+  const ocupados = [];
   rotulos.forEach(([p, clase]) => {
-    const cx = p.x + p.w / 2, cy = Y(p.y + p.h / 2), girar = p.w < p.h * 0.6 && p.w < String(p.texto).length * s * 2.1;
     const color = clase === 'alto' ? '#1e3a8a' : clase === 'ventana' ? '#075985' : clase === 'azulejo' ? '#0f766e' : '#78350f';
-    texto(cx, cy, p.texto, Object.assign({ fill: color }, girar ? { transform: `rotate(-90 ${cx} ${cy})` } : {}));
+    const hueco = { x0: p.x, x1: p.x + p.w, y0: Y(p.y + p.h), y1: Y(p.y) }, tamanos = [3.4, 3, 2.6, 2.2].map(k => k * s);
+    const r = encajarRotulo(p.texto, hueco, { tamanos, puestos: ocupados }) || encajarRotulo(p.texto, hueco, { tamanos: [2.2 * s], margen: 1.2 })
+      || { tam: 2.2 * s, girar: p.w < p.h, lineas: [String(p.texto)], cx: p.x + p.w / 2, cy: Y(p.y + p.h / 2), caja: null };
+    if (r.caja) ocupados.push(r.caja);
+    svg.append(textoRotulo(el, r, { fill: color, 'paint-order': 'stroke', stroke: '#fff', 'stroke-width': s * 0.8 }));
   });
   // Tomas, enchufes, desagües y humos: un punto en su altura, con lo que es y la altura.
   const COLOR = { humos: '#7c3aed', desague: '#0891b2', toma: '#2563eb', agua: '#2563eb', gas: '#ea580c', enchufe: '#dc2626', otro: '#111827' };
