@@ -30,10 +30,14 @@ prueba('sin largos no hay perspectiva', () => {
   igual(escenaPerspectiva(f.datos), null);
 });
 
-prueba('vista inicial: frente a la pared con más muebles, dentro de la habitación y mirándola', () => {
+prueba('vista inicial: desde dentro de la habitación, la que enseña más muebles', () => {
   const e = escenaPerspectiva(cocina().datos), v = vistaPorDefecto(e);
-  afirma(v.x > 0 && v.x < 3000 && v.y > 1200 && v.y < 2500, JSON.stringify(v));
-  igual(Math.round(v.ang), -90);
+  afirma(v.x > 0 && v.x < 3000 && v.y > 0 && v.y < 2500, JSON.stringify(v));
+  const vistos = proyectar(e, v).textos.filter(t => t.clase === 'mueble').map(t => t.texto);
+  ['Fregadero 80', 'Bajo 60', 'Columna frigo 60'].forEach(t => afirma(vistos.includes(t), t + ' no se ve: ' + vistos.join('|')));
+  // Sin muebles, frente a la pared más larga.
+  const vacia = fichaNueva('cocina', null, 't'); vacia.datos.paredes = [pared('A', 3000), pared('B', 2000), pared('C', 3000), pared('D', 2000)];
+  igual(Math.round(vistaPorDefecto(escenaPerspectiva(vacia.datos)).ang), -90);
   // Una vista guardada fuera de la habitación no vale.
   igual(vistaDe(e, { x: 99999, y: 0, ang: 0 }).ang, v.ang);
   igual(vistaDe(e, { x: 100, y: 100, ang: 45 }).ang, 45);
@@ -116,5 +120,13 @@ prueba('en la ficha: tocar y arrastrar en la planta pequeña guarda dónde está
   await a.page.click('[data-acc="cerrar-perspectiva"]');
   igual(await a.page.$('[data-acc="capa-perspectiva"]'), null);
   await a.page.click('[data-acc="terminar"]'); await a.page.waitForSelector('.perspectiva-resumen svg.perspectiva');
+  // Qué dibujos van: se quita la perspectiva, se recuerda y se vuelve a poner.
+  igual(await a.page.$$eval('[data-acc="parte-resumen"]', b => b.map(x => x.dataset.v)), ['planta', 'frente', 'perspectiva', 'instalaciones']);
+  await a.page.click('[data-acc="parte-resumen"][data-v="perspectiva"]');
+  await a.page.waitForFunction(() => !document.querySelector('.perspectiva-resumen'));
+  afirma(await a.page.$('.planta-resumen'), 'la planta sigue');
+  igual(await a.page.evaluate(() => localStorage.getItem('med-resumen-quitar')), '["perspectiva"]');
+  await a.page.click('[data-acc="parte-resumen"][data-v="perspectiva"]');
+  await a.page.waitForSelector('.perspectiva-resumen svg.perspectiva');
 }));
 fin();

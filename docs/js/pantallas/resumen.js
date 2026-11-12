@@ -79,8 +79,30 @@ function tablaPuertas(puertas, u, dePremarco) {
   h('p', { class: 'nota-ud' }, leyenda.join(' · '))];
 }
 
-// Lo de una ficha: título, tabla de puertas, planta, el resto en bloques y las fotos.
-async function nodosFicha(App, ficha, trabajo, AJ) {
+// Qué dibujos van en el resumen (se quitan y se ponen con unos botones; se recuerda en este móvil).
+const PARTES = [['planta', 'Planta'], ['frente', 'De frente'], ['perspectiva', 'Perspectiva'], ['instalaciones', 'Instalaciones'], ['fotos', 'Fotos']];
+function partesGuardadas() {
+  let quitadas = [];
+  try { quitadas = JSON.parse(localStorage.getItem('med-resumen-quitar') || '[]'); } catch (e) { /* sin almacenamiento */ }
+  return Object.fromEntries(PARTES.map(([k]) => [k, !quitadas.includes(k)]));
+}
+function guardarPartes(ver) {
+  try { localStorage.setItem('med-resumen-quitar', JSON.stringify(PARTES.map(([k]) => k).filter(k => !ver[k]))); } catch (e) { /* sin almacenamiento */ }
+}
+// Los botones, solo de lo que hay en esas fichas.
+async function botonesPartes(App, fichas, ver, alCambiar) {
+  const conParedes = fichas.some(f => (f.datos.paredes || []).length);
+  const ids = new Set(fichas.map(f => f.id)), conFotos = vivos(await App.almacen.todos('adjuntos')).some(a => ids.has(a.ficha_id));
+  const hay = { planta: conParedes, frente: conParedes, perspectiva: conParedes, instalaciones: conParedes, fotos: conFotos };
+  const lista = PARTES.filter(([k]) => hay[k]);
+  if (!lista.length) return null;
+  return h('div', { class: 'elegir-fichas elegir-partes' }, h('small', { class: 'et' }, 'Dibujos que van:'),
+    h('div', { class: 'chips' }, lista.map(([k, t]) => h('button', { type: 'button', 'data-acc': 'parte-resumen', 'data-v': k, class: ver[k] ? 'on' : '',
+      onclick: async () => { ver[k] = !ver[k]; guardarPartes(ver); await alCambiar(); } }, (ver[k] ? '✓ ' : '') + t))));
+}
+
+// Lo de una ficha: título, tabla de puertas, planta, el resto en bloques y las fotos (ver: qué dibujos van).
+async function nodosFicha(App, ficha, trabajo, AJ, ver = partesGuardadas()) {
   const d = ficha.datos, { u } = unidadesDe(ficha, trabajo, AJ), nodos = [h('h2', {}, tituloFicha(ficha))];
   if (ficha.tipo === 'puerta') {
     if (d.modelo || d.color) nodos.push(h('p', {}, [d.modelo && 'Modelo: ' + d.modelo, d.color && 'Color: ' + d.color].filter(Boolean).join(' · ')));
@@ -88,16 +110,16 @@ async function nodosFicha(App, ficha, trabajo, AJ) {
   }
   if ((d.paredes || []).length) {
     const g = geometriaPlanta(d, { margen: AJ.margen, unidad: u });
-    if (g.paredes.length) nodos.push(h('div', { class: 'planta-resumen' }, svgPlanta(g)));
+    if (g.paredes.length && ver.planta) nodos.push(h('div', { class: 'planta-resumen' }, svgPlanta(g)));
     // Cada pared de frente.
-    d.paredes.forEach(p => {
+    if (ver.frente) d.paredes.forEach(p => {
       const ga = geometriaAlzado(d, p, AJ);
       if (ga) nodos.push(h('div', { class: 'alzado-resumen' }, h('p', { class: 'tit' }, h('b', {}, 'Pared ' + p.letra + ' de frente')), svgAlzado(ga, { unidad: u })));
     });
     // La perspectiva, desde donde se dejó en la ficha.
-    const esc = escenaPerspectiva(d, { margen: AJ.margen, ajustes: AJ });
+    const esc = ver.perspectiva ? escenaPerspectiva(d, { margen: AJ.margen, ajustes: AJ }) : null;
     if (esc) nodos.push(h('div', { class: 'alzado-resumen perspectiva-resumen' }, h('p', { class: 'tit' }, h('b', {}, 'Perspectiva'), ' ', h('small', {}, '(de pie, ojos a 175 cm; alturas orientativas)')), svgPerspectiva(esc, vistaDe(esc, d.vista))));
-    const t = tablaInstalaciones(d, u);
+    const t = ver.instalaciones ? tablaInstalaciones(d, u) : null;
     if (t) nodos.push(t);
   }
   // El resto, con los mismos bloques que el texto de WhatsApp (sin la cabecera del trabajo ni el título).
@@ -107,7 +129,7 @@ async function nodosFicha(App, ficha, trabajo, AJ) {
     if (ficha.tipo === 'puerta' && i === 0) lineas = [];
     if (lineas.length) nodos.push(h('section', {}, lineas.map(linea)));
   });
-  const adj = vivos(await App.almacen.todos('adjuntos')).filter(a => a.ficha_id === ficha.id);
+  const adj = ver.fotos ? vivos(await App.almacen.todos('adjuntos')).filter(a => a.ficha_id === ficha.id) : [];
   if (adj.length) {
     const fotos = h('div', { class: 'fotos-resumen' });
     for (const a of adj) {
@@ -174,8 +196,12 @@ export async function pintarResumen(App, id) {
   const titulo = tituloLargo(trabajo, tituloFicha(ficha));
   const main = App.marco('resumen', tituloFicha(ficha), trabajo ? '#/trabajo/' + trabajo.id : '#/sueltas',
     acciones({ doc, titulo, aviso, texto: () => textoResumen({ ficha, trabajo, ajustes: AJ }), editar: () => App.ir('#/ficha/' + id) }));
-  doc.append(cabecera(trabajo), ...(await nodosFicha(App, ficha, trabajo, AJ)), h('footer', {}, COPYRIGHT));
-  main.append(aviso, doc);
+  const ver = partesGuardadas();
+  const pintarDoc = async () => doc.replaceChildren(cabecera(trabajo), ...(await nodosFicha(App, ficha, trabajo, AJ, ver)), h('footer', {}, COPYRIGHT));
+  const zona = h('div');
+  const pintarBotones = async () => zona.replaceChildren(...[await botonesPartes(App, [ficha], ver, async () => { await pintarBotones(); await pintarDoc(); })].filter(Boolean));
+  await pintarBotones(); await pintarDoc();
+  main.append(zona, aviso, doc);
 }
 
 // Todo el trabajo: cabecera, recuento de puertas para el pedido y cada ficha en orden.
@@ -201,15 +227,17 @@ export async function pintarResumenTrabajo(App, id) {
       await pintarDoc();
     } }, abre ? '✓ A dónde abren' : 'A dónde abren');
     if (r.total) partes.push(h('section', { class: 'recuento' }, h('p', { class: 'tit' }, h('b', {}, r.titulo), r.paso + r.entrada > 0 ? botonAbre() : null), ...r.lineas.map(t => h('p', {}, t))));
-    for (const f of lista) partes.push(h('div', { class: 'ficha-resumen' }, ...(await nodosFicha(App, f, trabajo, AJ))));
+    for (const f of lista) partes.push(h('div', { class: 'ficha-resumen' }, ...(await nodosFicha(App, f, trabajo, AJ, ver))));
     if (!lista.length) partes.push(h('p', { class: 'vacio' }, fichas.length ? 'No has marcado ninguna ficha.' : 'Este trabajo aún no tiene fichas.'));
     partes.push(h('footer', {}, COPYRIGHT));
     doc.replaceChildren(...partes);
   }
+  const ver = partesGuardadas(), zonaPartes = h('div');
+  const pintarPartes = async () => zonaPartes.replaceChildren(...[await botonesPartes(App, elegidas(), ver, async () => { await pintarPartes(); await pintarDoc(); })].filter(Boolean));
   const zonaSel = h('div', { class: 'elegir-fichas' });
   function pintarSel() {
     const tipos = [...new Set(fichas.map(f => f.tipo))];
-    const chip = (acc, v, texto, on, alTocar, tipo) => h('button', { type: 'button', 'data-acc': acc, 'data-v': v, 'data-tipo': tipo || '', class: on ? 'on' : '', onclick: async () => { alTocar(); pintarSel(); await pintarDoc(); } }, texto);
+    const chip = (acc, v, texto, on, alTocar, tipo) => h('button', { type: 'button', 'data-acc': acc, 'data-v': v, 'data-tipo': tipo || '', class: on ? 'on' : '', onclick: async () => { alTocar(); pintarSel(); await pintarPartes(); await pintarDoc(); } }, texto);
     zonaSel.replaceChildren(
       h('small', { class: 'et' }, 'Qué va en el resumen:'),
       h('div', { class: 'chips' },
@@ -218,6 +246,6 @@ export async function pintarResumenTrabajo(App, id) {
       h('div', { class: 'chips' }, fichas.map(f => chip('elegir-ficha', f.id, (sel.has(f.id) ? '✓ ' : '') + tituloFicha(f), sel.has(f.id), () => { if (sel.has(f.id)) sel.delete(f.id); else sel.add(f.id); }, f.tipo))));
   }
   if (fichas.length > 1) pintarSel();
-  await pintarDoc();
-  main.append(zonaSel, aviso, doc);
+  await pintarPartes(); await pintarDoc();
+  main.append(zonaSel, zonaPartes, aviso, doc);
 }

@@ -190,8 +190,47 @@ function recortarSolapes(lista) {
   });
 }
 
-// Dónde ponerse si no se ha elegido: frente a la pared con más muebles (o la más larga), a lo hondo de la habitación, mirándola.
-export function vistaPorDefecto(esc) {
+// Dónde ponerse si no se ha elegido: el sitio y la dirección desde los que se ven más muebles (con su rótulo dentro del dibujo).
+// Se prueban puntos de la habitación (lejos de las paredes) y giros de 10 en 10; si empatan, la que los deja más centrados.
+// Sin muebles, o si nada mejora, frente a la pared con más muebles (vistaFrente).
+export function vistaPorDefecto(esc, W = 1000, H = 640) {
+  const base = vistaFrente(esc), muebles = esc.cajas.filter(c => c.texto && c.color !== 'pilar').map(c => c.texto);
+  if (muebles.length < 2) return base;
+  const b = INCLINACION * Math.PI / 180, foco = (W / 2) / Math.tan(FOV / 2);
+  const nota = v => {
+    const a = v.ang * Math.PI / 180, f = [Math.cos(b) * Math.cos(a), Math.cos(b) * Math.sin(a), Math.sin(b)], r = [-Math.sin(a), Math.cos(a), 0];
+    const up = [-Math.sin(b) * Math.cos(a), -Math.sin(b) * Math.sin(a), Math.cos(b)];
+    let n = 0, lado = 0;
+    muebles.forEach(t => {
+      const d = [t.p[0] - v.x, t.p[1] - v.y, t.p[2] - OJOS];
+      // Que se vea de frente, no de canto (menos de unos 65° de lado).
+      if (t.n && (t.n[0] * -d[0] + t.n[1] * -d[1]) / (Math.hypot(d[0], d[1]) || 1) < 0.42) return;
+      const z = d[0] * f[0] + d[1] * f[1] + d[2] * f[2];
+      if (z < CERCA * 6) return;
+      const x = W / 2 + foco * (d[0] * r[0] + d[1] * r[1]) / z, y = H / 2 - foco * (d[0] * up[0] + d[1] * up[1] + d[2] * up[2]) / z;
+      if (x < 30 || x > W - 30 || y < 20 || y > H - 20) return;
+      n++; lado += Math.abs(x - W / 2) / (W / 2);
+    });
+    return n ? n - 0.4 * lado / n : 0;
+  };
+  // Dentro de la habitación y a más de 70 cm de cualquier pared.
+  const pol = esc.ejes.map(e => e.a).concat([esc.ejes[esc.ejes.length - 1].b]);
+  const dentro = p => { let c = false; for (let i = 0, j = pol.length - 1; i < pol.length; j = i++) { const A = pol[i], B = pol[j]; if ((A.y > p.y) !== (B.y > p.y) && p.x < (B.x - A.x) * (p.y - A.y) / (B.y - A.y) + A.x) c = !c; } return c; };
+  const aPared = p => Math.min(...esc.ejes.map(e => { const t = Math.max(0, Math.min(e.lon, (p.x - e.a.x) * e.u.x + (p.y - e.a.y) * e.u.y)); return Math.hypot(p.x - e.a.x - e.u.x * t, p.y - e.a.y - e.u.y * t); }));
+  let mejor = base, nm = nota(base);
+  const c = esc.caja, N = 8;
+  for (let i = 1; i < N; i++) for (let j = 1; j < N; j++) {
+    const p = { x: c.x0 + (c.x1 - c.x0) * i / N, y: c.y0 + (c.y1 - c.y0) * j / N };
+    if (!dentro(p) || aPared(p) < 700) continue;
+    for (let g = -180; g < 180; g += 10) {
+      const v = { x: Math.round(p.x), y: Math.round(p.y), ang: g }, s = nota(v);
+      if (s > nm + 0.01) { mejor = v; nm = s; }
+    }
+  }
+  return mejor;
+}
+// Frente a la pared con más muebles (o la más larga), a lo hondo de la habitación, mirándola.
+export function vistaFrente(esc) {
   const cuenta = {};
   esc.geo.modulos.forEach(m => { if (!m.sinTexto) cuenta[m.pared] = (cuenta[m.pared] || 0) + 1; });
   const e = esc.ejes.slice().sort((p, q) => (cuenta[q.letra] || 0) - (cuenta[p.letra] || 0) || q.lon - p.lon)[0];
