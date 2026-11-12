@@ -66,7 +66,7 @@ details.plegable > .tarjeta, details.plegable > .lista, details.plegable > div {
 .tarjeta-alzado .chips button.on { background: var(--oscuro); border-color: var(--oscuro); color: #fff; }
 .fila-largo { display: flex; gap: 8px; align-items: flex-end; }
 .fila-largo > .campo { flex: 1 1 auto; min-width: 0; }
-.fila-largo .boton-pilar { flex: none; min-height: 44px; margin-bottom: 0; white-space: nowrap; }
+.fila-largo .boton-pilar, .fila-largo .boton-esquinas { flex: none; min-height: 44px; margin-bottom: 0; white-space: nowrap; }
 .zona-pilares:empty, .zona-zonas:empty { display: none; }
 .alzado-resumen { margin: 10px 0; break-inside: avoid-page; }
 .alzado-resumen svg.alzado { width: 100%; height: auto; max-height: 60vh; border: 1px solid #e5e7eb; border-radius: 8px; display: block; }
@@ -325,3 +325,15 @@ button { background: #fffef9; border-color: var(--borde); }
   .resumen-doc tr, .resumen-doc section, .resumen-doc .recuento, .planta-resumen, .alzado-resumen, .fotos-resumen img { break-inside: avoid; page-break-inside: avoid; }
   .planta-resumen svg.planta, .alzado-resumen svg.alzado { max-height: 120mm; }
 }
+
+/* Plegar: el título de una pared, un bloque o un apartado esconde lo de debajo. */
+.plegador { cursor: pointer; user-select: none; }
+.plegador::after { content: ' ▴'; color: var(--tenue); font-weight: normal; font-size: 1.1em; }
+.plegador.cerrado::after { content: ' ▾'; }
+.plegado > :not(.cab):not(.avisos):not(.plegador) { display: none !important; }
+.plegado-grupo { display: none !important; }
+.res-pared { color: var(--tenue); font-weight: normal; font-size: 13px; display: none; }
+.plegado .res-pared { display: inline; }
+.zona-esquinas:empty { display: none; }
+.zona-esquinas { display: grid; gap: 6px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 8px 10px; }
+.campo.descuadre .dos { margin-top: 4px; }

@@ -27,7 +27,7 @@ prueba('un pilar dibujado no son paredes: 4 paredes y el pilar en la A', con(asy
   await empezar(a);
   igual(await a.page.$$eval('[data-letra]', t => t.map(x => x.dataset.letra)), ['A', 'B', 'C', 'D']);
   afirma(/Pilar en A/.test(await a.page.innerText('[data-acc="aviso-pilares"]')), await a.page.innerText('[data-acc="aviso-pilares"]'));
-  await a.page.screenshot({ path: process.env.CAPTURA || 'pilar_editor.png' });
+  await a.page.screenshot({ path: process.env.CAPTURA || (await import('node:os')).tmpdir() + '/pilar_editor.png' });
   await a.page.click('[data-acc="guardar-plano"]'); await a.page.waitForSelector('[data-pared="D"]');
   const f = await ficha(a);
   igual(f.datos.paredes.length, 4);
@@ -44,12 +44,12 @@ prueba('un plano de antes con el pilar como paredes: el botón lo pasa a pilar',
   await empezar(a);
   await a.page.click('[data-acc="pilares-paredes"]');
   await a.page.click('[data-acc="guardar-plano"]'); await a.page.waitForSelector('[data-pared="F"]');
-  afirma(/B y C parecen un pilar/.test(await a.page.innerText('[data-acc="pilar-en-paredes"]')));
+  afirma(/B-C → pilar de A/.test(await a.page.innerText('[data-acc="pilar-en-paredes"]')));
   await a.page.click('[data-acc="pasar-a-pilar"]'); await a.page.waitForTimeout(1500);
   igual(await a.page.$('[data-acc="pilar-en-paredes"]'), null);
   const f = await ficha(a);
   igual(f.datos.paredes.map(p => p.letra), ['A', 'B', 'C', 'D']);
   igual(f.datos.paredes[0].elementos.filter(e => e.tipo === 'pilar').length, 1);
-  await a.page.screenshot({ path: process.env.CAPTURA2 || 'pilar_ficha.png', fullPage: true });
+  await a.page.screenshot({ path: process.env.CAPTURA2 || (await import('node:os')).tmpdir() + '/pilar_ficha.png', fullPage: true });
 }));
 fin();

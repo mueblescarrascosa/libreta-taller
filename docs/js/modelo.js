@@ -271,6 +271,40 @@ export function pilarEnPunta(datos, pared, lado) {
   if (j < 0 || j === i) return null;
   return pilarVecino(lista[j], lado === 'der' ? 'izq' : 'der');
 }
+// ── Esquinas descuadradas ──
+// Cada esquina se guarda en la pared que empieza en ella (p.esquina) y, si hay forma dibujada, también en el plano
+// (plano.esquinas[k], la que usa el editor). Se ve y se cambia desde las dos paredes que la forman.
+const esquinaRecta = () => ({ estado: 'escuadra', sentido: null, mm: null, en: 1000 });
+export function esquinaDe(datos, pared, lado) {
+  const lista = (datos && datos.paredes) || [], i = lista.indexOf(pared), n = lista.length, cerrada = !!(datos && datos.plano && datos.plano.cerrada);
+  if (i < 0) return null;
+  const k = lado === 'izq' ? i : i + 1 < n ? i + 1 : cerrada && n > 1 ? 0 : -1;
+  const vecina = lado === 'izq' ? (i > 0 ? lista[i - 1] : cerrada && n > 1 ? lista[n - 1] : null) : k >= 0 ? lista[k] : null;
+  if (k < 0 || !vecina || vecina === pared) return null;
+  const q = lista[k], pl = datos.plano, enPlano = pl && Array.isArray(pl.vertices) && k < pl.vertices.length ? k : null;
+  const valor = (enPlano !== null && pl.esquinas && pl.esquinas[k]) || q.esquina || esquinaRecta();
+  return { con: vecina.letra, valor, poner(v) {
+    q.esquina = v;
+    if (enPlano !== null) { if (!pl.esquinas) pl.esquinas = []; for (let j = 0; j <= k; j++) if (!pl.esquinas[j]) pl.esquinas[j] = esquinaRecta(); pl.esquinas[k] = v; }
+  } };
+}
+export const esquinaDescuadrada = v => !!(v && v.estado === 'descuadrada');
+// «abre 5 mm en 100 cm» (más de 90°) o «cierra…» (menos de 90°).
+export function textoDescuadre(v, u = 'cm') {
+  if (!esquinaDescuadrada(v)) return null;
+  const que = v.sentido === 'cerrada' ? 'cierra' : 'abre';
+  return que + (hay(v.mm) ? ' ' + verMedida(v.mm, 'mm') + ' mm' + (hay(v.en) ? ' en ' + verMedida(v.en, u) + ' ' + u : '') : '');
+}
+// Pilar de la pared de al lado pegado a esta esquina: lo que asoma en esta pared (su «sobresale») y de qué pared es.
+export function pilarDeVecina(datos, pared, lado) {
+  if (pilarPropio(pared, lado) !== null) return null;
+  const lista = (datos && datos.paredes) || [], i = lista.indexOf(pared), cerrada = !!(datos && datos.plano && datos.plano.cerrada);
+  if (i < 0) return null;
+  const j = lado === 'der' ? (i + 1 < lista.length ? i + 1 : cerrada ? 0 : -1) : (i > 0 ? i - 1 : cerrada ? lista.length - 1 : -1);
+  if (j < 0 || j === i) return null;
+  const f = pilarVecino(lista[j], lado === 'der' ? 'izq' : 'der');
+  return f ? { fondo: f, de: lista[j].letra } : null;
+}
 // Lo que hay que sumar a la distancia de un elemento medido desde la cara del pilar (0 si se midió desde la esquina).
 export function extraPilar(datos, pared, e) {
   if (e.tipo === 'pilar' || e.desde !== 'pilar') return 0;

@@ -1,7 +1,7 @@
 // Planta dibujada a partir de las paredes de la ficha: forma (del plano a mano o, si no hay, en ángulo recto),
 // largos a escala y cada elemento en su sitio según su distancia y su referencia.
 import { aEscala, comprobar, planoPorDefecto, letras, pilarDibujado } from './plano-geo.js';
-import { camposDeElemento, paredNueva, elementoNuevo, nombreElemento, USOS, textoAzulejo, extraPilar, tamanoHumos } from './modelo.js';
+import { camposDeElemento, paredNueva, elementoNuevo, nombreElemento, USOS, textoAzulejo, extraPilar, tamanoHumos, esquinaDe, esquinaDescuadrada, textoDescuadre } from './modelo.js';
 import { verMedida } from './unidades.js';
 import { nombreModulo, esColumna, medidasModulo, situarMuebles } from './modulos.js';
 
@@ -60,12 +60,15 @@ export function geometriaPlanta(d, { margen = 10, unidad = 'cm' } = {}) {
   const n = pts.length, m = plano.cerrada ? n : n - 1;
   // Sin plano dibujado, cada pared de la planta es la de la ficha en ese orden, con su letra.
   const nombres = d.plano ? letras(m) : (d.paredes || []).map(p => p.letra);
-  const geo = { paredes: [], elementos: [], modulos: [], islas: [], sinSituar: [], fuera: [], aEscala: escala, cierre: comprobar(plano, margen).cierre };
+  const geo = { paredes: [], elementos: [], modulos: [], islas: [], esquinas: [], sinSituar: [], fuera: [], aEscala: escala, cierre: comprobar(plano, margen).cierre };
   const ejes = {};
   for (let i = 0; i < m; i++) {
     const a = pts[i], b = pts[(i + 1) % n], letra = nombres[i];
     const pared = (d.paredes || []).find(p => p.letra === letra) || { largo: null, elementos: [] };
     geo.paredes.push({ letra, a, b, largo: pared.largo ?? null, azulejo: textoAzulejo(pared, 'm') });
+    // Esquina descuadrada al principio de esta pared: punto rojo con lo que abre o cierra.
+    const esq = (d.paredes || []).includes(pared) ? esquinaDe(d, pared, 'izq') : null;
+    if (esq && esquinaDescuadrada(esq.valor)) geo.esquinas.push({ punto: a, texto: '∠ ' + textoDescuadre(esq.valor, 'cm'), con: esq.con, letra });
     const L = pared.largo, lon = Math.hypot(b.x - a.x, b.y - a.y);
     const u = { x: (b.x - a.x) / (lon || 1), y: (b.y - a.y) / (lon || 1) }, dentro = { x: -u.y, y: u.x };
     const k = hay(L) && L > 0 ? lon / L : null;
@@ -175,6 +178,20 @@ export function pilarEnParedes(datos) {
   const n = datos.plano.vertices.length, nom = letras(datos.plano.cerrada ? n : n - 1), k = i => nom[(c.j + i) % n];
   return { paredes: c.tipo === 'rincon' ? [k(1), k(2)] : [k(1), k(2), k(3)], en: k(0), tipo: c.tipo };
 }
+// Todos los pilares dibujados como paredes, con las letras de ahora: [{paredes: ['B','C'], en: 'A'}, {paredes: ['E','F'], en: 'D'}].
+export function pilaresEnParedes(datos) {
+  const r = [];
+  let d = JSON.parse(JSON.stringify(datos));
+  (d.paredes || []).forEach(p => { p._antes = p.letra; });
+  const antes = l => { const p = d.paredes.find(x => x.letra === l); return p && p._antes ? p._antes : l; };
+  for (let veces = 0; veces < 8; veces++) {
+    const c = d.plano && pilarDibujado(d.plano), pp = pilarEnParedes(d);
+    if (!c || !pp) break;
+    r.push({ paredes: pp.paredes.map(antes), en: antes(pp.en) });
+    d = unPilar(d, c);
+  }
+  return r;
+}
 // Pasa a mocheta los pilares dibujados como paredes. Lo que sobresale (1.ª pared corta) es el fondo y la cara (2.ª) el ancho.
 // La pared que lo lleva y la de al lado crecen hasta la esquina de verdad; lo medido desde la cara del pilar queda «desde el pilar».
 export function pasarAPilar(datos) {
@@ -256,6 +273,14 @@ export function svgPlanta(geo) {
       const ax = mx + fuera.x * s * 5, ay = my + fuera.y * s * 5;
       nombres.push(() => texto(ax, ay, p.azulejo, { 'font-size': s * 3, fill: '#0f766e' })); puestos.push(cajaTexto(ax, ay, p.azulejo, 3));
     }
+  });
+  // Esquinas descuadradas: punto rojo y el texto hacia dentro de la habitación.
+  const centro = { x: xs.reduce((a, b) => a + b, 0) / xs.length, y: ys.reduce((a, b) => a + b, 0) / ys.length };
+  (geo.esquinas || []).forEach(q => {
+    svg.append(el('circle', { cx: q.punto.x, cy: q.punto.y, r: s * 1.6, fill: '#dc2626', 'data-esquina-descuadrada': q.letra }));
+    const dx = centro.x - q.punto.x, dy = centro.y - q.punto.y, l = Math.hypot(dx, dy) || 1;
+    const tx = q.punto.x + dx / l * s * 9, ty = q.punto.y + dy / l * s * 6;
+    nombres.push(() => texto(tx, ty, q.texto, { 'font-size': s * 2.8, fill: '#b91c1c', 'font-weight': 700 })); puestos.push(cajaTexto(tx, ty, q.texto, 2.8));
   });
   // Bajos (marrón) y, encima, los altos (azul, más estrechos y transparentes). El rótulo de los bajos va hacia dentro
   // y el de los altos pegado a la pared, para que no se pisen.

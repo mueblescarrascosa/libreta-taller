@@ -1,7 +1,7 @@
 // Alzados: cada pared vista de frente (en 2D), con la altura de la habitación, los muebles a su altura,
 // ventanas, puertas, pilares, azulejo y las tomas en su punto, con la altura al lado.
 // Las alturas de los muebles son orientativas (las de una cocina normal); lo medido manda.
-import { camposDeElemento, extraPilar } from './modelo.js';
+import { camposDeElemento, extraPilar, pilarDeVecina } from './modelo.js';
 import { situarMuebles, esColumna, nombreModulo, medidasModulo } from './modulos.js';
 import { verMedida } from './unidades.js';
 import { corta } from './plano-vista.js';
@@ -64,6 +64,11 @@ export function geometriaAlzado(d, pared) {
     }
     if (e.tipo === 'humos' && e.humos_sale === 'techo') return g.puntos.push({ tipo: e.tipo, x, y: techo, texto: corta(e), techo: true });
     if (PUNTOS.includes(e.tipo)) g.puntos.push({ tipo: e.tipo, x, y: hay(e.altura) ? e.altura : null, texto: corta(e) });
+  });
+  // Pilar de la pared de al lado en esta esquina: también se ve aquí, con lo que sobresale allí.
+  ['izq', 'der'].forEach(lado => {
+    const v = pilarDeVecina(d, pared, lado);
+    if (v) pieza('pilar', lado === 'izq' ? 0 : L - v.fondo, 0, v.fondo, techo, 'Pilar ' + v.de, 'pilar_vecino');
   });
   return g;
 }

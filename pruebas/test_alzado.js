@@ -65,4 +65,15 @@ prueba('pilar junto al largo y zona azulejada justo debajo, con la altura de la 
     igual(a.errores, []);
   } finally { await a.cerrar(); }
 });
+prueba('alzado: un pilar en el rincón sale en las dos paredes (en la otra, lo que sobresale)', () => {
+  const f = fichaNueva('cocina', null, 't');
+  const pilar = Object.assign(elementoNuevo('pilar', 'der'), { distancia: 0, ancho: 220, fondo: 350 });
+  f.datos.paredes = [Object.assign(paredNueva([]), { letra: 'A', largo: 2580, elementos: [pilar] }), Object.assign(paredNueva([]), { letra: 'B', largo: 4020, elementos: [] })];
+  const ga = geometriaAlzado(f.datos, f.datos.paredes[0]), gb = geometriaAlzado(f.datos, f.datos.paredes[1]);
+  igual(ga.piezas.filter(p => p.clase === 'pilar').map(p => [p.x, p.w]), [[2360, 220]]);
+  igual(gb.piezas.filter(p => p.clase === 'pilar').map(p => [p.x, p.w, p.texto]), [[0, 350, 'Pilar A']]);
+  const sinPilar = Object.assign(paredNueva([]), { letra: 'C', largo: 1000, elementos: [] });
+  f.datos.paredes.push(sinPilar);
+  igual(geometriaAlzado(f.datos, sinPilar).piezas.filter(p => p.clase === 'pilar').length, 0);
+});
 fin();

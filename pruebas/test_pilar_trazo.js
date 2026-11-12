@@ -1,6 +1,6 @@
 import { prueba, afirma, igual, fin } from './mini.js';
 import { enderezar } from '../docs/js/plano-geo.js';
-import { aplicarPlano, pasarAPilar, pilarEnParedes } from '../docs/js/plano-vista.js';
+import { aplicarPlano, pasarAPilar, pilarEnParedes, pilaresEnParedes } from '../docs/js/plano-vista.js';
 import { cuadreBajos, textoCuadre, moduloNuevo } from '../docs/js/modulos.js';
 import { elementoNuevo } from '../docs/js/modelo.js';
 import { fichaNueva } from '../docs/js/modelo.js';
@@ -104,5 +104,16 @@ prueba('pasar a pilar uno en medio: la pared se junta y lo de la otra mitad se c
   igual(n.paredes.map(p => [p.letra, p.largo]), [['A', 4000], ['B', 2500], ['C', 4000], ['D', 2500]]);
   const pil = n.paredes[0].elementos.find(e => e.tipo === 'pilar'), toma = n.paredes[0].elementos.find(e => e.tipo === 'toma');
   igual([pil.ref, pil.distancia, pil.ancho, pil.fondo], ['izq', 1500, 500, 400]); igual(toma.distancia, 2100);
+});
+prueba('dos pilares en rincones (plano real A-G): se nombran los dos y se pasan de una vez', () => {
+  const V = [[259.9, 574.4], [93.35, 574.4], [93.35, 515.2], [51.35, 515.2], [51.35, 255.5], [100.7, 255.5], [100.7, 204.6], [344.6, 204.6]];
+  const P = (letra, largo) => ({ letra, largo, elementos: [], bajos: [], altos: [] });
+  const d = { plano: { cerrada: false, vertices: V.map(([x, y]) => ({ x, y })), esquinas: [], diagonales: [] },
+    paredes: [P('A', 2400), P('B', 260), P('C', 260), P('D', 2100), P('E', 350), P('F', 220), P('G', 3670)] };
+  igual(pilaresEnParedes(d), [{ paredes: ['B', 'C'], en: 'A' }, { paredes: ['E', 'F'], en: 'D' }]);
+  const r = pasarAPilar(d);
+  igual(r.paredes.map(p => p.letra + '=' + p.largo), ['A=2660', 'B=2580', 'C=4020']);
+  igual(pilarEnParedes(r), null);
+  igual(d.paredes.length, 7);
 });
 fin();

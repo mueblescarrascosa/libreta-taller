@@ -1,7 +1,7 @@
 // Resumen de una ficha como texto para WhatsApp (*negrita*), con las medidas en su unidad.
 import { verMedida } from './unidades.js';
 import { tituloFicha } from './util.js';
-import { resumenPuerta, nombreElemento, camposDeElemento, textoAzulejo, extraPilar, tamanoHumos } from './modelo.js';
+import { resumenPuerta, nombreElemento, camposDeElemento, textoAzulejo, extraPilar, tamanoHumos, esquinaDe, textoDescuadre } from './modelo.js';
 import { textoModulo, cuadreBajos, cuadreAltos, cuadreCuerposPared, textoCuadre, nombreLineal, nombreInterior, textoElectro, paredesVecinas } from './modulos.js';
 
 const hay = v => v !== null && v !== undefined && v !== '';
@@ -30,6 +30,7 @@ function lineaElemento(e, u, delPilar = false) {
   } else if (c.alto && e.techo) partes.push('hasta el techo');
   else if (c.alto && hay(e.alto)) partes.push('alto ' + v(e.alto));
   if (c.fondo && hay(e.fondo)) partes.push('sobresale ' + v(e.fondo));
+  if (e.tipo === 'pilar' && textoDescuadre(e.esquina)) partes.push('descuadrado: ' + textoDescuadre(e.esquina));
   if (e.tipo === 'humos' && tamanoHumos(e)) partes.unshift(tamanoHumos(e));
   return '- ' + nombreElemento(e) + (partes.length ? ': ' + partes.join(', ') : '');
 }
@@ -54,6 +55,11 @@ const textoCuerpo = (c, ajustes) => unir([hay(c.ancho) ? verMedida(c.ancho, 'cm'
 
 function bloquePared(p, ud, u, ajustes, d) {
   const l = [unir(['*Pared ' + p.letra + '*', hay(p.largo) ? verMedida(p.largo, ud) + ' ' + ud : null, hay(p.alto) ? 'alto ' + verMedida(p.alto, ud) + ' ' + ud : null])];
+  // Esquinas descuadradas de esta pared (salen en las dos paredes que la forman).
+  ['izq', 'der'].forEach(lado => {
+    const q = esquinaDe(d, p, lado), t = q && textoDescuadre(q.valor, 'cm');
+    if (t) l.push('- ⚠ Esquina con ' + q.con + ' (' + (lado === 'izq' ? 'izq.' : 'dcha.') + '): ' + t);
+  });
   // Todo el azulejo junto: el general y, justo debajo, sus zonas.
   const az = (textoAzulejo(p, ud) || '').replace(' + zonas', ''), zonas = (p.elementos || []).filter(e => e.tipo === 'zona');
   if (az || zonas.length) l.push('- ' + (az ? az.charAt(0).toUpperCase() + az.slice(1) : 'Azulejo por zonas'));

@@ -2,7 +2,7 @@
 import { h, segmentado, tituloFicha, vivos, icono } from '../util.js';
 import { unidadDe } from '../unidades.js';
 import { nombrarPuerta, CORTO_ELEMENTO, HUMOS_DIAMETROS, HUMOS_RECTANGULARES, islaNueva, avisos, camposDeElemento, elementoNuevo, paredNueva, puertaNueva, normalizarFicha, resumenPuerta, limpiarDatos, tieneInformacion,
-  TIPOS_ELEMENTO, NOMBRE_ELEMENTO, RAPIDAS_PUERTA, USOS, nombreElemento, tiposPuertaPara, otraHoja, anchoFijo, pilarEnPunta } from '../modelo.js';
+  TIPOS_ELEMENTO, NOMBRE_ELEMENTO, RAPIDAS_PUERTA, USOS, nombreElemento, tiposPuertaPara, otraHoja, anchoFijo, pilarEnPunta, esquinaDe, esquinaDescuadrada } from '../modelo.js';
 import { duplicarFicha } from '../trabajos.js';
 import { campoMedida, campoEntero } from '../campos.js';
 import { verMedida } from '../unidades.js';
@@ -10,7 +10,7 @@ import { TIPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, m
 import { seccionAdjuntos } from './adjuntos.js';
 import { textoResumen, urlWhatsapp } from '../resumen.js';
 import { huella } from '../sincro.js';
-import { geometriaPlanta, svgPlanta, aplicarPlano, pilarEnParedes, pasarAPilar } from '../plano-vista.js';
+import { geometriaPlanta, svgPlanta, aplicarPlano, pilarEnParedes, pilaresEnParedes, pasarAPilar } from '../plano-vista.js';
 import { abrirPlano } from '../plano-editor.js';
 import { geometriaAlzado, svgAlzado } from '../alzado.js';
 
@@ -71,7 +71,45 @@ export async function pintarFicha(App, id) {
     if (pintarPlanta) pintarPlanta();
     refrescos.forEach(f => f());
   }
+  // Plegar: tocar el título de una pared, un bloque o un apartado lo esconde (y otra vez lo enseña).
+  // Se recuerda en este dispositivo: los bloques, para todas las fichas; las paredes, por ficha.
+  const hay = v => v !== null && v !== undefined;
+  const PLEG = 'med-plegado';
+  const plegados = () => { try { return JSON.parse(localStorage.getItem(PLEG)) || {}; } catch { return {}; } };
+  function plegador(titulo, clave, alCambiar) {
+    titulo.classList.add('plegador'); titulo.dataset.plegar = clave;
+    const aplicar = v => { titulo.classList.toggle('cerrado', v); alCambiar(v); };
+    aplicar(!!plegados()[clave]);
+    titulo.addEventListener('click', ev => {
+      if (ev.target !== titulo && ev.target.closest('button, input, select, a, textarea')) return;
+      const m = plegados(), v = !m[clave];
+      if (v) m[clave] = true; else delete m[clave];
+      try { localStorage.setItem(PLEG, JSON.stringify(m)); } catch { /* sin almacenamiento: solo en pantalla */ }
+      aplicar(v);
+    });
+    return titulo;
+  }
+  const plegarCaja = (caja, titulo, clave) => { plegador(titulo, clave, v => caja.classList.toggle('plegado', v)); return caja; };
   const confirmarQuitar = que => confirm('¿Quitar ' + que + '?');
+  // Descuadre de una esquina o de la cara de un pilar: a escuadra, abre (más de 90°) o cierra (menos), y cuánto.
+  // valor() lee lo guardado; poner(v) lo guarda. conEn: pedir también en cuánto largo se mide (las esquinas).
+  function editorDescuadre({ titulo, acc, valor, poner, conEn, alCambiarEstado }) {
+    const zona = h('div', { class: 'campo descuadre', 'data-acc': acc });
+    const pintar = () => {
+      const v = valor() || { estado: 'escuadra', sentido: null, mm: null, en: 1000 }, des = esquinaDescuadrada(v);
+      zona.replaceChildren(h('label', { class: 'et' }, titulo),
+        segmentado({ acc: 'descuadre', opciones: [['escuadra', 'A escuadra'], ['abierta', 'Abre'], ['cerrada', 'Cierra']], valor: des ? (v.sentido || 'abierta') : 'escuadra',
+          alCambiar: x => {
+            poner(x === 'escuadra' ? Object.assign({}, v, { estado: 'escuadra' }) : Object.assign({}, v, { estado: 'descuadrada', sentido: x, en: conEn ? (v.en ?? 1000) : null }));
+            cambio(); pintar(); if (alCambiarEstado) alCambiarEstado();
+          } }),
+        des ? h('div', { class: 'dos' },
+          campoMedida({ etiqueta: 'Se desvía', acc: 'desvio', valor: v.mm, unidad: 'mm', alCambiar: n => { poner(Object.assign({}, valor(), { mm: n })); cambio(); } }),
+          conEn ? campoMedida({ etiqueta: 'En (largo medido)', acc: 'desvio-en', valor: v.en, unidad: 'cm', rapidos: [500, 1000], alCambiar: n => { poner(Object.assign({}, valor(), { en: n })); cambio(); } }) : null) : null);
+    };
+    pintar();
+    return zona;
+  }
   const medida = (obj, k, etiqueta, extra) => campoMedida(Object.assign({ etiqueta, acc: k, valor: obj[k], mal: obj.mal && obj.mal[k], unidad, aviso: k,
     alCambiar: (v, textoMal) => { anotarMedida(obj, k, v, textoMal); cambio(); } }, extra));
   const medidaGeneral = medida;
@@ -241,6 +279,7 @@ export async function pintarFicha(App, id) {
         c.ancho ? medida(e, 'ancho', 'Ancho', { aviso: null }) : null,
         c.alto && !(e.tipo === 'zona' && e.techo) ? medida(e, 'alto', 'Alto', { aviso: null }) : null,
         c.fondo ? medida(e, 'fondo', 'Sobresale de la pared', { aviso: null }) : null) : null,
+      e.tipo === 'pilar' ? editorDescuadre({ titulo: 'Cara del pilar', acc: 'descuadre-pilar', valor: () => e.esquina, poner: v => { e.esquina = v; } }) : null,
       // Una zona azulejada puede subir hasta el techo: entonces no hace falta su alto.
       e.tipo === 'zona' ? h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Hasta el techo'),
         segmentado({ acc: 'techo', opciones: SI_NO, valor: e.techo ?? null, permitirVacio: true, alCambiar: v => { e.techo = v; cambio(); repintar(); } })) : null,
@@ -278,13 +317,16 @@ export async function pintarFicha(App, id) {
       if (g.paredes.length && !g.aEscala) hijos.push(h('small', { class: 'ayuda' }, 'Sin escala: faltan largos o las medidas no cierran.'));
       if (!d.plano && d.paredes.length >= 5) hijos.push(h('small', { class: 'ayuda', 'data-acc': 'aviso-forma' }, 'Con 5 o más paredes el dibujo es aproximado (todas en ángulo recto). Pulsa «Dibujar la forma» para que se parezca.'));
       // Planos de antes con un pilar dibujado como paredes: se ofrece pasarlo a mocheta de su pared.
-      const pp = pilarEnParedes(d);
-      if (pp) hijos.push(h('div', { class: 'aviso-pilares', 'data-acc': 'pilar-en-paredes' },
-        h('span', {}, '▪ Las paredes ' + pp.paredes.join(' y ') + ' parecen un pilar. '),
-        h('button', { type: 'button', class: 'mini', 'data-acc': 'pasar-a-pilar', onclick: () => {
-          if (!confirm('¿Pasar ' + pp.paredes.join(' y ') + ' a pilar de la pared ' + pp.en + '? Las paredes de después cambian de letra.')) return;
-          Object.assign(d, pasarAPilar(d)); cambio(); repintar(); pintarPlanta();
-        } }, 'Pasar a pilar de ' + pp.en)));
+      const pps = pilarEnParedes(d) ? pilaresEnParedes(d) : [];
+      if (pps.length) {
+        const lista = pps.map(pp => pp.paredes.join('-') + ' → pilar de ' + pp.en).join(', ');
+        hijos.push(h('div', { class: 'aviso-pilares', 'data-acc': 'pilar-en-paredes' },
+          h('span', {}, '▪ ' + (pps.length > 1 ? 'Parecen pilares: ' : 'Parece un pilar: ') + lista + '. '),
+          h('button', { type: 'button', class: 'mini', 'data-acc': 'pasar-a-pilar', onclick: () => {
+            if (!confirm('¿Pasar a pilar? ' + lista + '. Las paredes cambian de letra.')) return;
+            Object.assign(d, pasarAPilar(d)); cambio(); repintar(); pintarPlanta();
+          } }, pps.length > 1 ? 'Pasar los ' + pps.length + ' a pilar' : 'Pasar a pilar de ' + pps[0].en)));
+      }
       if (g.sinSituar.length) hijos.push(h('small', { class: 'ayuda', 'data-acc': 'sin-situar' }, 'Sin situar (falta la distancia o el largo de su pared): ' + g.sinSituar.map(e => e.etiqueta + ' en ' + e.pared).join(', ') + '.'));
       zonaPlanta.replaceChildren(...hijos);
       pintarAlzado();
@@ -304,14 +346,16 @@ export async function pintarFicha(App, id) {
     // Altura y planta juntas: en el ordenador van a la derecha y se quedan fijas al bajar.
     h('div', { class: 'lateral' },
       h('div', { class: 'tarjeta' }, zonaAlto),
-      h('div', { class: 'tarjeta tarjeta-planta' }, h('div', { class: 'cab' }, h('b', {}, 'Planta'),
-        botonForma), zonaPlanta),
-      h('div', { class: 'tarjeta tarjeta-alzado' }, h('b', {}, 'Paredes de frente'), botonesAlzado, zonaAlzado)),
+      (() => { const t = h('b', {}, 'Planta'); return plegarCaja(h('div', { class: 'tarjeta tarjeta-planta' }, h('div', { class: 'cab' }, t, botonForma), zonaPlanta), t, 'lat:planta'); })(),
+      (() => { const t = h('b', {}, 'Paredes de frente'); return plegarCaja(h('div', { class: 'tarjeta tarjeta-alzado' }, t, botonesAlzado, zonaAlzado), t, 'lat:alzado'); })()),
     h('h2', {}, 'Paredes'),
     zona,
     h('button', { type: 'button', class: 'ancho', 'data-acc': 'anadir-pared', onclick: () => { d.paredes.push(paredNueva(d.paredes)); cambio(); repintar(); } }, '+ Añadir pared')];
   }
-  const seccion = (clase, titulo, ...hijos) => h('section', { class: 'sec-pared sec-' + clase, 'data-sec': clase }, h('h4', {}, titulo), ...hijos);
+  const seccion = (clase, titulo, ...hijos) => {
+    const t = h('h4', {}, titulo);
+    return plegarCaja(h('section', { class: 'sec-pared sec-' + clase, 'data-sec': clase }, t, ...hijos), t, 'sec:' + clase);
+  };
   function pared(p, tipos, repintarTodo, udPared) {
     // Pilares y zonas de azulejo salen junto a su botón; el resto de elementos, abajo.
     const zonaEl = h('div', {}), zonaPilares = h('div', { class: 'zona-pilares' }), zonaZonas = h('div', { class: 'zona-zonas' });
@@ -327,6 +371,15 @@ export async function pintarFicha(App, id) {
     const botonPilar = h('button', { type: 'button', class: 'mini boton-pilar', 'data-acc': 'pilares', 'data-v': 'true', title: 'Añadir mocheta o pilar', onclick: () => {
       p.pilares = true; p.elementos.push(elementoNuevo('pilar', d.ref_ultima)); cambio(); repintar();
     } }, '＋ Pilar');
+    // Esquinas de esta pared (con la de antes y con la de después): se abren con «∠ Esquinas», o solas si hay alguna descuadrada.
+    const zonaEsquinas = h('div', { class: 'zona-esquinas' });
+    const ladosEsq = () => ['izq', 'der'].map(lado => ({ lado, q: esquinaDe(d, p, lado) })).filter(x => x.q);
+    let verEsquinas = ladosEsq().some(x => esquinaDescuadrada(x.q.valor));
+    const pintarEsquinas = () => zonaEsquinas.replaceChildren(...(verEsquinas ? ladosEsq().map(({ lado, q }) => editorDescuadre({
+      titulo: 'Esquina con ' + q.con + (lado === 'izq' ? ' (izq.)' : ' (dcha.)'), acc: 'esquina-' + lado,
+      valor: () => { const x = esquinaDe(d, p, lado); return x && x.valor; }, poner: v => { const x = esquinaDe(d, p, lado); if (x) x.poner(v); }, conEn: true })) : []));
+    pintarEsquinas();
+    const botonEsquinas = ladosEsq().length ? h('button', { type: 'button', class: 'mini boton-esquinas', 'data-acc': 'esquinas', title: 'Esquinas descuadradas', onclick: () => { verEsquinas = !verEsquinas; pintarEsquinas(); } }, '∠ Esquinas') : null;
     // Azulejo: sin, toda la pared, una franja (desde una altura hasta otra o hasta el techo) o por zonas.
     const zonaAzulejo = h('div', {});
     const pintarAzulejo = () => {
@@ -354,10 +407,20 @@ export async function pintarFicha(App, id) {
         ...extra, zonaZonas);
     };
     pintarAzulejo();
-    return h('div', { class: 'tarjeta', 'data-pared': p.letra },
-      h('div', { class: 'cab' }, h('h3', {}, 'Pared ' + p.letra),
+    // Plegada, la pared enseña en su título lo que lleva.
+    const resPared = h('small', { class: 'res-pared' });
+    const pintarRes = () => {
+      const n = (l, uno, varios) => (l || []).length ? (l.length + ' ' + (l.length > 1 ? varios : uno)) : null;
+      resPared.textContent = [hay(p.largo) ? verMedida(p.largo, udPared) + ' ' + udPared : 'sin largo', n(p.bajos, 'bajo', 'bajos'), n(p.altos, 'alto', 'altos'),
+        n(p.cuerpos, 'cuerpo', 'cuerpos'), n((p.elementos || []).filter(e => e.tipo === 'pilar'), 'pilar', 'pilares'), n((p.elementos || []).filter(e => e.tipo !== 'pilar' && e.tipo !== 'zona'), 'toma/hueco', 'tomas/huecos')].filter(Boolean).join(' · ');
+    };
+    pintarRes(); refrescos.push(() => { if (resPared.isConnected) pintarRes(); });
+    const tituloPared = h('h3', {}, 'Pared ' + p.letra, ' ', resPared);
+    return plegarCaja(h('div', { class: 'tarjeta tarjeta-pared', 'data-pared': p.letra },
+      h('div', { class: 'cab' }, tituloPared,
         h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-pared', onclick: () => { if (confirmarQuitar('la pared ' + p.letra)) { d.paredes.splice(d.paredes.indexOf(p), 1); cambio(); repintarTodo(); } } }, 'Quitar')),
-      h('div', { class: 'fila-largo' }, medida(p, 'largo', 'Largo', { aviso: null, unidad: udPared }), botonPilar),
+      h('div', { class: 'fila-largo' }, medida(p, 'largo', 'Largo', { aviso: null, unidad: udPared }), botonPilar, botonEsquinas),
+      zonaEsquinas,
       p.alto !== null && p.alto !== undefined ? medida(p, 'alto', 'Alto', { aviso: null, unidad: udPared }) : null,
       h('div', { class: 'avisos', 'data-avisos': 'pared.' + p.id }),
       zonaPilares,
@@ -366,7 +429,7 @@ export async function pintarFicha(App, id) {
       tipos === TIPOS_ELEMENTO.cocina ? seccion('muebles', '🗄️ Muebles, de izquierda a derecha', muebles(p)) : null,
       ficha.subtipo === 'vestidor' ? seccion('muebles', '🗄️ Cuerpos', h('div', { class: 'campo' }, ...cuerpos(p, () => cuadreCuerposPared(p), false))) : null,
       seccion('elementos', '🔌 Tomas, huecos y cotas', zonaEl,
-        h('div', { class: 'chips' }, tipos.map(t => h('button', { type: 'button', 'data-acc': 'anadir-elemento', 'data-v': t, onclick: () => { p.elementos.push(elementoNuevo(t, d.ref_ultima)); cambio(); repintar(); } }, '＋ ' + (CORTO_ELEMENTO[t] || NOMBRE_ELEMENTO[t]))))));
+        h('div', { class: 'chips' }, tipos.map(t => h('button', { type: 'button', 'data-acc': 'anadir-elemento', 'data-v': t, onclick: () => { p.elementos.push(elementoNuevo(t, d.ref_ultima)); cambio(); repintar(); } }, '＋ ' + (CORTO_ELEMENTO[t] || NOMBRE_ELEMENTO[t])))))), tituloPared, 'pared:' + ficha.id + ':' + p.letra);
   }
 
   function enchufes() {
@@ -672,6 +735,18 @@ export async function pintarFicha(App, id) {
       await guardarYa(); App.vaciar = null; App.alSalir = null;
       history.back();
     } }, 'Borrar ficha'));
+  // Apartados con título grande (Paredes, Enchufes, Islas, Otras medidas, Notas…): el título pliega lo que va debajo hasta el siguiente.
+  {
+    const corte = n => n.matches('h2, .barra-extras, [data-acc="terminar"]') || (n.matches('.cab') && n.querySelector(':scope > h2'));
+    const hijos = [...main.children];
+    hijos.forEach((n, i) => {
+      const t = n.matches('h2') ? n : n.matches('.cab') ? n.querySelector(':scope > h2') : null;
+      if (!t) return;
+      const grupo = [];
+      for (let k = i + 1; k < hijos.length && !corte(hijos[k]); k++) grupo.push(hijos[k]);
+      if (grupo.length) plegador(t, 'apartado:' + ficha.tipo + ':' + t.textContent, v => grupo.forEach(g => g.classList.toggle('plegado-grupo', v)));
+    });
+  }
   refrescarAvisos();
   // Una ficha de nota se abre lista para escribir.
   if (ficha.tipo === 'nota' && !d.notas.length) nuevaNota();
