@@ -59,6 +59,13 @@ async function descargarCopia(App, msg) {
   } else descargar();
 }
 
+// Un número de los ajustes (mm, entero, 0 o más).
+function numeroAjuste(App, clave, etiqueta) {
+  const i = h('input', { 'data-acc': clave, inputmode: 'numeric', value: App.ajustes()[clave] });
+  i.addEventListener('input', () => { const v = Number(i.value); if (Number.isInteger(v) && v >= 0) App.cambiarAjustes({ [clave]: v }); });
+  return h('div', { class: 'campo' }, h('label', { class: 'et' }, etiqueta), i);
+}
+
 export async function pintarAjustes(App) {
   const main = App.marco('ajustes', 'Ajustes', '#/'), A = App.ajustes(), msgCopia = h('small', { class: 'ayuda', 'data-acc': 'msg-copia' });
   const margen = h('input', { 'data-acc': 'margen', inputmode: 'numeric', value: A.margen });
@@ -80,6 +87,16 @@ export async function pintarAjustes(App) {
     listaEditable(App, 'premarco_anchos', 'Premarco: anchos rápidos', true),
     listaEditable(App, 'premarco_altos', 'Premarco: altos rápidos', true),
     listaEditable(App, 'nombres_puerta', 'Nombres rápidos de puertas', false),
+    h('h3', {}, 'Pedido de puertas (según el premarco)'),
+    h('small', { class: 'ayuda' }, 'En el resumen del trabajo, cada premarco se junta con la puerta que hay que pedir. Medidas en mm.'),
+    listaEditable(App, 'pedido_anchos', 'Anchos de puerta habituales', true),
+    listaEditable(App, 'pedido_anchos_extra', 'Anchos «,5» (no todos los fabricantes)', true),
+    listaEditable(App, 'pedido_altos', 'Altos de puerta', true),
+    h('div', { class: 'tarjeta' },
+      numeroAjuste(App, 'holgura_ancho', 'De ancho, el premarco pide (mm de más)'),
+      numeroAjuste(App, 'holgura_alto', 'De alto, el premarco pide (mm de más)'),
+      numeroAjuste(App, 'rebaje_max', 'Se puede rebajar el premarco como mucho (mm)'),
+      h('small', {}, 'Con un premarco que entra justo en una puerta de «,5» se pide esa antes que rebajar.')),
     h('h2', {}, 'Cocina y armarios'),
     listaEditable(App, 'modulo_anchos', 'Anchos rápidos de módulos y cuerpos', true),
     listaEditable(App, 'lineales', 'Lineales', false),

@@ -271,7 +271,7 @@ prueba('una ficha sin nada se descarta al salir; con algo se queda', con({}, asy
   await nueva(a, 'nota'); await a.page.evaluate(() => history.back()); await a.page.waitForSelector('[data-pantalla="trabajo"]');
   await a.page.waitForTimeout(200); igual((await a.page.$$('[data-acc="abrir-ficha"]')).length, 0, 'quedó la nota vacía');
   await a.page.click('[data-acc="tipo"][data-v="puerta"]'); await a.page.waitForSelector('[data-puerta]');
-  await a.page.click(P + '[data-c="ancho"] [data-acc="rapido"][data-v="900"]');
+  await a.page.click(P + '[data-c="ancho"] [data-acc="rapido"][data-v="860"]');
   await a.page.evaluate(() => history.back()); await a.page.waitForSelector('[data-pantalla="trabajo"]'); await a.page.waitForTimeout(200);
   igual((await a.page.$$('[data-acc="abrir-ficha"]')).length, 1);
 }));

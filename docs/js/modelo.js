@@ -17,7 +17,11 @@ export const AJUSTES_FABRICA = {
   unidad: 'mm', paredes_m: true, margen: 10,
   puerta_anchos: [920, 820, 720, 620], puerta_altos: [2030, 2110], puerta_tabiques: [70, 90, 110],
   // Medida de premarco (orientativas: se ajustan en Ajustes).
-  premarco_anchos: [1000, 900, 800, 700], premarco_altos: [2100, 2150],
+  premarco_anchos: [960, 860, 760, 660], premarco_altos: [2060, 2140],
+  // Pedido de puertas según el premarco: anchos habituales, los «,5» (no todos los fabricantes los tienen) y los altos;
+  // lo que pide cada puerta de más (82 → 85 de ancho, 203 → 205 de alto) y lo que se puede rebajar el premarco como mucho.
+  pedido_anchos: [920, 820, 720, 620], pedido_anchos_extra: [905, 805, 705, 605], pedido_altos: [2110, 2030],
+  holgura_ancho: 30, holgura_alto: 20, rebaje_max: 30,
   nombres_puerta: [['entrada', 'Entrada'], ['salon', 'Salón'], ['cocina', 'Cocina'], ['aseo', 'Aseo'], ['bano', 'Baño'], ['habitacion', 'Habitación'], ['despacho', 'Despacho'], ['terraza', 'Terraza']],
   modulo_anchos: [300, 400, 450, 500, 600, 800, 900, 1000, 1200],
   usos_toma: [['agua', 'Agua'], ['termo', 'Termo'], ['gas', 'Gas']],
@@ -37,7 +41,8 @@ export function mezclarAjustes(g) {
   if (['mm', 'cm'].includes(d.unidad)) a.unidad = d.unidad;
   if (typeof d.paredes_m === 'boolean') a.paredes_m = d.paredes_m;
   if (Number.isInteger(d.margen) && d.margen > 0) a.margen = d.margen;
-  ['puerta_anchos', 'puerta_altos', 'puerta_tabiques', 'modulo_anchos', 'premarco_anchos', 'premarco_altos'].forEach(k => { if (listaNumeros(d[k])) a[k] = copiar(d[k]); });
+  ['puerta_anchos', 'puerta_altos', 'puerta_tabiques', 'modulo_anchos', 'premarco_anchos', 'premarco_altos', 'pedido_anchos', 'pedido_anchos_extra', 'pedido_altos'].forEach(k => { if (listaNumeros(d[k])) a[k] = copiar(d[k]); });
+  ['holgura_ancho', 'holgura_alto', 'rebaje_max'].forEach(k => { if (Number.isInteger(d[k]) && d[k] >= 0) a[k] = d[k]; });
   ['usos_toma', 'usos_enchufe', 'lineales', 'interiores', 'nombres_puerta'].forEach(k => { if (listaPares(d[k])) a[k] = copiar(d[k]); });
   return a;
 }

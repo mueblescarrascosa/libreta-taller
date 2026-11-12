@@ -352,3 +352,20 @@ button { background: #fffef9; border-color: var(--borde); }
 @media print { .perspectiva-resumen { break-inside: avoid; } }
 .perspectiva-resumen svg.perspectiva { border: 1px solid #e5e7eb; border-radius: 8px; display: block; max-height: 60vh; }
 @media print { .perspectiva-resumen svg.perspectiva { max-height: 120mm; width: auto; max-width: 100%; } }
+
+/* Papel (imprimir y PDF): sin fondos de color para ahorrar tinta. Rayas finas grises para seguir las filas;
+   en los dibujos, rellenos muy suaves con sus contornos. En el PDF se aplica con la clase .papel (y a los dibujos, en pdf.js). */
+@media print {
+  .resumen-doc, .resumen-doc .recuento, .resumen-doc th, .resumen-doc .tabla-puertas tbody tr:nth-child(even) { background: none !important; }
+  .resumen-doc .recuento { border: 0; border-top: 1px solid #9ca3af; border-bottom: 1px solid #9ca3af; border-radius: 0; padding: 6px 0; }
+  .resumen-doc th { border-bottom: 1.5px solid #6b7280; }
+  .resumen-doc td { border-bottom: 1px solid #c4c4c4; }
+  .resumen-doc header { border-bottom-width: 1.5px; }
+  .resumen-doc svg.planta, .resumen-doc svg.alzado, .resumen-doc svg.perspectiva { border-color: #c4c4c4 !important; }
+}
+.papel, .papel .recuento, .papel th, .papel .tabla-puertas tbody tr:nth-child(even) { background: none !important; }
+.papel .recuento { border: 0; border-top: 1px solid #9ca3af; border-bottom: 1px solid #9ca3af; border-radius: 0; padding: 6px 0; }
+.papel th { border-bottom: 1.5px solid #6b7280; }
+.papel td { border-bottom: 1px solid #c4c4c4; }
+.papel header { border-bottom-width: 1.5px !important; }
+.papel svg.planta, .papel svg.alzado, .papel svg.perspectiva { border-color: #c4c4c4 !important; }

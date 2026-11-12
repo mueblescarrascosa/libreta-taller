@@ -44,11 +44,33 @@ export function paginas(altoTotal, altoPagina, cortes) {
   return r;
 }
 
+// Ahorro de tinta en los dibujos (PDF e impresión): cada relleno pasa a su mismo tono mezclado con mucho blanco, opaco
+// (así lo de detrás no se transparenta); contornos y textos se quedan. Devuelve la función que lo deja como estaba.
+const AGUA = 0.8;
+function aclarar(c) {
+  const m = /^#([0-9a-f]{6})$/i.exec(String(c || '').trim()) || (/^#([0-9a-f]{3})$/i.exec(String(c || '').trim()) || [])[1] && [0, String(c).trim().slice(1).replace(/./g, x => x + x)];
+  if (!m) return null;
+  const n = parseInt(m[1], 16), mezcla = v => Math.round(v + (255 - v) * AGUA).toString(16).padStart(2, '0');
+  return '#' + mezcla(n >> 16) + mezcla((n >> 8) & 255) + mezcla(n & 255);
+}
+export function aclararDibujos(raiz) {
+  const antes = [];
+  raiz.querySelectorAll('svg polygon, svg rect').forEach(n => {
+    const f = n.getAttribute('fill'), nuevo = aclarar(f);
+    if (nuevo) { antes.push([n, f]); n.setAttribute('fill', nuevo); }
+  });
+  raiz.querySelectorAll('svg.perspectiva > rect:first-child').forEach(n => { if (!antes.some(a => a[0] === n)) antes.push([n, n.getAttribute('fill')]); n.setAttribute('fill', '#ffffff'); });
+  let hecho = false;
+  return () => { if (hecho) return; hecho = true; antes.forEach(([n, f]) => n.setAttribute('fill', f)); };
+}
+
 // A4 vertical con 10 mm de margen; las páginas se cortan por los sitios buenos.
 export async function generarPdf(elemento) {
   await Promise.all([cargarScript(LIB_JSPDF), cargarScript(LIB_H2C)]);
   let cortes = [];
   elemento.setAttribute('data-pdf', '');
+  // html2canvas dibuja los SVG de la página (no de su copia): se aclaran mientras se hace el PDF.
+  const devolver = aclararDibujos(elemento);
   try {
     const lienzo = await window.html2canvas(elemento, {
       scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, windowWidth: Math.max(ANCHO_HOJA + 80, window.innerWidth),
@@ -56,6 +78,8 @@ export async function generarPdf(elemento) {
         const el = docClon.querySelector('[data-pdf]');
         if (!el) return;
         Object.assign(el.style, { width: ANCHO_HOJA + 'px', maxWidth: 'none', boxShadow: 'none', border: '0' });
+        // Ahorro de tinta: sin fondos de color y, en los dibujos, rellenos suaves (los contornos y los textos se quedan).
+        el.classList.add('papel');
         // Los dibujos, a todo el ancho de la hoja (en pantalla llevan un tope de altura pensado para el móvil).
         el.querySelectorAll('svg.planta, svg.alzado, svg.perspectiva').forEach(g => {
           const vb = g.viewBox && g.viewBox.baseVal, caja = g.parentElement.clientWidth || ANCHO_HOJA;
@@ -79,5 +103,8 @@ export async function generarPdf(elemento) {
       doc.addImage(trozo.toDataURL('image/jpeg', 0.92), 'JPEG', 10, 10, ancho, trozo.height / pxPorMm);
     });
     return doc.output('blob');
-  } finally { elemento.removeAttribute('data-pdf'); }
+  } finally {
+    elemento.removeAttribute('data-pdf');
+    devolver();
+  }
 }

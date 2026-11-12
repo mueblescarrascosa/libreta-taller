@@ -29,18 +29,18 @@ prueba('tabla de puertas compacta, reordenar y elegir qué fichas van en el resu
   await a.page.click('[data-acc="tipo"][data-v="puerta"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
   await a.page.click('[data-acc="zona-rapida"][data-v="Piso 1"]');
   await a.page.click(P + '[data-acc="nombre-rapido"][data-v="Salón"]');
-  igual(await a.page.$$eval(P + '[data-c="ancho"] [data-acc="rapido"]', bs => bs.map(b => b.dataset.v)), ['1000', '900', '800', '700']);
-  await a.page.click(P + '[data-c="ancho"] [data-acc="rapido"][data-v="900"]'); await a.page.click(P + '[data-c="alto"] [data-acc="rapido"][data-v="2100"]');
+  igual(await a.page.$$eval(P + '[data-c="ancho"] [data-acc="rapido"]', bs => bs.map(b => b.dataset.v)), ['960', '860', '760', '660']);
+  await a.page.click(P + '[data-c="ancho"] [data-acc="rapido"][data-v="960"]'); await a.page.click(P + '[data-c="alto"] [data-acc="rapido"][data-v="2060"]');
   await a.page.click('[data-acc="anadir-puerta"]');
   await a.page.click(P + '[data-acc="nombre-rapido"][data-v="Baño"]');
-  await a.page.click(P + '[data-c="ancho"] [data-acc="rapido"][data-v="800"]'); await a.page.click(P + '[data-acc="condena"]');
+  await a.page.click(P + '[data-c="ancho"] [data-acc="rapido"][data-v="860"]'); await a.page.click(P + '[data-acc="condena"]');
   await a.page.click('[data-acc="anadir-puerta"]');
   // La segunda puerta (Baño) sube a la primera.
   await a.page.click('[data-puerta].puerta-cerrada:nth-child(2) [data-acc="subir-puerta"]');
   igual(await a.page.$$eval('[data-puerta].puerta-cerrada b', bs => bs.map(b => b.textContent)), ['Baño', 'Salón']);
   await a.page.click('header [data-acc="cab-resumen"]'); await a.page.waitForSelector('[data-pantalla="resumen"]');
   igual(await a.page.$$eval('.tabla-puertas th', ts => ts.map(t => t.textContent)), ['Puerta', 'Premarco', 'C/V']);
-  igual(await a.page.$$eval('.tabla-puertas tbody tr', ts => ts.map(t => [...t.children].map(c => c.textContent))), [['Baño', '80 × ?', 'C'], ['Salón', '90 × 210', ''], ['Puerta 3', '', '']]);
+  igual(await a.page.$$eval('.tabla-puertas tbody tr', ts => ts.map(t => [...t.children].map(c => c.textContent))), [['Baño', '86 × ?', 'C'], ['Salón', '96 × 206', ''], ['Puerta 3', '', '']]);
   afirma((await a.page.innerText('.resumen-doc .nota-ud')).startsWith('Premarco: ancho × alto'));
   afirma((await a.page.innerText('.resumen-doc h2')).startsWith('Puertas · Piso 1'));
   // Resumen del trabajo con dos fichas: solo las puertas.

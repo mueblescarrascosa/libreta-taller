@@ -9,7 +9,7 @@ const mayus = t => (t ? t[0].toUpperCase() + t.slice(1) : '');
 import { bloquesResumen, textoResumen, unidadesDe, urlWhatsapp } from '../resumen.js';
 import { recuentoPuertas, textoTrabajo } from '../trabajos.js';
 import { geometriaPlanta, svgPlanta } from '../plano-vista.js';
-import { generarPdf } from '../pdf.js';
+import { generarPdf, aclararDibujos } from '../pdf.js';
 import { geometriaAlzado, svgAlzado } from '../alzado.js';
 
 const v = (mm, u) => (mm === null || mm === undefined ? '' : verMedida(mm, u));
@@ -149,8 +149,10 @@ function acciones({ doc, titulo, texto, editar, aviso }) {
     let vuelto = false;
     const volver = () => { if (!vuelto) { vuelto = true; document.title = antes; } };
     document.title = titulo;
-    window.addEventListener('afterprint', volver, { once: true });
-    setTimeout(volver, 3000);
+    // Ahorro de tinta en los dibujos mientras se imprime.
+    const devolver = aclararDibujos(doc), fin = () => { volver(); devolver(); };
+    window.addEventListener('afterprint', fin, { once: true });
+    setTimeout(fin, 3000);
     window.print();
   }
   // WhatsApp directo con el texto ya escrito (WhatsApp pregunta a quién).
@@ -189,7 +191,7 @@ export async function pintarResumenTrabajo(App, id) {
   const main = App.marco('resumen', 'Resumen del trabajo', '#/trabajo/' + id,
     acciones({ doc, titulo: tituloLargo(trabajo.nombre ? trabajo : Object.assign({}, trabajo, { nombre: 'Trabajo' }), 'Medidas'), aviso, texto: () => textoTrabajo({ trabajo, fichas: elegidas(), ajustes: AJ }), editar: () => App.ir('#/trabajo/' + id) }));
   async function pintarDoc() {
-    const lista = elegidas(), r = recuentoPuertas(lista, u), partes = [cabecera(trabajo)];
+    const lista = elegidas(), r = recuentoPuertas(lista, u, AJ), partes = [cabecera(trabajo)];
     if (r.total) partes.push(h('section', { class: 'recuento' }, h('p', { class: 'tit' }, h('b', {}, 'Puertas: ' + r.total)), ...r.lineas.map(t => h('p', {}, t))));
     for (const f of lista) partes.push(h('div', { class: 'ficha-resumen' }, ...(await nodosFicha(App, f, trabajo, AJ))));
     if (!lista.length) partes.push(h('p', { class: 'vacio' }, fichas.length ? 'No has marcado ninguna ficha.' : 'Este trabajo aún no tiene fichas.'));

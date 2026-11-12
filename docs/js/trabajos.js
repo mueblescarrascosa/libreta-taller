@@ -2,7 +2,7 @@
 // orden por actividad, limpieza de fotos y plantilla de piso. Sin pantalla: todo se prueba en Node.
 import { verMedida } from './unidades.js';
 import { tituloFicha, NOMBRE_SUBTIPO } from './util.js';
-import { normalizarFicha, tieneInformacion, limpiarDatos, fichaNueva, anchoPuerta } from './modelo.js';
+import { normalizarFicha, tieneInformacion, limpiarDatos, fichaNueva, anchoPuerta, AJUSTES_FABRICA } from './modelo.js';
 import { bloquesResumen } from './resumen.js';
 import { instante } from './sincro.js';
 
@@ -74,17 +74,52 @@ export function trabajosARecuperar(trabajos, fichas) {
   return trabajos.filter(t => t.borrado_at && conVivas.has(t.id));
 }
 
-// Recuento de todas las puertas de un trabajo, agrupadas por medida, para el pedido.
-export function recuentoPuertas(fichas, unidad) {
+// Qué puerta pedir para un premarco, en una medida (ancho o alto): la más grande que entra con su holgura sin tocar el premarco;
+// si esa es mucho más pequeña (más de 3 cm) que otra que entra rebajando el premarco como mucho «rebaje_max», esa otra,
+// la que menos haya que rebajar. Así, con 84 sale la de 80,5 (y no la de 82 rebajando 1), y con 83 la de 80,5 rebajando 0,5.
+const SOBRA_MAX = 30;
+function puertaPara(A, lista, extra, holgura, rebajeMax) {
+  if (!hay(A)) return null;
+  const todas = lista.map(w => ({ w, extra: false })).concat(extra.map(w => ({ w, extra: true }))).sort((a, b) => b.w - a.w || a.extra - b.extra);
+  // Sin tocar el premarco, y sin que sobre demasiado (más de 3 cm por encima de lo justo ya no es esa puerta).
+  const sin = todas.find(c => A >= c.w + holgura && A - c.w - holgura <= SOBRA_MAX);
+  const con = todas.filter(c => c.w + holgura > A && c.w + holgura - A <= rebajeMax && (!sin || c.w - sin.w > 30))
+    .sort((a, b) => a.w - b.w)[0]; // la que menos hay que rebajar (la más estrecha de las que entran rebajando)
+  if (con) return Object.assign({}, con, { rebaje: con.w + holgura - A });
+  return sin ? Object.assign({}, sin, { rebaje: 0 }) : null;
+}
+export function puertaParaPremarco(ancho, alto, aj = AJUSTES_FABRICA) {
+  const a = Object.assign({}, AJUSTES_FABRICA, aj);
+  return { ancho: puertaPara(ancho, a.pedido_anchos, a.pedido_anchos_extra, a.holgura_ancho, a.rebaje_max), alto: puertaPara(alto, a.pedido_altos, [], a.holgura_alto, a.rebaje_max) };
+}
+
+// Recuento de todas las puertas de un trabajo para el pedido: lo medido como premarco, agrupado por la puerta que hay que pedir;
+// lo medido como puerta, por su medida.
+export function recuentoPuertas(fichas, unidad, ajustes = AJUSTES_FABRICA) {
   const puertas = fichas.map(normalizarFicha).filter(f => f.tipo === 'puerta').flatMap(f => (f.datos.puertas || []).map(p => (f.datos.medida === 'premarco' ? Object.assign({}, p, { medida: 'premarco' }) : p)));
   const v = mm => verMedida(mm, unidad), grupos = new Map();
   // Con paño fijo cuenta el ancho de la puerta, no el del hueco entero.
+  const pedido = new Map(), sinPuerta = [];
   puertas.map(p => (p.fijo ? Object.assign({}, p, { ancho: anchoPuerta(p) }) : p)).forEach(p => {
+    // Premarco con ancho y alto (de una hoja): a la puerta del catálogo que le toca.
+    if (p.medida === 'premarco' && hay(p.ancho) && hay(p.alto) && p.tipo !== 'doble' && p.tipo !== 'corredera') {
+      const q = puertaParaPremarco(p.ancho, p.alto, ajustes), pre = v(p.ancho) + '×' + v(p.alto);
+      if (!q.ancho || !q.alto) { sinPuerta.push(pre); return; }
+      const k = q.ancho.w + 'x' + q.alto.w, g = pedido.get(k) || { q, n: 0, pre: [] };
+      const reb = [q.ancho.rebaje ? 'rebajar ' + v(q.ancho.rebaje) + ' ' + unidad + ' de ancho' : null, q.alto.rebaje ? 'rebajar ' + v(q.alto.rebaje) + ' ' + unidad + ' de alto' : null].filter(Boolean).join(' y ');
+      g.n++; g.pre.push(pre + (reb ? ' (' + reb + ')' : '')); pedido.set(k, g);
+      return;
+    }
     let k = hay(p.ancho) && hay(p.alto) ? 'de ' + v(p.ancho) + ' × ' + v(p.alto) : hay(p.ancho) ? 'de ' + v(p.ancho) + ' de ancho' : hay(p.alto) ? 'de ' + v(p.alto) + ' de alto' : 'sin medidas';
     if (p.medida === 'premarco' && k !== 'sin medidas') k += ' (premarco)';
     grupos.set(k, (grupos.get(k) || 0) + 1);
   });
-  const lineas = [...grupos].sort((a, b) => (a[0] === 'sin medidas') - (b[0] === 'sin medidas') || b[1] - a[1]).map(([k, n]) => n + ' ' + k);
+  // Premarcos iguales juntos («86×204 ×2»).
+  const juntos = l => [...l.reduce((m, t) => m.set(t, (m.get(t) || 0) + 1), new Map())].map(([t, n]) => (n > 1 ? t + ' ×' + n : t)).join(', ');
+  const lineas = [...pedido.values()].sort((a, b) => b.n - a.n || b.q.ancho.w - a.q.ancho.w)
+    .map(g => g.n + ' de ' + v(g.q.ancho.w) + ' × ' + v(g.q.alto.w) + (g.q.ancho.extra ? ' (no todos los fabricantes)' : '') + ' · premarco' + (g.pre.length > 1 ? 's ' : ' ') + juntos(g.pre));
+  if (sinPuerta.length) lineas.push(sinPuerta.length + ' sin puerta que encaje · premarco' + (sinPuerta.length > 1 ? 's ' : ' ') + juntos(sinPuerta));
+  lineas.push(...[...grupos].sort((a, b) => (a[0] === 'sin medidas') - (b[0] === 'sin medidas') || b[1] - a[1]).map(([k, n]) => n + ' ' + k));
   const cuenta = fn => puertas.filter(fn).length;
   const izq = cuenta(p => p.mano === 'izq'), der = cuenta(p => p.mano === 'der');
   if (izq || der) lineas.push('Abren a la izquierda: ' + izq + ' · a la derecha: ' + der);
@@ -178,7 +213,7 @@ export function fichasDePlantilla(trabajoId, { puertas, cocina, armarios = {} })
 export function textoTrabajo({ trabajo, fichas, ajustes }) {
   const u = (trabajo && trabajo.unidad) || ajustes.unidad, bloques = [];
   bloques.push(['*' + (trabajo.nombre || 'Trabajo') + '*', [trabajo.cliente, trabajo.direccion].filter(hay).join(' · ')].filter(hay));
-  const r = recuentoPuertas(fichas, u);
+  const r = recuentoPuertas(fichas, u, ajustes);
   if (r.total) bloques.push(['*Puertas: ' + r.total + '*', ...r.lineas]);
   fichas.forEach(f => bloques.push(...bloquesResumen({ ficha: normalizarFicha(f), trabajo, ajustes }).slice(1)));
   return bloques.map(b => b.join('\n')).join('\n\n');

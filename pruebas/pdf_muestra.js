@@ -11,7 +11,7 @@ try {
     const f = await al.leer('fichas', id), r = () => Math.random().toString(36).slice(2);
     f.nombre = 'Piso 1';
     f.datos.puertas = ['Entrada', 'Salón', 'Cocina', 'Habitación 1', 'Habitación 2', 'Habitación 3', 'Baño', 'Aseo', 'Despacho', 'Terraza']
-      .map((n, i) => ({ id: r(), nombre: n, ancho: [900, 800, 800, 800, 800, 800, 700, 700, 800, 900][i], alto: 2100, tabique: 90, mano: i % 2 ? 'der' : 'izq', condena: n === 'Baño' || n === 'Aseo', vidriera: n === 'Salón' || n === 'Cocina' }));
+      .map((n, i) => ({ id: r(), nombre: n, ancho: [960, 860, 850, 860, 840, 860, 760, 760, 860, 960][i], alto: [2060, 2060, 2050, 2040, 2060, 2060, 2060, 2050, 2060, 2140][i], tabique: 90, mano: i % 2 ? 'der' : 'izq', condena: n === 'Baño' || n === 'Aseo', vidriera: n === 'Salón' || n === 'Cocina' }));
     await al.guardar('fichas', f);
     const m = (tipo, ancho, o) => Object.assign({ id: r(), tipo, ancho, nombre: '' }, o);
     const c = { id: r(), trabajo_id: f.trabajo_id, tipo: 'cocina', subtipo: null, nombre: '', creado_at: new Date(Date.now() + 1000).toISOString(), updated_at: null, borrado_at: null,
