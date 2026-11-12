@@ -1,7 +1,7 @@
 import { prueba, afirma, igual, fin } from './mini.js';
 import { fichaNueva, paredNueva, elementoNuevo } from '../docs/js/modelo.js';
 import { moduloNuevo } from '../docs/js/modulos.js';
-import { escenaPerspectiva, vistaPorDefecto, vistaDe, proyectar } from '../docs/js/perspectiva.js';
+import { escenaPerspectiva, vistaPorDefecto, vistaDe, proyectar, ordenCajas } from '../docs/js/perspectiva.js';
 import { abrir, entrar, crearTrabajo } from './arnes.js';
 
 const mod = (tipo, ancho) => Object.assign(moduloNuevo(tipo), { ancho });
@@ -18,7 +18,7 @@ function cocina() {
 prueba('escena: paredes, muebles en caja, ventana sobre su pared y el frigo con su alto encima', () => {
   const e = escenaPerspectiva(cocina().datos);
   igual([e.k, e.techo, e.paredes.length], [1, 2600, 4]);
-  igual(e.cajas.length, 5);
+  igual(e.cajas.length, 6); // 5 muebles y la encimera de fregadero + bajo, de una pieza
   const col = e.cajas.find(c => c.texto && /Columna frigo/.test(c.texto.texto));
   igual(Math.max(...col.caras.flatMap(c => c.pts.map(p => p[2]))), 1850);
   igual(e.sobre.filter(c => c.fill === '#bae6fd').length, 1);
@@ -50,6 +50,34 @@ prueba('proyección: se ven los muebles de A con su rótulo; mirando al otro lad
 
 const con = fn => async () => { const a = await abrir({}); try { await entrar(a); await fn(a); igual(a.errores, [], 'errores de página'); } finally { await a.cerrar(); } };
 const ficha = a => a.page.evaluate(async () => { const id = location.hash.split('/')[2]; const { abrirAlmacen } = await import('./js/almacen.js'); return (await abrirAlmacen()).leer('fichas', id); });
+
+prueba('esquina con rinconero: nada se pisa, la encimera va seguida hasta la columna y con vuelo', () => {
+  const f = fichaNueva('cocina', null, 't');
+  f.datos.alto_techo = 2400;
+  const rin = Object.assign(mod('rinconero', 930), { gira: 'der', forma: 'L', lado2: 930 });
+  f.datos.paredes = [pared('B', 2580, { bajos: [mod('bajo', 500), mod('placa', 800), rin] }), pared('C', 4020, { bajos: [mod('cajonero', 450), mod('fregadero', 800), mod('columna_hmo', 600)] })];
+  const e = escenaPerspectiva(f.datos), bajas = e.cajas.filter(c => c.z0 < 10 && c.color !== 'pilar');
+  const area = r => Math.abs(r.reduce((s, p, i) => s + p.x * r[(i + 1) % 4].y - r[(i + 1) % 4].x * p.y, 0)) / 2;
+  // Recorte por SAT: ningún par de muebles del suelo se pisa más de 1 mm.
+  const pisan = (A, B) => { for (const R of [A, B]) for (let i = 0; i < 4; i++) { const p = R[i], q = R[(i + 1) % 4], n = { x: -(q.y - p.y), y: q.x - p.x }, l = Math.hypot(n.x, n.y);
+    const a = A.map(v => (v.x * n.x + v.y * n.y) / l), b = B.map(v => (v.x * n.x + v.y * n.y) / l);
+    if (Math.max(...a) <= Math.min(...b) + 1 || Math.max(...b) <= Math.min(...a) + 1) return false; } return true; };
+  for (let i = 0; i < bajas.length; i++) for (let j = i + 1; j < bajas.length; j++) afirma(!pisan(bajas[i].huella, bajas[j].huella), 'se pisan ' + i + ' y ' + j);
+  const losas = e.cajas.filter(c => c.color === 'encimera');
+  igual(losas.length, 2);
+  // 62 de fondo (2 de vuelo); la de C empieza en el canto de la de B y acaba en la columna.
+  igual(losas.map(l => Math.round(area(l.huella) / 620)).sort((a, b) => a - b), [1560, 2230]); // B: 50+80+93; C: de 62 (canto de B) a 218
+  afirma(losas.every(l => l.z1 === 850 && l.z0 === 820), 'encimera de 3 cm a 85');
+});
+
+prueba('orden de dibujo: lo de delante después, aunque sea más grande', () => {
+  const caja = (x0, y0, x1, y1, z0, z1, color = 'bajo') => ({ huella: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }], z0, z1, color, centro: [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2] });
+  const C = [500, 3000, 1750];
+  const columna = caja(-2000, 0, 2000, 600, 0, 2150), bajo = caja(0, 600, 600, 1200, 0, 820), alto = caja(-2000, 0, 2000, 350, 1450, 2150), pilar = caja(0, 0, 300, 900, 0, 2400, 'pilar');
+  const o = ordenCajas([bajo, columna, alto, pilar], C);
+  afirma(o.indexOf(columna) < o.indexOf(bajo), 'la columna de detrás antes que el bajo de delante');
+  afirma(o.indexOf(pilar) < o.indexOf(bajo), 'el mueble metido en el pilar va por delante');
+});
 
 prueba('en la ficha: tocar y arrastrar en la planta pequeña guarda dónde estás; pantalla completa; sale en el resumen', con(async a => {
   await crearTrabajo(a, 'Casa');
