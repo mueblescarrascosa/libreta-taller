@@ -6,7 +6,7 @@ import { nombrarPuerta, CORTO_ELEMENTO, HUMOS_DIAMETROS, HUMOS_RECTANGULARES, is
 import { duplicarFicha } from '../trabajos.js';
 import { campoMedida, campoEntero } from '../campos.js';
 import { verMedida } from '../unidades.js';
-import { TIPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, medidasModulo, anchosDe, FORMAS_RINCONERO, LADOS_RINCONERO, paredesVecinas, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, FORMAS_RINCON_CUERPO, LADOS_RINCON_CUERPO, INTERIOR_RINCON, textoRincon, textoCuadre, lineaNueva, nombreLineal, nombreInterior, interioresDe, elegirInterior, textoInteriores, acabadosNuevos, ELECTRO, datosElectro, electroNuevo } from '../modulos.js';
+import { TIPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, medidasModulo, anchosDe, FORMAS_RINCONERO, LADOS_RINCONERO, paredesVecinas, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, FORMAS_RINCON_CUERPO, LADOS_RINCON_CUERPO, INTERIOR_RINCON, textoRincon, textoCuadre, lineaNueva, nombreLineal, nombreInterior, interioresDe, elegirInterior, textoInteriores, acabadosNuevos, MATERIALES_ENCIMERA, ELECTRO, datosElectro, electroNuevo } from '../modulos.js';
 import { seccionAdjuntos } from './adjuntos.js';
 import { textoResumen, urlWhatsapp } from '../resumen.js';
 import { huella } from '../sincro.js';
@@ -601,14 +601,23 @@ export async function pintarFicha(App, id) {
   const resumenAcabados = () => {
     const ac = d.acabados || {}, t = [];
     if (ac.bitono) t.push('bitono'); if (ac.modelo || ac.color) t.push([ac.modelo, ac.color].filter(Boolean).join(' '));
-    if (ac.encimera && (ac.encimera.material || ac.encimera.color)) t.push('encimera ' + [ac.encimera.material, ac.encimera.color].filter(Boolean).join(' '));
+    if (ac.casco) t.push('cascos ' + ac.casco);
+    if (ac.encimera && (ac.encimera.material || ac.encimera.modelo || ac.encimera.color)) t.push('encimera ' + [ac.encimera.material, ac.encimera.modelo, ac.encimera.color].filter(Boolean).join(' '));
     if ((ac.lineales || []).length) t.push(ac.lineales.length + ' lineal' + (ac.lineales.length > 1 ? 'es' : ''));
     return t.join(' · ');
   };
   const resumenElectro = () => (d.electro || []).map(e => (e.clave === 'otro' ? e.nombre || 'otro' : datosElectro(e.clave)[1].toLowerCase())).join(', ');
-  function acabados() {
+  // Acabados: frentes (puertas), interior (cascos) y, en la cocina, encimera y lineales. vestidor: solo frentes y cascos.
+  function acabados(vestidor = false) {
     if (!d.acabados) d.acabados = acabadosNuevos();
     const ac = d.acabados, caja = h('div', { class: 'tarjeta' }), zonaLin = h('div', { class: 'lista' });
+    if (!ac.encimera) ac.encimera = { material: '', modelo: '', color: '', grueso: null };
+    if (!Array.isArray(ac.lineales)) ac.lineales = [];
+    // Un material de antes que no es de la lista pasa a «modelo».
+    if (ac.encimera.material && !MATERIALES_ENCIMERA.includes(ac.encimera.material) && !ac.encimera.modelo) { ac.encimera.modelo = ac.encimera.material; ac.encimera.material = ''; }
+    const cascos = () => [h('label', { class: 'et' }, 'Interior (cascos)'), texto(ac, 'casco', 'acab-casco', 'Color de los cascos'),
+      h('div', { class: 'chips' }, AJ.colores_casco.map(([v, t]) => h('button', { type: 'button', 'data-acc': 'casco-rapido', 'data-v': v, class: ac.casco === t ? 'on' : '',
+        onclick: () => { ac.casco = ac.casco === t ? '' : t; cambio(); pintar(); } }, t)))];
     const pintarLineales = () => zonaLin.replaceChildren(...ac.lineales.map(l => h('div', { class: 'libre', 'data-lineal': l.tipo },
       l.tipo === 'otro' ? texto(l, 'nombre', 'lineal-nombre', '¿Qué lineal?') : h('span', {}, nombreLineal(l, AJ)),
       texto(l, 'modelo', 'lineal-modelo', 'Modelo o color'),
@@ -620,12 +629,15 @@ export async function pintarFicha(App, id) {
         ...(ac.bitono
           ? [h('label', { class: 'et' }, 'Altos'), h('div', { class: 'dos' }, texto(ac, 'modelo_altos', 'acab-modelo_altos', 'Modelo'), texto(ac, 'color_altos', 'acab-color_altos', 'Color')),
             h('label', { class: 'et' }, 'Bajos'), h('div', { class: 'dos' }, texto(ac, 'modelo_bajos', 'acab-modelo_bajos', 'Modelo'), texto(ac, 'color_bajos', 'acab-color_bajos', 'Color'))]
-          : [h('label', { class: 'et' }, 'Muebles'), h('div', { class: 'dos' }, texto(ac, 'modelo', 'acab-modelo', 'Modelo'), texto(ac, 'color', 'acab-color', 'Color'))]),
-        h('label', { class: 'et' }, 'Encimera'),
-        h('div', { class: 'dos' }, texto(ac.encimera, 'material', 'encimera-material', 'Material o modelo'), texto(ac.encimera, 'color', 'encimera-color', 'Color')),
-        campoMedida({ etiqueta: 'Grueso', acc: 'encimera-grueso', valor: ac.encimera.grueso, unidad: 'mm', alCambiar: v => { ac.encimera.grueso = v; cambio(); } }),
-        h('label', { class: 'et' }, 'Lineales'), zonaLin,
-        h('div', { class: 'chips' }, AJ.lineales.concat([['otro', 'Otro']]).map(([v, t]) => h('button', { type: 'button', 'data-acc': 'anadir-lineal', 'data-v': v, onclick: () => { ac.lineales.push(lineaNueva(v)); cambio(); pintarLineales(); } }, t))));
+          : [h('label', { class: 'et' }, 'Frentes (puertas)'), h('div', { class: 'dos' }, texto(ac, 'modelo', 'acab-modelo', 'Modelo'), texto(ac, 'color', 'acab-color', 'Color'))]),
+        ...cascos(),
+        ...(vestidor ? [] : [
+          h('label', { class: 'et' }, 'Encimera'),
+          segmentado({ acc: 'encimera-material', opciones: MATERIALES_ENCIMERA.map(m => [m, m]), valor: ac.encimera.material || null, permitirVacio: true, alCambiar: v => { ac.encimera.material = v || ''; cambio(); } }),
+          h('div', { class: 'dos' }, texto(ac.encimera, 'modelo', 'encimera-modelo', 'Modelo'), texto(ac.encimera, 'color', 'encimera-color', 'Color')),
+          campoMedida({ etiqueta: 'Grueso', acc: 'encimera-grueso', valor: ac.encimera.grueso, unidad: 'cm', rapidos: AJ.encimera_gruesos, alCambiar: v => { ac.encimera.grueso = v; cambio(); } }),
+          h('label', { class: 'et' }, 'Lineales'), zonaLin,
+          h('div', { class: 'chips' }, AJ.lineales.concat([['otro', 'Otro']]).map(([v, t]) => h('button', { type: 'button', 'data-acc': 'anadir-lineal', 'data-v': v, onclick: () => { ac.lineales.push(lineaNueva(v)); cambio(); pintarLineales(); } }, t)))]));
       pintarLineales();
     };
     pintar();
@@ -705,7 +717,7 @@ export async function pintarFicha(App, id) {
       if (!ves || (d.cuerpos || []).length) r.push(...cuerpos());
       // En el vestidor los enchufes van en sus paredes; la lista aparte solo se ve si ya tenía alguno.
       if (ficha.subtipo !== 'vestidor' || (d.enchufes || []).length) r.push(...enchufes());
-      if (ficha.subtipo === 'vestidor') r.push(...paredes(TIPOS_ELEMENTO.vestidor));
+      if (ficha.subtipo === 'vestidor') r.push(...paredes(TIPOS_ELEMENTO.vestidor), plegable('acabados', 'Acabados', acabados(true), resumenAcabados));
       return r;
     }
     return [];

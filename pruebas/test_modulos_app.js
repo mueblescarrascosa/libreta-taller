@@ -38,17 +38,28 @@ prueba('pasarse del largo avisa; subir y quitar módulos', con({}, async a => {
   await a.page.click(A + '[data-fila="bajos"] [data-modulo].abierto [data-acc="quitar-modulo"]'); await a.page.waitForTimeout(400);
   igual((await ficha(a)).datos.paredes[0].bajos.length, 1);
 }));
-prueba('acabados de cocina: bitono, encimera y lineales', con({}, async a => {
+prueba('acabados de cocina: bitono, cascos, encimera y lineales', con({}, async a => {
   await nueva(a, 'cocina'); await a.page.click('[data-acc="abrir-acabados"]');
   await a.page.fill('[data-acc="acab-modelo"]', 'Alpha'); await a.page.fill('[data-acc="acab-color"]', 'Blanco');
   await a.page.click('[data-acc="bitono"][data-v="true"]');
   afirma(!(await a.page.$('[data-acc="acab-modelo"]')), 'sigue el modelo único');
   await a.page.fill('[data-acc="acab-modelo_altos"]', 'Alpha'); await a.page.fill('[data-acc="acab-color_bajos"]', 'Roble');
-  await a.page.fill('[data-acc="encimera-material"]', 'Compacto'); await a.page.fill('[data-acc="encimera-grueso"]', '12');
+  igual(await a.page.$$eval('[data-acc="casco-rapido"]', b => b.map(x => x.textContent)), ['Blanco', 'Roble', 'Gris', 'Antracita', 'Negro']);
+  await a.page.click('[data-acc="casco-rapido"][data-v="antracita"]');
+  igual(await a.page.$$eval('[data-acc="encimera-material"]', b => b.map(x => x.textContent)), ['Madera', 'Porcelánico', 'Silestone', 'Granito']);
+  await a.page.click('[data-acc="encimera-material"][data-v="Silestone"]'); await a.page.fill('[data-acc="encimera-modelo"]', 'Blanco Zeus');
+  await a.page.click('[data-c="encimera-grueso"] [data-acc="rapido"][data-v="20"]');
   await a.page.click('[data-acc="anadir-lineal"][data-v="zocalo"]'); await a.page.fill('[data-lineal] [data-acc="lineal-modelo"]', 'Aluminio');
   await recargar(a); const ac = (await ficha(a)).datos.acabados;
-  igual([ac.bitono, ac.modelo_altos, ac.color_bajos, ac.encimera.material, ac.encimera.grueso], [true, 'Alpha', 'Roble', 'Compacto', 12]);
+  igual([ac.bitono, ac.modelo_altos, ac.color_bajos, ac.casco, ac.encimera.material, ac.encimera.modelo, ac.encimera.grueso], [true, 'Alpha', 'Roble', 'Antracita', 'Silestone', 'Blanco Zeus', 20]);
   igual(ac.lineales.map(l => [l.tipo, l.modelo]), [['zocalo', 'Aluminio']]);
+}));
+prueba('acabados del vestidor: frentes y cascos, sin encimera', con({}, async a => {
+  await nueva(a, 'armario', 'vestidor'); await a.page.click('[data-acc="abrir-acabados"]');
+  await a.page.fill('[data-acc="acab-color"]', 'Roble'); await a.page.click('[data-acc="casco-rapido"][data-v="blanco"]');
+  igual(await a.page.$('[data-acc="encimera-material"]'), null);
+  await recargar(a); const ac = (await ficha(a)).datos.acabados;
+  igual([ac.color, ac.casco], ['Roble', 'Blanco']);
 }));
 prueba('cuerpos de armario con interior y cuadre con el hueco', con({}, async a => {
   await nueva(a, 'armario', 'abatible'); await a.page.fill('[data-acc="ancho_arriba"]', '1500');

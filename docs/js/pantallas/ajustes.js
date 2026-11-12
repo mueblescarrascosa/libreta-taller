@@ -101,6 +101,8 @@ export async function pintarAjustes(App) {
     listaEditable(App, 'modulo_anchos', 'Anchos rápidos de módulos y cuerpos', true),
     listaEditable(App, 'lineales', 'Lineales', false),
     listaEditable(App, 'interiores', 'Interiores de armario', false),
+    listaEditable(App, 'colores_casco', 'Colores del interior (cascos)', false),
+    listaEditable(App, 'encimera_gruesos', 'Gruesos de encimera', true),
     h('h2', {}, 'Tomas y enchufes'),
     listaEditable(App, 'usos_toma', 'Tomas: de qué son', false),
     listaEditable(App, 'usos_enchufe', 'Enchufes: de qué son', false),

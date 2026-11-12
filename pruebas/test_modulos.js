@@ -40,7 +40,7 @@ prueba('cuerpos de armario contra el hueco más estrecho', () => {
 prueba('fichas nuevas traen sus listas vacías', () => {
   const c = fichaNueva('cocina', null, 't');
   igual([c.datos.paredes[0].bajos, c.datos.paredes[0].altos], [[], []]);
-  igual(c.datos.acabados, { bitono: null, modelo: '', color: '', modelo_altos: '', color_altos: '', modelo_bajos: '', color_bajos: '', encimera: { material: '', color: '', grueso: null }, lineales: [] });
+  igual(c.datos.acabados, { bitono: null, modelo: '', color: '', modelo_altos: '', color_altos: '', modelo_bajos: '', color_bajos: '', casco: '', encimera: { material: '', modelo: '', color: '', grueso: null }, lineales: [] });
   igual(fichaNueva('armario', 'corredera', 't').datos.cuerpos, []);
   const p = fichaNueva('puerta', null, 't'); igual([p.datos.modelo, p.datos.color], ['', '']);
   afirma(!tieneInformacion(c.datos) && !tieneInformacion(p.datos), 'vacías cuentan como información');

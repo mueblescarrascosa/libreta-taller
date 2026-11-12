@@ -264,7 +264,9 @@ function avisoPantalonero(l, campo, que, c, unidad) {
   if (a && hay(c.ancho) && c.ancho < a) l.push({ campo, texto: que + ': el ' + (/doble/.test(k) ? 'pantalonero doble' : 'pantalonero') + ' mide ' + verMedida(a, unidad) + ' ' + unidad + ' y el cuerpo ' + verMedida(c.ancho, unidad) + ' ' + unidad });
 }
 
-export const acabadosNuevos = () => ({ bitono: null, modelo: '', color: '', modelo_altos: '', color_altos: '', modelo_bajos: '', color_bajos: '', encimera: { material: '', color: '', grueso: null }, lineales: [] });
+export const acabadosNuevos = () => ({ bitono: null, modelo: '', color: '', modelo_altos: '', color_altos: '', modelo_bajos: '', color_bajos: '', casco: '', encimera: { material: '', modelo: '', color: '', grueso: null }, lineales: [] });
+// Materiales de encimera (fijos).
+export const MATERIALES_ENCIMERA = ['Madera', 'Porcelánico', 'Silestone', 'Granito'];
 
 // Electrodomésticos de la cocina: qué son, de qué tipo, su ancho (cm) y el modelo si se sabe.
 export const ELECTRO = [

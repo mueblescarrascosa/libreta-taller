@@ -17,12 +17,12 @@ prueba('texto de puertas: cabecera, modelo y una línea por puerta', () => {
 });
 prueba('texto de cocina: altura, acabados, paredes con elementos y módulos', () => {
   const f = fichaNueva('cocina', null, 't'); const d = f.datos, p = d.paredes[0];
-  d.alto_techo = 2600; Object.assign(d.acabados, { modelo: 'Alpha', color: 'Blanco' }); d.acabados.encimera.material = 'Compacto';
+  d.alto_techo = 2600; Object.assign(d.acabados, { modelo: 'Alpha', color: 'Blanco', casco: 'Gris' }); Object.assign(d.acabados.encimera, { material: 'Silestone', grueso: 20 });
   Object.assign(p, { largo: 3000, azulejo: 'franja', azulejo_desde: 900, azulejo_techo: true });
   p.elementos.push(Object.assign(elementoNuevo('humos', 'izq'), { distancia: 600, altura: 2100 }), Object.assign(elementoNuevo('enchufe', 'der'), { para: 'hmo', distancia: 300, altura: 1100 }));
   p.bajos.push(Object.assign(moduloNuevo('columna_hmo'), { ancho: 600 }), Object.assign(moduloNuevo('fregadero'), { ancho: 800 }));
   const t = textoResumen({ ficha: f, trabajo, ajustes: AJUSTES_FABRICA });
-  afirma(t.includes('Altura: 2,6 m'), t); afirma(t.includes('Muebles: Alpha Blanco') && t.includes('Encimera: Compacto'), t);
+  afirma(t.includes('Altura: 2,6 m'), t); afirma(t.includes('Frentes: Alpha Blanco') && t.includes('Cascos: Gris') && t.includes('Encimera: Silestone 2 cm'), t);
   afirma(t.includes('*Pared A* · 3 m\n- Azulejo desde 0,9 m hasta el techo'), t);
   afirma(t.includes('- Salida de humos: a 60 cm desde la izquierda, altura 210 cm'), t);
   afirma(t.includes('- Enchufe H/MO (columna): a 30 cm desde la derecha, altura 110 cm'), t);

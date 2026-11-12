@@ -27,6 +27,9 @@ export const AJUSTES_FABRICA = {
   usos_toma: [['agua', 'Agua'], ['termo', 'Termo'], ['gas', 'Gas']],
   usos_enchufe: [['general', 'General'], ['hmo', 'H/MO (columna)'], ['placa', 'Placa'], ['campana', 'Campana'], ['frigo', 'Frigorífico'], ['lavavajillas', 'Lavavajillas'], ['lavadora', 'Lavadora'], ['termo', 'Termo']],
   lineales: [['zocalo', 'Zócalo'], ['cornisa', 'Cornisa'], ['moldura', 'Moldura'], ['led', 'Tira LED'], ['tapajuntas', 'Tapajuntas']],
+  // Acabados: colores rápidos del interior (cascos) y gruesos de encimera.
+  colores_casco: [['blanco', 'Blanco'], ['roble', 'Roble'], ['gris', 'Gris'], ['antracita', 'Antracita'], ['negro', 'Negro']],
+  encimera_gruesos: [40, 20],
   interiores: [['barra', 'Barra'], ['doble_barra', 'Doble barra'], ['estantes', 'Estantes'], ['cajonera', 'Cajonera'], ['zapatero', 'Zapatero'], ['pantalonero', 'Pantalonero'], ['pantalonero_doble', 'Pantalonero doble']],
 };
 export const USOS = { toma: AJUSTES_FABRICA.usos_toma, enchufe: AJUSTES_FABRICA.usos_enchufe };
@@ -41,9 +44,9 @@ export function mezclarAjustes(g) {
   if (['mm', 'cm'].includes(d.unidad)) a.unidad = d.unidad;
   if (typeof d.paredes_m === 'boolean') a.paredes_m = d.paredes_m;
   if (Number.isInteger(d.margen) && d.margen > 0) a.margen = d.margen;
-  ['puerta_anchos', 'puerta_altos', 'puerta_tabiques', 'modulo_anchos', 'premarco_anchos', 'premarco_altos', 'pedido_anchos', 'pedido_anchos_extra', 'pedido_altos'].forEach(k => { if (listaNumeros(d[k])) a[k] = copiar(d[k]); });
+  ['puerta_anchos', 'puerta_altos', 'puerta_tabiques', 'modulo_anchos', 'premarco_anchos', 'premarco_altos', 'pedido_anchos', 'pedido_anchos_extra', 'pedido_altos', 'encimera_gruesos'].forEach(k => { if (listaNumeros(d[k])) a[k] = copiar(d[k]); });
   ['holgura_ancho', 'holgura_alto', 'rebaje_max'].forEach(k => { if (Number.isInteger(d[k]) && d[k] >= 0) a[k] = d[k]; });
-  ['usos_toma', 'usos_enchufe', 'lineales', 'interiores', 'nombres_puerta'].forEach(k => { if (listaPares(d[k])) a[k] = copiar(d[k]); });
+  ['usos_toma', 'usos_enchufe', 'lineales', 'interiores', 'nombres_puerta', 'colores_casco'].forEach(k => { if (listaPares(d[k])) a[k] = copiar(d[k]); });
   return a;
 }
 

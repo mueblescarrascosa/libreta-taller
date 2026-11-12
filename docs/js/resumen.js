@@ -82,9 +82,10 @@ function acabadosTexto(ac, ajustes) {
   if (!ac) return [];
   const l = [];
   if (ac.bitono) { l.push(unir(['Altos: ' + unir([ac.modelo_altos, ac.color_altos], ' ')]), unir(['Bajos: ' + unir([ac.modelo_bajos, ac.color_bajos], ' ')])); }
-  else if (hay(ac.modelo) || hay(ac.color)) l.push('Muebles: ' + unir([ac.modelo, ac.color], ' '));
+  else if (hay(ac.modelo) || hay(ac.color)) l.push('Frentes: ' + unir([ac.modelo, ac.color], ' '));
+  if (hay(ac.casco)) l.push('Cascos: ' + ac.casco);
   const e = ac.encimera || {};
-  if (hay(e.material) || hay(e.color) || hay(e.grueso)) l.push('Encimera: ' + unir([e.material, e.color, hay(e.grueso) ? e.grueso + ' mm' : null], ' '));
+  if (hay(e.material) || hay(e.modelo) || hay(e.color) || hay(e.grueso)) l.push('Encimera: ' + unir([e.material, e.modelo, e.color, hay(e.grueso) ? verMedida(e.grueso, 'cm') + ' cm' : null], ' '));
   (ac.lineales || []).forEach(x => l.push(nombreLineal(x, ajustes) + (hay(x.modelo) ? ': ' + x.modelo : '')));
   return l.filter(x => !/^(Altos|Bajos): $/.test(x));
 }
