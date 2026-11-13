@@ -107,6 +107,11 @@ export function geometriaAlzado(d, pared, ajustes = null) {
   return g;
 }
 
+// Nombres cortos para la fila de nombres cuando el largo no cabe.
+const CORTOS = [['Columna frigo', 'Col. frigo'], ['Columna H/MO', 'Col. H/MO'], ['Alto sobre frigo', 'Alto s/frigo'], ['Alto campana', 'Campana'], ['Alto micro', 'Micro'],
+  ['Lavavajillas', 'Lavavaj.'], ['Fregadero', 'Freg.'], ['Cajonero', 'Cajon.'], ['Escobero', 'Escob.'], ['Despensero', 'Desp.'], ['Placa con horno', 'Placa+horno']];
+export const acortar = t => CORTOS.reduce((x, [a, b]) => x.replace(a, b), String(t));
+
 // Dibujo SVG del alzado. Solo en el navegador.
 export function svgAlzado(g, { unidad = 'cm' } = {}) {
   const NS = 'http://www.w3.org/2000/svg', el = (t, a, txt) => { const e = document.createElementNS(NS, t); Object.entries(a).forEach(([k, v]) => e.setAttribute(k, v)); if (txt !== undefined) e.textContent = txt; return e; };
@@ -170,7 +175,13 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
     const fuera = FUERA.includes(clase), tamanos = [3.4, 3, 2.6, 2.2].map(k => k * s);
     const hueco = !fuera ? { x0: p.x, x1: p.x + p.w, y0: Y(p.y + p.h), y1: Y(p.y) }
       : clase === 'alto' ? { x0: p.x, x1: p.x + p.w, y0: -hueco_ - banda, y1: -hueco_ } : { x0: p.x, x1: p.x + p.w, y0: g.techo + hueco_, y1: g.techo + hueco_ + banda };
-    const r = encajarRotulo(p.texto, hueco, { tamanos, puestos: ocupados }) || encajarRotulo(p.texto, hueco, { tamanos: [2.2 * s], margen: 1.2 })
+    // Si el nombre largo no cabe con letra normal, el corto («Col. frigo 60») antes de girarlo o encogerlo.
+    const corto = acortar(p.texto), normales = tamanos.slice(0, 3);
+    // En las filas de nombres, derecho siempre que se pueda (largo o corto); girado solo si no cabe de ninguna forma.
+    const r = (fuera && (encajarRotulo(p.texto, hueco, { tamanos: normales, puestos: ocupados, derecho: true, soloDerecho: true })
+        || encajarRotulo(corto, hueco, { tamanos, puestos: ocupados, derecho: true, soloDerecho: true })))
+      || encajarRotulo(p.texto, hueco, { tamanos: normales, puestos: ocupados }) || (corto !== p.texto && encajarRotulo(corto, hueco, { tamanos, puestos: ocupados }))
+      || encajarRotulo(p.texto, hueco, { tamanos, puestos: ocupados }) || encajarRotulo(corto, hueco, { tamanos: [2.2 * s], margen: 1.2 })
       || { tam: 2.2 * s, girar: p.w < p.h, lineas: [String(p.texto)], cx: p.x + p.w / 2, cy: Y(p.y + p.h / 2), caja: null };
     if (r.caja) ocupados.push(r.caja);
     svg.append(fondoRotulo(el, r, r.tam), textoRotulo(el, r, { fill: color }));
@@ -187,7 +198,9 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
     do { caja = { x: q.x - w / 2, y: (q.techo ? py + s * 2.5 : py - s * 4 - hh / 2) + (q.techo ? 1 : -1) * paso * hh, w, h: hh }; paso++; } while (paso < 12 && puestos.some(b => pisa(caja, b)));
     puestos.push(caja);
     if (paso > 1) svg.append(el('line', { x1: q.x, y1: py - s * 1.5, x2: q.x, y2: caja.y + hh, stroke: col, 'stroke-width': s * 0.3, opacity: 0.7 }));
-    texto(q.x, caja.y + hh / 2, t, { fill: col, 'font-size': s * tam, 'data-rotulo-punto': q.tipo });
+    // Con fondo blanco: las puertas y los tiradores pasan por detrás y no tachan el nombre.
+    svg.append(fondoRotulo(el, { caja }, s * tam));
+    texto(q.x, caja.y + hh / 2, t, { fill: col, 'font-size': s * tam, 'data-rotulo-punto': q.tipo, stroke: 'none' });
   });
   // Cotas generales: largo abajo (debajo de la fila de nombres) y altura del techo a la izquierda.
   texto(g.largo / 2, g.techo + extraAbajo + pad * 0.6, g.letra + ' · ' + verMedida(g.largo, 'm') + ' m', { 'font-weight': 700, 'font-size': s * 4 });

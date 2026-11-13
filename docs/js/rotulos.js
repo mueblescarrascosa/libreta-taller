@@ -2,14 +2,18 @@
 // lo ya puesto. Prueba, de más a menos grande: en horizontal, girado (de abajo arriba) y en dos líneas, en cada orientación.
 // tamaños: lista de tamaños de letra (en unidades del dibujo). ancho: cuánto mide cada letra respecto al tamaño.
 // Devuelve { tam, girar, lineas, caja } (caja: lo que ocupa, para apuntarlo en «puestos») o null si no cabe nada.
-export function encajarRotulo(texto, hueco, { tamanos, ancho = 0.6, alto = 1.25, puestos = [], margen = 0.94 } = {}) {
+// derecho: prueba primero todos los tamaños sin girar (en horizontal, una o dos líneas) y solo después girado.
+// soloDerecho: no se gira nunca.
+export function encajarRotulo(texto, hueco, { tamanos, ancho = 0.6, alto = 1.25, puestos = [], margen = 0.94, derecho = false, soloDerecho = false } = {}) {
   const t = String(texto), W = (hueco.x1 - hueco.x0) * margen, H = (hueco.y1 - hueco.y0) * margen;
   const cx = (hueco.x0 + hueco.x1) / 2, cy = (hueco.y0 + hueco.y1) / 2;
   const partes = t.lastIndexOf(' ') > 0 ? [t.slice(0, t.lastIndexOf(' ')), t.slice(t.lastIndexOf(' ') + 1)] : null;
   const pisa = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-  for (const tam of tamanos) {
-    const opciones = [[[t], false], [[t], true]].concat(partes ? [[partes, false], [partes, true]] : []);
-    for (const [lineas, girar] of opciones) {
+  const pruebas = derecho
+    ? (soloDerecho ? [false] : [false, true]).flatMap(g => tamanos.flatMap(tam => [[tam, [t], g]].concat(partes ? [[tam, partes, g]] : [])))
+    : tamanos.flatMap(tam => [[tam, [t], false], [tam, [t], true]].concat(partes ? [[tam, partes, false], [tam, partes, true]] : []));
+  {
+    for (const [tam, lineas, girar] of pruebas) {
       const largo = Math.max(...lineas.map(l => l.length)) * tam * ancho, grueso = lineas.length * tam * alto;
       const w = girar ? grueso : largo, h = girar ? largo : grueso;
       if (w > W || h > H) continue;
