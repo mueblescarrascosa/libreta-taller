@@ -21,7 +21,7 @@ prueba('cada mueble a su artículo: puertas por ancho, cajonero de 4, H/MO, frig
   igual(art(mod('columna_frigo', 600), { alto_techo: 2300 }), 'COLUMNA 200-215 · FRIGORÍFICO INTEGRADO · 60');
   igual(art(mod('alto', 800)), 'ALTO 90-100 · 2 PUERTAS · 80');
   igual(art(mod('alto_campana', 600), { electro: [{ clave: 'campana', tipo: 'integrada' }] }), 'ALTO 90-100 · CAMPANA INTEGRABLE · 60');
-  igual(art(mod('bajo', 455)), 'REVISAR');
+  igual(art(mod('bajo', 455)), 'BAJO · 1 PUERTA · 45.5'); igual(art(mod('bajo', 650)), 'BAJO · 2 PUERTAS · 65');
 });
 
 prueba('lo elegido en la libreta manda: variante y altura', () => {
@@ -42,7 +42,9 @@ prueba('paquete: cliente, grupos en G2 con el casco, vestidor por paredes y lo q
   const p = paquetePresupuesto(f, { nombre: 'Casa', cliente: 'Juan', direccion: 'C/ Mayor 1', datos: { telefono: '600' } }, null);
   igual([p.cliente, p.direccion, p.telefono], ['Juan', 'C/ Mayor 1', '600']);
   igual(p.grupos.map(g => [g.tipo, g.nombre || '', g.cal || '', g.casco || '']), [['muebles', 'Bajos y columnas', 'BÁSICO', 'antracita 19'], ['muebles', 'Altos', 'BÁSICO', 'antracita 19'], ['revisar', '', '', '']]);
-  afirma(p.grupos[2].lineas.some(t => /bajo de 45,5 cm/.test(t)) && p.grupos[2].lineas.some(t => /horno/.test(t)), p.grupos[2].lineas.join(' | '));
+  // El bajo de 45,5 va con su medida: presupuestos le pone el del catálogo inmediatamente superior.
+  afirma(p.grupos[0].lineas.some(l => l.med === '45.5' && l.mo === '1 PUERTA'), JSON.stringify(p.grupos[0].lineas));
+  afirma(p.grupos[2].lineas.some(t => /horno/.test(t)), p.grupos[2].lineas.join(' | '));
   afirma(p.notas.includes('Frentes: Alpha') && p.notas.includes('Cascos: Antracita'), p.notas);
   const v = fichaNueva('armario', 'vestidor', 't');
   v.datos.paredes = [pared('A', 3000, { cuerpos: [{ id: '1', ancho: 1000, interior: 'barra', interior2: 'cajonera', puertas: 'corredera' }] })];

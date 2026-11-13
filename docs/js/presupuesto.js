@@ -11,7 +11,8 @@ export const CLAVE_PASO = 'libreta_a_presupuesto';
 export const CALIDAD = 'BÁSICO';            // G2
 export const ALTURAS_ALTO = ['ALTO 90-100', 'ALTO 70-80', 'ALTO 45', 'ALTO 60', 'ALTO 35-40'];
 export const ALTURAS_COLUMNA = ['COLUMNA 200-215', 'COLUMNA 220-240', 'SEMICOLUMNA 135-145'];
-const puertas = (cm, una = '1 PUERTA', dos = '2 PUERTAS') => (cm >= 70 ? dos : una);
+// En el catálogo, de una puerta hasta 60; más ancho (61-69 incluido, que va al de 70), de dos.
+const puertas = (cm, una = '1 PUERTA', dos = '2 PUERTAS') => (cm > 60 ? dos : una);
 // Color del casco de la libreta → acabado de casco de presupuestos.
 const CASCO = { blanco: 'blanco 16', gris: 'gris 16', antracita: 'antracita 19', roble: 'roble 19', nogal: 'nogal 19', coco: 'coco 19' };
 
@@ -46,8 +47,9 @@ export const alturaHabitual = (m, d) => (alturasDe(m) === ALTURAS_COLUMNA ? ((d.
 
 // El artículo del catálogo de un mueble: { m, mo, med, texto } o { revisar: '…' } si no hay uno claro.
 export function articulo(m, d) {
-  const cm = (m.ancho || 0) / 10, med = String(Math.round(cm)), texto = (m.nombre || m.tipo) + ' ' + med;
-  if (!hay(m.ancho) || Math.round(cm) !== cm) return { revisar: 'Mueble ' + m.tipo + (hay(m.ancho) ? ' de ' + String(cm).replace('.', ',') + ' cm' : ' sin ancho') + ': elegir a mano' };
+  // La medida va tal cual (45,5 también): presupuestos pone la del catálogo inmediatamente superior y lo avisa.
+  const cm = Math.round((m.ancho || 0) / 10 * 10) / 10, med = String(cm);
+  if (!hay(m.ancho)) return { revisar: 'Mueble ' + m.tipo + ' sin ancho: elegir a mano' };
   const v = m.variante || varianteHabitual(m, d), alto = m.altura || alturaHabitual(m, d);
   const r = (mm, mo, extra = '') => ({ m: mm, mo, med, texto: mm + ' · ' + mo + ' · ' + med + extra });
   switch (m.tipo) {
@@ -64,12 +66,12 @@ export function articulo(m, d) {
       return r(alto, 'FRIGORÍFICO INTEGRADO');
     case 'escobero': case 'despensero': {
       const una = v === '1/4+3/4' ? '1/4+3/4 1 PUERTA' : v === 'VITRINA' ? 'VITRINA' : '1 PUERTA', dos = v === '1/4+3/4' ? '1/4+3/4 2 PUERTAS' : v === 'VITRINA' ? 'VITRINA' : '2 PUERTA';
-      return r(alto, cm >= 70 ? dos : una);
+      return r(alto, cm > 60 ? dos : una);
     }
     case 'alto': return r(alto, v === 'PUERTAS' || !v ? puertas(cm) : v);
     case 'alto_campana': return r(alto, v);
     case 'alto_micro': return r('ALTO MO 130', '1 PUERTA');
-    case 'alto_frigo': return r('ALTO S-FRIGO 50-60', cm >= 70 ? '2 PUERTAS' : '1 PUERTA');
+    case 'alto_frigo': return r('ALTO S-FRIGO 50-60', cm > 60 ? '2 PUERTAS' : '1 PUERTA');
     case 'hueco': return null;
     default: return { revisar: (m.nombre || 'Mueble') + ' de ' + med + ': elegir a mano' };
   }

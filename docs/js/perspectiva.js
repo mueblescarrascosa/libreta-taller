@@ -250,10 +250,13 @@ export function vistaPorDefecto(esc, W = 1000, H = 640) {
   const suelo = esc.cajas.filter(c => c.z0 < 10 && c.color !== 'pilar').map(c => c.huella);
   const enMueble = p => { const q = [{ x: p.x - 200, y: p.y - 200 }, { x: p.x + 200, y: p.y - 200 }, { x: p.x + 200, y: p.y + 200 }, { x: p.x - 200, y: p.y + 200 }]; return suelo.some(h => !separadas(h, q, 0)); };
   let mejor = base, nm = nota(base);
-  const c = esc.caja, N = 10;
+  // También un poco por fuera, detrás de una pared (que no se dibuja al verse por detrás): así, en cocinas pequeñas,
+  // la vista se echa para atrás y entran más muebles. Hasta 1,2 m fuera.
+  const F = 1200, c = { x0: esc.caja.x0 - F, x1: esc.caja.x1 + F, y0: esc.caja.y0 - F, y1: esc.caja.y1 + F }, N = 16;
   for (let i = 1; i < N; i++) for (let j = 1; j < N; j++) {
-    const p = { x: c.x0 + (c.x1 - c.x0) * i / N, y: c.y0 + (c.y1 - c.y0) * j / N };
-    if (!dentro(p) || aPared(p) < 350 || enMueble(p)) continue;
+    const p = { x: c.x0 + (c.x1 - c.x0) * i / N, y: c.y0 + (c.y1 - c.y0) * j / N }, dp = aPared(p);
+    if (dentro(p) ? dp < 350 : dp > F || dp < 200) continue;
+    if (enMueble(p)) continue;
     for (let g = -180; g < 180; g += 10) {
       const v = { x: Math.round(p.x), y: Math.round(p.y), ang: g }, s = nota(v);
       if (s > nm + 0.01) { mejor = v; nm = s; }
@@ -286,7 +289,7 @@ function cortaRayo(o, d, a, b) {
 // La vista guardada vale si cae dentro de la habitación (más o menos); si no, la de por defecto.
 export function vistaDe(esc, guardada) {
   const c = esc.caja, v = guardada;
-  if (v && hay(v.x) && hay(v.y) && hay(v.ang) && v.x >= c.x0 - 200 && v.x <= c.x1 + 200 && v.y >= c.y0 - 200 && v.y <= c.y1 + 200) return v;
+  if (v && hay(v.x) && hay(v.y) && hay(v.ang) && v.x >= c.x0 - 1400 && v.x <= c.x1 + 1400 && v.y >= c.y0 - 1400 && v.y <= c.y1 + 1400) return v;
   return vistaPorDefecto(esc);
 }
 

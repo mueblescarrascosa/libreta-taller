@@ -30,9 +30,9 @@ prueba('sin largos no hay perspectiva', () => {
   igual(escenaPerspectiva(f.datos), null);
 });
 
-prueba('vista inicial: desde dentro de la habitación, la que enseña más muebles', () => {
+prueba('vista inicial: la que enseña más muebles (dentro o hasta 1,2 m por fuera, detrás de una pared)', () => {
   const e = escenaPerspectiva(cocina().datos), v = vistaPorDefecto(e);
-  afirma(v.x > 0 && v.x < 3000 && v.y > 0 && v.y < 2500, JSON.stringify(v));
+  afirma(v.x > -1200 && v.x < 4200 && v.y > -1200 && v.y < 3700, JSON.stringify(v));
   const vistos = proyectar(e, v).textos.filter(t => t.clase === 'mueble').map(t => t.texto);
   ['Fregadero 80', 'Bajo 60', 'Columna frigo 60'].forEach(t => afirma(vistos.includes(t), t + ' no se ve: ' + vistos.join('|')));
   // Sin muebles, frente a la pared más larga.

@@ -190,14 +190,25 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
   const COLOR = { humos: '#7c3aed', desague: '#0891b2', toma: '#2563eb', agua: '#2563eb', gas: '#ea580c', enchufe: '#dc2626', otro: '#111827' };
   // Si un rótulo pisa a otro, sube un escalón y una rayita lo une a su punto.
   const puestos = [], pisa = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  // Los desagües (abajo, tras los bajos) llevan el nombre debajo del punto; el resto, encima. Primero se colocan todos,
+  // luego se dibujan las rayitas y al final los nombres con su fondo: ninguna raya tacha el nombre de otra toma.
+  const colocados = [];
+  // Tampoco pisan los nombres de dentro (pilar, ventana…) ni el punto de otra toma.
+  puestos.push(...ocupados, ...g.puntos.map(q => { const py = Y(q.y === null ? 0 : q.y); return { x: q.x - s * 2, y: py - s * 2, w: s * 4, h: s * 4 }; }));
   g.puntos.forEach(q => {
     const col = COLOR[q.tipo] || '#111827', y = q.y === null ? 0 : q.y, py = Y(y);
-    svg.append(el('circle', { cx: q.x, cy: py, r: s * 1.5, fill: q.y === null ? '#fff' : col, stroke: col, 'stroke-width': s * 0.5, 'data-punto': q.tipo }));
     const t = q.techo ? q.texto : q.texto + ' ' + (q.y === null ? '(sin altura)' : verMedida(q.y, unidad)), tam = 3, w = t.length * s * tam * 0.58, hh = s * tam * 1.3;
+    const abajo = q.techo || q.tipo === 'desague', dir = abajo ? 1 : -1;
     let paso = 0, caja;
-    do { caja = { x: q.x - w / 2, y: (q.techo ? py + s * 2.5 : py - s * 4 - hh / 2) + (q.techo ? 1 : -1) * paso * hh, w, h: hh }; paso++; } while (paso < 12 && puestos.some(b => pisa(caja, b)));
+    do { caja = { x: q.x - w / 2, y: (abajo ? py + s * 2.5 : py - s * 4 - hh / 2) + dir * paso * hh, w, h: hh }; paso++; } while (paso < 12 && puestos.some(b => pisa(caja, b)));
     puestos.push(caja);
-    if (paso > 1) svg.append(el('line', { x1: q.x, y1: py - s * 1.5, x2: q.x, y2: caja.y + hh, stroke: col, 'stroke-width': s * 0.3, opacity: 0.7 }));
+    colocados.push({ q, col, py, t, tam, hh, caja, paso, abajo });
+  });
+  colocados.forEach(({ q, col, py, hh, caja, paso, abajo }) => {
+    if (paso > 1) svg.append(el('line', { x1: q.x, y1: abajo ? py + s * 1.5 : py - s * 1.5, x2: q.x, y2: abajo ? caja.y : caja.y + hh, stroke: col, 'stroke-width': s * 0.3, opacity: 0.7 }));
+  });
+  colocados.forEach(({ q, col, py }) => svg.append(el('circle', { cx: q.x, cy: py, r: s * 1.5, fill: q.y === null ? '#fff' : col, stroke: col, 'stroke-width': s * 0.5, 'data-punto': q.tipo })));
+  colocados.forEach(({ q, col, t, tam, hh, caja }) => {
     // Con fondo blanco: las puertas y los tiradores pasan por detrás y no tachan el nombre.
     svg.append(fondoRotulo(el, { caja }, s * tam));
     texto(q.x, caja.y + hh / 2, t, { fill: col, 'font-size': s * tam, 'data-rotulo-punto': q.tipo, stroke: 'none' });

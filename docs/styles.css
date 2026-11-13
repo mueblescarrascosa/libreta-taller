@@ -406,3 +406,13 @@ button { background: #fffef9; border-color: var(--borde); }
 .papel .dibujos > :only-child { grid-column: 1 / -1; }
 .papel .dibujos svg, .papel .frentes svg.alzado { max-height: 330px; width: 100%; height: auto; }
 .papel .alzado-resumen, .papel .planta-resumen { margin: 6px 0; }
+
+/* 1.22.3: una ficha más alta que una hoja no salta entera a la siguiente (dejaba la primera hoja casi en blanco);
+   se corta por sus bloques (secciones, dibujos, filas), que siguen sin partirse. */
+@media print {
+  .resumen-doc .ficha-resumen { break-inside: auto; page-break-inside: auto; }
+  .resumen-doc .dibujos, .resumen-doc .frentes { break-inside: auto; }
+}
+@media print {
+  .resumen-doc section, .resumen-doc .recuento { break-inside: auto; page-break-inside: auto; }
+}
