@@ -21,6 +21,12 @@ export function encajarRotulo(texto, hueco, { tamanos, ancho = 0.6, alto = 1.25,
   return null;
 }
 
+// Fondo blanco detrás de un rótulo encajado: las rayas del dibujo (puertas, tiradores…) pasan por detrás y no lo tachan.
+export function fondoRotulo(el, r, tam) {
+  const m = tam * 0.25, c = r.caja || { x: r.cx - 1, y: r.cy - 1, w: 2, h: 2 };
+  return el('rect', { x: c.x - m, y: c.y - m * 0.6, width: c.w + 2 * m, height: c.h + 1.2 * m, rx: tam * 0.35, fill: '#ffffff', 'fill-opacity': 0.88, stroke: 'none', 'data-fondo-rotulo': '' });
+}
+
 // El <text> de un rótulo encajado (una o dos líneas, girado si toca). el: la función que crea nodos SVG.
 export function textoRotulo(el, r, atributos) {
   const a = Object.assign({ x: r.cx, y: r.cy, 'font-size': r.tam, 'text-anchor': 'middle', 'dominant-baseline': 'middle' }, atributos);

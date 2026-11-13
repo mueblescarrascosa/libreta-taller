@@ -1,7 +1,7 @@
 // Planta dibujada a partir de las paredes de la ficha: forma (del plano a mano o, si no hay, en ángulo recto),
 // largos a escala y cada elemento en su sitio según su distancia y su referencia.
 import { aEscala, comprobar, planoPorDefecto, letras, pilarDibujado } from './plano-geo.js';
-import { encajarRotulo, textoRotulo } from './rotulos.js';
+import { encajarRotulo, textoRotulo, fondoRotulo } from './rotulos.js';
 import { camposDeElemento, paredNueva, elementoNuevo, nombreElemento, USOS, textoAzulejo, extraPilar, tamanoHumos, esquinaDe, esquinaDescuadrada, textoDescuadre } from './modelo.js';
 import { verMedida } from './unidades.js';
 import { nombreModulo, esColumna, medidasModulo, situarMuebles, situarCuerpos } from './modulos.js';
@@ -309,7 +309,7 @@ export function svgPlanta(geo) {
     const r = encajarRotulo(t, hueco, { tamanos, ancho: 0.62, puestos }) || encajarRotulo(t, hueco, { tamanos: [1.8 * s], ancho: 0.62, margen: 1.3 })
       || { tam: 1.8 * s, girar: false, lineas: [t], cx: (hueco.x0 + hueco.x1) / 2, cy: (hueco.y0 + hueco.y1) / 2, caja: cajaTexto((hueco.x0 + hueco.x1) / 2, (hueco.y0 + hueco.y1) / 2, t, 1.8) };
     puestos.push(r.caja);
-    nombres.push(() => svg.append(textoRotulo(el, r, { fill: color, 'paint-order': 'stroke', stroke: '#fff', 'stroke-width': s * 1.2 })));
+    nombres.push(() => svg.append(fondoRotulo(el, r, r.tam), textoRotulo(el, r, { fill: color })));
   });
   // Islas y penínsulas (amarillo) y sus cotas al suelo (raya de puntos con la medida en medio).
   (geo.islas || []).forEach(x => {
@@ -326,13 +326,16 @@ export function svgPlanta(geo) {
   });
   // Nombres sin pisarse: si uno cae encima de otro ya puesto, se aleja de la pared con una rayita hasta su sitio.
   // Primero hacia dentro; si por ahí está todo ocupado, el sitio libre más cercano hacia los lados o hacia fuera.
+  // Primero en su sitio (a «desde» de la pared, hacia d); si choca, corrido a lo largo de la pared un poco a cada lado;
+  // después, más lejos de la pared; y si por ahí está todo ocupado, el sitio libre más cercano hacia los lados o hacia el otro lado.
   const nombre = (c, d, t, col, tipo, { tam = 4, desde = 6 } = {}) => {
-    const dirs = [d, { x: -d.y, y: d.x }, { x: d.y, y: -d.x }, { x: -d.x, y: -d.y }];
-    const en = (u, k) => cajaTexto(c.x + u.x * s * (desde + k * tam * 1.4), c.y + u.y * s * (desde + k * tam * 1.4), t, tam);
+    const u = { x: -d.y, y: d.x }, paso1 = tam * 1.4, ancho = String(t).length * tam * 0.62;
+    const en = (k, j, dir = d) => cajaTexto(c.x + dir.x * s * (desde + k * paso1) + u.x * s * j, c.y + dir.y * s * (desde + k * paso1) + u.y * s * j, t, tam);
+    const libre = b => !puestos.some(q => pisa(b, q));
     let caja = null, paso = 0;
-    for (let k = 0; k < 15 && !caja; k++) { const b = en(d, k); if (!puestos.some(q => pisa(b, q))) { caja = b; paso = k + 1; } }
-    for (let k = 0; k < 25 && !caja; k++) for (const u of dirs.slice(1)) { const b = en(u, k + 1); if (!puestos.some(q => pisa(b, q))) { caja = b; paso = k + 2; break; } }
-    if (!caja) { caja = en(d, 0); paso = 1; }
+    for (let k = 0; k < 15 && !caja; k++) for (const j of [0, 1, -1, 2, -2].map(f => f * ancho * 0.5)) { const b = en(k, j); if (libre(b)) { caja = b; paso = k + 1 + (j ? 1 : 0); break; } }
+    for (let k = 0; k < 25 && !caja; k++) for (const dir of [u, { x: -u.x, y: -u.y }, { x: -d.x, y: -d.y }]) { const b = en(k + 1, 0, dir); if (libre(b)) { caja = b; paso = k + 2; break; } }
+    if (!caja) { caja = en(0, 0); paso = 1; }
     puestos.push(caja);
     if (paso > 1) { const vx = caja.cx - c.x, vy = caja.cy - c.y, l = Math.hypot(vx, vy) || 1;
       svg.append(el('line', { x1: c.x + vx / l * s * 2, y1: c.y + vy / l * s * 2, x2: caja.cx - vx / l * s * 2, y2: caja.cy - vy / l * s * 2, stroke: col, 'stroke-width': s * 0.3, opacity: 0.7 })); }
@@ -355,7 +358,9 @@ export function svgPlanta(geo) {
     }
     else if (e.punto) { svg.append(el('circle', { cx: e.punto.x, cy: e.punto.y, r: s * 1.8, fill: col })); c = e.punto; }
     else { svg.append(el('line', { x1: e.a.x, y1: e.a.y, x2: e.b.x, y2: e.b.y, stroke: col, 'stroke-width': s * 2.6 })); c = { x: (e.a.x + e.b.x) / 2, y: (e.a.y + e.b.y) / 2 }; }
-    nombre(c, d, e.corta + (e.cota ? ' ' + e.cota : ''), col, e.tipo);
+    // Ventanas, puertas y pilares: el nombre por fuera de la habitación (no se mete entre los muebles).
+    const fuera = e.tipo === 'ventana' || e.tipo === 'puerta' || e.tipo === 'pilar';
+    nombre(c, fuera ? { x: -d.x, y: -d.y } : d, e.corta + (e.cota ? ' ' + e.cota : ''), col, e.tipo, fuera ? { desde: 5 } : {});
   });
   nombres.forEach(f => f());
   // Marco: el dibujo y todos los textos, con un poco de aire.

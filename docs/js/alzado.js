@@ -5,7 +5,7 @@ import { camposDeElemento, extraPilar, pilarDeVecina } from './modelo.js';
 import { situarMuebles, situarCuerpos, esColumna, nombreModulo, medidasModulo, interioresDe, textoInteriores, piezasInterior } from './modulos.js';
 import { verMedida } from './unidades.js';
 import { corta } from './plano-vista.js';
-import { encajarRotulo, textoRotulo } from './rotulos.js';
+import { encajarRotulo, textoRotulo, fondoRotulo } from './rotulos.js';
 import { frenteModulo, frenteCuerpo, puertasCuerpo, frenteFrigoLibre } from './frentes.js';
 
 const hay = v => v !== null && v !== undefined;
@@ -159,7 +159,7 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
     const r = encajarRotulo(p.texto, hueco, { tamanos, puestos: ocupados }) || encajarRotulo(p.texto, hueco, { tamanos: [2.2 * s], margen: 1.2 })
       || { tam: 2.2 * s, girar: p.w < p.h, lineas: [String(p.texto)], cx: p.x + p.w / 2, cy: Y(p.y + p.h / 2), caja: null };
     if (r.caja) ocupados.push(r.caja);
-    svg.append(textoRotulo(el, r, { fill: color, 'paint-order': 'stroke', stroke: '#fff', 'stroke-width': s * 0.8 }));
+    svg.append(fondoRotulo(el, r, r.tam), textoRotulo(el, r, { fill: color }));
   });
   // Tomas, enchufes, desagües y humos: un punto en su altura, con lo que es y la altura.
   const COLOR = { humos: '#7c3aed', desague: '#0891b2', toma: '#2563eb', agua: '#2563eb', gas: '#ea580c', enchufe: '#dc2626', otro: '#111827' };
