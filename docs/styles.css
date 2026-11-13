@@ -386,3 +386,23 @@ button { background: #fffef9; border-color: var(--borde); }
 /* 1.19.0: material para pedir */
 .material p { margin: 2px 0; }
 .material p.sub { padding-left: 10px; color: var(--tenue); }
+
+
+/* 1.22.1: menos hojas al imprimir y en el PDF. Planta y perspectiva una al lado de la otra; las paredes de frente
+   de dos en dos; dibujos más bajos y texto algo más pequeño (se sigue leyendo bien). En pantalla no cambia nada. */
+@media print {
+  .resumen-doc { font-size: 10pt; line-height: 1.3; }
+  .resumen-doc section p, .resumen-doc p { margin: 1px 0; }
+  .resumen-doc h2 { margin: 6px 0 3px; }
+  .dibujos, .frentes { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; align-items: start; }
+  .dibujos > :only-child { grid-column: 1 / -1; }
+  .dibujos .planta-resumen svg.planta, .frentes svg.alzado, .dibujos svg.perspectiva { max-height: 85mm; width: 100%; height: auto; }
+  .alzado-resumen, .planta-resumen { margin: 2mm 0; break-inside: avoid; }
+}
+.papel .resumen-doc, .papel.resumen-doc { font-size: 13px; line-height: 1.3; }
+.papel p { margin: 1px 0; }
+.papel h2 { margin: 6px 0 3px; }
+.papel .dibujos, .papel .frentes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+.papel .dibujos > :only-child { grid-column: 1 / -1; }
+.papel .dibujos svg, .papel .frentes svg.alzado { max-height: 330px; width: 100%; height: auto; }
+.papel .alzado-resumen, .papel .planta-resumen { margin: 6px 0; }

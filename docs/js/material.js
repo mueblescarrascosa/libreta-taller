@@ -1,12 +1,49 @@
 // Material para pedir, sacado de lo medido: encimera (piezas, uniones en las esquinas y huecos), lineales en metros
 // y herrajes (bisagras, guías, tiradores, patas, barras…). Orientativo: lo medido y lo pedido mandan.
 import { situarMuebles, situarCuerpos, esColumna, piezasInterior, paredesVecinas } from './modulos.js';
-import { frenteModulo, puertasCuerpo } from './frentes.js';
+import { frenteModulo, puertasCuerpo, varianteDe } from './frentes.js';
 import { ALTURAS } from './alzado.js';
 import { verMedida } from './unidades.js';
 
 const hay = v => v !== null && v !== undefined;
 export const ENCIMERA = { fondo: 620, largo_max: 3000 };
+
+// Zócalo: va por el frente de los muebles (bajos y columnas seguidos, sin huecos). En una esquina donde se juntan dos
+// tramos, sus frentes se cruzan a un fondo de mueble de la esquina: cada uno descuenta ese fondo (60). En un rincón en
+// chaflán el frente es la diagonal. Islas: todo alrededor; península: los dos lados largos y la punta.
+export const FONDO_ZOCALO = 600;
+export function zocaloFrente(d) {
+  const paredes = (d.paredes || []).filter(p => hay(p.largo)), corridas = new Map();
+  paredes.forEach(p => {
+    const sit = situarMuebles(p, d), trozos = [];
+    if (sit.entran.izq) trozos.push([0, sit.entran.izq]);
+    sit.bajos.forEach(b => { if (b.m.tipo !== 'hueco') trozos.push([b.desde, b.hasta]); });
+    if (sit.entran.der) trozos.push([p.largo - sit.entran.der, p.largo]);
+    trozos.sort((a, b) => a[0] - b[0]);
+    const r = [];
+    trozos.forEach(([a, b]) => { const u = r[r.length - 1]; if (u && a - u[1] < 5) u[1] = Math.max(u[1], b); else r.push([a, b]); });
+    corridas.set(p, r);
+  });
+  let total = 0;
+  paredes.forEach(p => {
+    const v = paredesVecinas(d, p), r = corridas.get(p);
+    const llegaFin = q => q && (corridas.get(q) || []).some(([, b]) => q.largo - b < 5), llegaIni = q => q && (corridas.get(q) || []).some(([a]) => a < 5);
+    r.forEach(([a, b]) => {
+      let l = b - a;
+      if (a < 5 && llegaFin(v.izq)) l -= FONDO_ZOCALO;
+      if (p.largo - b < 5 && llegaIni(v.der)) l -= FONDO_ZOCALO;
+      total += Math.max(0, l);
+    });
+    // Rinconero en chaflán al final de la pared (gira a la derecha): la diagonal en vez de los dos trozos en L.
+    const sit = situarMuebles(p, d), ult = sit.bajos[sit.bajos.length - 1];
+    if (ult && ult.m.tipo === 'rinconero' && ult.m.forma === 'chaflan' && p.largo - ult.hasta < 5 && hay(ult.m.lado2)) {
+      const x = Math.max(0, ult.m.ancho - FONDO_ZOCALO), y = Math.max(0, ult.m.lado2 - FONDO_ZOCALO);
+      total += Math.hypot(x, y) - x - y;
+    }
+  });
+  (d.islas || []).forEach(x => { if (hay(x.largo) && hay(x.fondo)) total += x.tipo === 'peninsula' ? 2 * x.largo + x.fondo : 2 * (x.largo + x.fondo); });
+  return Math.round(total);
+}
 
 // Tramos de encimera de una pared: los bajos seguidos (sin columnas ni huecos), con lo que entra del rinconero de al lado.
 function tramosPared(p, d) {
@@ -43,13 +80,14 @@ export function materialCocina(d) {
   });
   (d.islas || []).forEach((x, i) => { if (hay(x.largo) && hay(x.fondo)) piezas.push({ pared: x.tipo === 'peninsula' ? 'península' : 'isla' + ((d.islas || []).length > 1 ? ' ' + (i + 1) : ''), largo: x.largo, fondo: x.fondo + 20, nota: '', larga: x.largo > ENCIMERA.largo_max }); });
 
-  // Lineales: zócalo bajo bajos y columnas; cornisa y LED bajo los altos (cornisa también sobre columnas).
-  let zocalo = piezas.filter(q => !/isla|pen/.test(q.pared)).reduce((s, q) => s + q.largo, 0), arriba = 0, bajoAltos = 0;
+  // Lineales: cornisa y LED bajo los altos (cornisa también sobre columnas); el zócalo, por el frente de los muebles.
+  let arriba = 0, bajoAltos = 0;
   paredes.forEach(p => {
     const sit = situarMuebles(p, d);
-    sit.bajos.forEach(b => { if (esColumna(b.m)) { zocalo += b.hasta - b.desde; arriba += b.hasta - b.desde; } });
+    sit.bajos.forEach(b => { if (esColumna(b.m)) arriba += b.hasta - b.desde; });
     sit.altos.forEach(a => { if (a.m.tipo !== 'hueco') { arriba += a.hasta - a.desde; bajoAltos += a.hasta - a.desde; } });
   });
+  const zocalo = zocaloFrente(d);
 
   // Herrajes, de los frentes de cada mueble.
   const h = { puertas: 0, bisagras: 0, cajones: 0, tiradores: 0, patas: 0, lavavajillas: 0 };
@@ -70,8 +108,8 @@ export function materialCocina(d) {
       if (b.m.tipo === 'hueco') return;
       const w = b.hasta - b.desde;
       h.patas += 4;
-      if (esColumna(b.m)) contar(b.m.tipo, w, 0, ALTURAS.columna, { columna: true, variante: b.m.variante });
-      else contar(b.m.tipo, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera, { variante: b.m.variante });
+      if (esColumna(b.m)) contar(b.m.tipo, w, 0, ALTURAS.columna, { columna: true, variante: varianteDe(b.m) });
+      else contar(b.m.tipo, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera, { variante: varianteDe(b.m) });
     });
     sit.altos.forEach(a => { if (a.m.tipo !== 'hueco') contar(a.m.tipo, a.hasta - a.desde, ALTURAS.altos_desde, ALTURAS.altos_hasta); });
   });

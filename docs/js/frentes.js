@@ -160,3 +160,6 @@ export function frenteFrigoLibre(ancho, americano) {
   }
   return r;
 }
+
+// Variante con la que se dibuja un mueble: la elegida o, en la placa con horno debajo, el soporte de horno.
+export const varianteDe = m => (m ? m.variante || (m.tipo === 'placa' && m.horno ? 'SOPORTE HORNO Y 1 GAVETERO' : null) : null);

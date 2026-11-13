@@ -125,8 +125,11 @@ async function nodosFicha(App, ficha, trabajo, AJ, ver = partesGuardadas()) {
   }
   if ((d.paredes || []).length) {
     const g = geometriaPlanta(d, { margen: AJ.margen, unidad: u });
-    if (g.paredes.length && ver.planta) nodos.push(h('div', { class: 'planta-resumen' }, svgPlanta(g)));
+    // Planta y perspectiva van juntas (al imprimir, una al lado de la otra); las paredes de frente, de dos en dos.
+    const pareja = h('div', { class: 'dibujos' });
+    if (g.paredes.length && ver.planta) pareja.append(h('div', { class: 'planta-resumen' }, svgPlanta(g)));
     // Cada pared de frente.
+    const frentes = [];
     if (ver.frente) {
       const dibujos = d.paredes.map(p => [p.letra, geometriaAlzado(d, p, AJ)]).filter(([, ga]) => ga)
         .map(([letra, ga]) => [letra, h('div', { class: 'alzado-resumen' }, h('p', { class: 'tit' }, h('b', {}, 'Pared ' + letra + ' de frente')), svgAlzado(ga, { unidad: u }))]);
@@ -137,12 +140,14 @@ async function nodosFicha(App, ficha, trabajo, AJ, ver = partesGuardadas()) {
           onclick: ev => { if (elegidas.has(l)) elegidas.delete(l); else elegidas.add(l); guardarFrente(ficha, [...elegidas]);
             ev.currentTarget.classList.toggle('on', elegidas.has(l)); ev.currentTarget.textContent = (elegidas.has(l) ? '✓ ' : '') + l; pintar(); } }, (elegidas.has(l) ? '✓ ' : '') + l)));
         pintar();
-        nodos.push(h('div', { class: 'elegir-fichas elegir-frentes' }, h('small', { class: 'et' }, 'Paredes de frente:'), botones), caja);
+        frentes.push(h('div', { class: 'elegir-fichas elegir-frentes' }, h('small', { class: 'et' }, 'Paredes de frente:'), botones), caja);
       }
     }
     // La perspectiva, desde donde se dejó en la ficha.
     const esc = ver.perspectiva ? escenaPerspectiva(d, { margen: AJ.margen, ajustes: AJ }) : null;
-    if (esc) nodos.push(h('div', { class: 'alzado-resumen perspectiva-resumen' }, h('p', { class: 'tit' }, h('b', {}, 'Perspectiva'), ' ', h('small', {}, '(de pie, ojos a 175 cm; alturas orientativas)')), svgPerspectiva(esc, vistaDe(esc, d.vista))));
+    if (esc) pareja.append(h('div', { class: 'alzado-resumen perspectiva-resumen' }, h('p', { class: 'tit' }, h('b', {}, 'Perspectiva'), ' ', h('small', {}, '(de pie, ojos a 175 cm; alturas orientativas)')), svgPerspectiva(esc, vistaDe(esc, d.vista))));
+    if (pareja.childNodes.length) nodos.push(pareja);
+    nodos.push(...frentes);
     const t = ver.instalaciones ? tablaInstalaciones(d, u) : null;
     if (t) nodos.push(t);
   }

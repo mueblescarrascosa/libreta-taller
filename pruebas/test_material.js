@@ -1,7 +1,7 @@
 import { prueba, afirma, igual, fin } from './mini.js';
 import { fichaNueva, paredNueva } from '../docs/js/modelo.js';
 import { moduloNuevo } from '../docs/js/modulos.js';
-import { materialCocina, materialVestidor, textoMaterial } from '../docs/js/material.js';
+import { materialCocina, materialVestidor, textoMaterial, zocaloFrente } from '../docs/js/material.js';
 import { textoResumen } from '../docs/js/resumen.js';
 import { AJUSTES_FABRICA } from '../docs/js/modelo.js';
 
@@ -31,7 +31,7 @@ prueba('herrajes: puertas con sus bisagras, cajones, tiradores, patas y el panel
 prueba('texto: zócalo siempre; cornisa y LED si la cocina los lleva; sale en el resumen', () => {
   const f = cocinaL();
   let t = textoMaterial(f);
-  afirma(t.includes('Zócalo: 5,89 m') && !t.some(x => /Cornisa/.test(x)), t.join(' | '));
+  afirma(t.includes('Zócalo: 5,31 m') && !t.some(x => /Cornisa/.test(x)), t.join(' | '));
   f.datos.acabados.lineales = [{ id: 'x', tipo: 'cornisa', modelo: '' }, { id: 'y', tipo: 'led', modelo: '' }];
   t = textoMaterial(f);
   afirma(t.some(x => /^Cornisa: /.test(x)) && t.some(x => /^Tira LED/.test(x)), t.join(' | '));
@@ -44,5 +44,13 @@ prueba('vestidor: barras con soportes, estantes, cajones y patas', () => {
   f.datos.paredes = [pared('A', 3000, { cuerpos: [{ id: '1', ancho: 1000, interior: 'barra', interior2: 'cajonera' }, { id: '2', ancho: 800, interior: 'doble_barra' }] })];
   const r = materialVestidor(f.datos);
   igual([r.barras, r.barras_mm, r.cajones, r.patas], [3, 960 + 760 * 2, 3, 8]);
+});
+prueba('zócalo por el frente: cada lado de una esquina descuenta 60; el chaflán va en diagonal; islas alrededor', () => {
+  const d = cocinaL().datos;
+  igual(zocaloFrente(d), (2530 - 600) + (3980 - 600));
+  d.paredes[0].bajos[4].forma = 'chaflan';
+  igual(zocaloFrente(d), Math.round((2530 - 600) + (3980 - 600) - 330 - 330 + Math.hypot(330, 330)));
+  const sola = { paredes: [pared('A', 3000, { bajos: [mod('bajo', 600), mod('hueco', 600), mod('bajo', 800)] })], islas: [{ tipo: 'isla', largo: 1800, fondo: 900 }, { tipo: 'peninsula', largo: 1500, fondo: 900 }] };
+  igual(zocaloFrente(sola), 600 + 800 + 2 * (1800 + 900) + (2 * 1500 + 900));
 });
 fin();

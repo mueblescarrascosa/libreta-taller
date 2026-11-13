@@ -6,7 +6,7 @@ import { situarMuebles, situarCuerpos, esColumna, nombreModulo, medidasModulo, i
 import { verMedida } from './unidades.js';
 import { corta } from './plano-vista.js';
 import { encajarRotulo, textoRotulo, fondoRotulo } from './rotulos.js';
-import { frenteModulo, frenteCuerpo, puertasCuerpo, frenteFrigoLibre } from './frentes.js';
+import { frenteModulo, frenteCuerpo, puertasCuerpo, frenteFrigoLibre, varianteDe } from './frentes.js';
 
 const hay = v => v !== null && v !== undefined;
 // Alturas orientativas (mm desde el suelo).
@@ -49,9 +49,9 @@ export function geometriaAlzado(d, pared, ajustes = null) {
     if (esColumna(m)) {
       const h = m.tipo === 'columna_frigo' && frigosConAlto.has(desde) ? ALTURAS.frigo : col;
       pieza('columna', desde, 0, hasta - desde, h, texto, m.tipo);
-      return frente(m.tipo === 'columna_frigo' && frigoLibre(d) ? frenteFrigoLibre(hasta - desde, frigoLibre(d) === 'americano') : frenteModulo(m.tipo, hasta - desde, 0, h, { columna: true, variante: m.variante }), desde);
+      return frente(m.tipo === 'columna_frigo' && frigoLibre(d) ? frenteFrigoLibre(hasta - desde, frigoLibre(d) === 'americano') : frenteModulo(m.tipo, hasta - desde, 0, h, { columna: true, variante: varianteDe(m) }), desde);
     }
-    bajo(desde, hasta - desde, texto, m.tipo, m.variante);
+    bajo(desde, hasta - desde, texto, m.tipo, varianteDe(m));
   });
   sit.altos.forEach(({ m, desde, hasta }) => {
     if (m.tipo === 'hueco') return;
