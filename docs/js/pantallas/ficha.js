@@ -9,6 +9,7 @@ import { verMedida } from '../unidades.js';
 import { TIPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, medidasModulo, anchosDe, FORMAS_RINCONERO, LADOS_RINCONERO, paredesVecinas, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, FORMAS_RINCON_CUERPO, LADOS_RINCON_CUERPO, INTERIOR_RINCON, textoRincon, textoCuadre, lineaNueva, nombreLineal, nombreInterior, interioresDe, elegirInterior, textoInteriores, acabadosNuevos, MATERIALES_ENCIMERA, ELECTRO, datosElectro, electroNuevo } from '../modulos.js';
 import { seccionAdjuntos } from './adjuntos.js';
 import { textoMaterial } from '../material.js';
+import { variantesDe, varianteHabitual, alturasDe, alturaHabitual, NOMBRE_VARIANTE, articulo, paquetePresupuesto, CLAVE_PASO } from '../presupuesto.js';
 import { textoResumen, urlWhatsapp } from '../resumen.js';
 import { huella } from '../sincro.js';
 import { geometriaPlanta, svgPlanta, aplicarPlano, pilarEnParedes, pilaresEnParedes, pasarAPilar } from '../plano-vista.js';
@@ -517,6 +518,17 @@ export async function pintarFicha(App, id) {
       } else n.push(med('ancho', 'Ancho', anchosDe(m, AJ.modulo_anchos)));
       if (m.tipo === 'placa') n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Horno debajo'),
         segmentado({ acc: 'placa-horno', opciones: SI_NO, valor: m.horno ?? null, permitirVacio: true, alCambiar: x => { m.horno = x; cambio(); repintar(); } })));
+      // Para el presupuesto: modelo y altura del catálogo (si no se elige, va el habitual, que sale marcado).
+      const vs = variantesDe(m), al = alturasDe(m);
+      if (vs.length > 1 || al.length) {
+        const art = articulo(m, d), cajaP = h('div', { class: 'campo presupuesto-modulo' }, h('label', { class: 'et' }, 'Para el presupuesto'));
+        if (vs.length > 1) cajaP.append(h('div', { class: 'chips' }, vs.map(v => h('button', { type: 'button', 'data-acc': 'variante', 'data-v': v, class: (m.variante || varianteHabitual(m, d)) === v ? 'on' : '',
+          onclick: () => { m.variante = v === varianteHabitual(m, d) ? null : v; cambio(); repintar(); } }, NOMBRE_VARIANTE(v)))));
+        if (al.length) cajaP.append(h('div', { class: 'chips' }, al.map(v => h('button', { type: 'button', 'data-acc': 'altura-catalogo', 'data-v': v, class: (m.altura || alturaHabitual(m, d)) === v ? 'on' : '',
+          onclick: () => { m.altura = v === alturaHabitual(m, d) ? null : v; cambio(); repintar(); } }, NOMBRE_VARIANTE(v)))));
+        cajaP.append(h('small', { class: 'ayuda', 'data-acc': 'articulo' }, art ? (art.revisar ? '⚠ ' + art.revisar : art.texto) : ''));
+        n.push(cajaP);
+      }
       return n;
     }
     if (!p.bajos) p.bajos = [];
@@ -778,6 +790,13 @@ export async function pintarFicha(App, id) {
       h('button', { type: 'button', 'data-acc': 'anadir-nota', onclick: nuevaNota }, '＋ Nota'),
       ...adjuntos.botones),
     h('button', { type: 'button', class: 'prin ancho', 'data-acc': 'terminar', onclick: async () => { await guardarYa(); App.ir('#/resumen/' + id); } }, 'Terminar y ver resumen'),
+    // Cocina o vestidor: a la app de presupuestos (misma web), que crea un presupuesto nuevo con lo medido.
+    ...((ficha.tipo === 'cocina' || ficha.subtipo === 'vestidor') ? [h('button', { type: 'button', class: 'ancho', 'data-acc': 'pasar-presupuesto', onclick: async () => {
+      await guardarYa();
+      const t = ficha.trabajo_id ? await App.almacen.leer('trabajos', ficha.trabajo_id) : null;
+      try { localStorage.setItem(CLAVE_PASO, JSON.stringify(paquetePresupuesto(ficha, t, AJ))); } catch (e) { alert('No se ha podido preparar el paso a presupuestos.'); return; }
+      window.open(new URL('../cocinas/', location.href).href, '_blank');
+    } }, '💶 Pasar a presupuesto')] : []),
     h('div', { class: 'dos' },
       h('button', { type: 'button', 'data-acc': 'duplicar-ficha', onclick: duplicar }, 'Duplicar'),
       h('button', { type: 'button', 'data-acc': 'mover-ficha', onclick: mover }, 'Mover a otro trabajo')),

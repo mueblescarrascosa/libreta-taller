@@ -18,27 +18,46 @@ function puertas(r, x0, x1, z0, z1, tirador) {
     r.push({ k: 'tirador', x0: tx, x1: tx + GRUESO_T, z0: tz, z1: tz + largo });
   });
 }
-// Cajones: n frentes iguales, de abajo arriba, con el tirador horizontal arriba en el centro.
+// Cajones de abajo arriba, con el tirador horizontal arriba en el centro. n: cuántos iguales, o una lista de pesos
+// (cacerolero 2, gavetero 1: «1 gavetero 2 caceroleros» = [2, 2, 1]).
 function cajones(r, x0, x1, z0, z1, n) {
-  const g = FRENTE.holgura, h = (z1 - z0) / n, w = Math.min(TIRADOR * 1.5, (x1 - x0) / 2);
-  for (let i = 0; i < n; i++) {
-    const a = z0 + i * h, b = a + h;
+  const pesos = Array.isArray(n) ? n : Array(n).fill(1), total = pesos.reduce((s, p) => s + p, 0);
+  const g = FRENTE.holgura, w = Math.min(TIRADOR * 1.5, (x1 - x0) / 2);
+  let a = z0;
+  for (let i = 0; i < pesos.length; i++) {
+    const b = a + (z1 - z0) * pesos[i] / total;
     r.push({ k: 'hoja', x0: x0 + g, x1: x1 - g, z0: a + g, z1: b - g });
     const tz = b - g - 40 - GRUESO_T, cx = (x0 + x1) / 2;
     r.push({ k: 'tirador', x0: cx - w / 2, x1: cx + w / 2, z0: tz, z1: tz + GRUESO_T });
+    a = b;
   }
 }
+// Cajones de cada modelo del catálogo de presupuestos (de abajo arriba).
+const CAJONES_DE = { '4 GAVETEROS': 4, '5 GAVETEROS': 5, '2 CACEROLEROS': [1, 1], '1 GAVETERO 2 CACEROLEROS': [2, 2, 1], '2 GAVETEROS 1 CACEROLERO': [2, 1, 1] };
 
 // El frente de un mueble de cocina (tipo de módulo) de ancho «ancho», que va de z0 a z1 (con el zócalo ya fuera en los bajos).
 // columna: si es una columna (empieza en el suelo y lleva su zócalo).
-export function frenteModulo(tipo, ancho, z0, z1, { columna = false } = {}) {
+// variante: el modelo elegido para el presupuesto (cajones, especiero, soporte de horno, H/MO con puerta…), si lo hay.
+export function frenteModulo(tipo, ancho, z0, z1, { columna = false, variante = null } = {}) {
   const r = [];
   if (!(ancho > 0) || !(z1 > z0) || tipo === 'hueco' || tipo === 'otro') return r;
   let base = z0;
   if (columna) { r.push({ k: 'zocalo', x0: 0, x1: ancho, z0, z1: z0 + FRENTE.zocalo }); base = z0 + FRENTE.zocalo; }
+  // Bajos con un modelo elegido que cambia el frente.
+  if (variante && ['bajo', 'cajonero', 'placa', 'fregadero'].includes(tipo)) {
+    if (CAJONES_DE[variante]) { cajones(r, 0, ancho, base, z1, CAJONES_DE[variante]); return r; }
+    if (variante === '1 GAVETERO 1 PUERTA') { const c = base + (z1 - base) * 0.78; puertas(r, 0, ancho, base, c, 'arriba'); cajones(r, 0, ancho, c, z1, 1); return r; }
+    if (variante === 'ESPECIERO' || variante === 'PANERO') { puertas(r, 0, ancho, base, z1, 'medio'); return r; }
+    if (variante.startsWith('SOPORTE HORNO')) {
+      const e0 = variante.includes('GAVETERO') ? base + 140 : base;
+      if (e0 > base) cajones(r, 0, ancho, base, e0, 1);
+      r.push({ k: 'electro', x0: 25, x1: ancho - 25, z0: e0 + 5, z1: z1 - 5 }, { k: 'cristal', x0: 85, x1: ancho - 85, z0: e0 + 60, z1: z1 - 140 });
+      return r;
+    }
+  }
   switch (tipo) {
     case 'cajonero': cajones(r, 0, ancho, base, z1, FRENTE.cajones); break;
-    case 'placa': cajones(r, 0, ancho, base, z1, 3); break;
+    case 'placa': cajones(r, 0, ancho, base, z1, [2, 2, 1]); break;
     case 'lavavajillas': {
       const g = FRENTE.holgura;
       r.push({ k: 'hoja', x0: g, x1: ancho - g, z0: base + g, z1: z1 - g });
@@ -48,7 +67,7 @@ export function frenteModulo(tipo, ancho, z0, z1, { columna = false } = {}) {
     case 'columna_hmo': {
       // Horno y micro: un conjunto desde los 66 cm, de 1 m de alto (horno abajo, micro encima); puertas debajo y encima.
       const e0 = Math.max(base, FRENTE.hmo_desde), e1 = Math.min(z1, e0 + FRENTE.hmo_alto), hz = Math.min(e1, e0 + FRENTE.horno);
-      if (e0 > base + 50) cajones(r, 0, ancho, base, e0, 2);
+      if (e0 > base + 50) { if (variante && variante.endsWith('+ PUERTA')) puertas(r, 0, ancho, base, e0, 'arriba'); else cajones(r, 0, ancho, base, e0, 2); }
       const m = 25;
       r.push({ k: 'electro', x0: m, x1: ancho - m, z0: e0 + 5, z1: hz - 5 });
       r.push({ k: 'cristal', x0: m + 60, x1: ancho - m - 60, z0: e0 + 60, z1: hz - 140 });

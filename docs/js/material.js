@@ -55,7 +55,7 @@ export function materialCocina(d) {
   const h = { puertas: 0, bisagras: 0, cajones: 0, tiradores: 0, patas: 0, lavavajillas: 0 };
   paredes.forEach(p => {
     const sit = situarMuebles(p, d);
-    const contar = (tipo, ancho, z0, z1, opc) => {
+    const contar = (tipo, ancho, z0, z1, opc = {}) => {
       const f = frenteModulo(tipo, ancho, z0, z1, opc);
       f.forEach((q, i) => {
         if (q.k === 'tirador') h.tiradores++;
@@ -70,8 +70,8 @@ export function materialCocina(d) {
       if (b.m.tipo === 'hueco') return;
       const w = b.hasta - b.desde;
       h.patas += 4;
-      if (esColumna(b.m)) contar(b.m.tipo, w, 0, ALTURAS.columna, { columna: true });
-      else contar(b.m.tipo, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera);
+      if (esColumna(b.m)) contar(b.m.tipo, w, 0, ALTURAS.columna, { columna: true, variante: b.m.variante });
+      else contar(b.m.tipo, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera, { variante: b.m.variante });
     });
     sit.altos.forEach(a => { if (a.m.tipo !== 'hueco') contar(a.m.tipo, a.hasta - a.desde, ALTURAS.altos_desde, ALTURAS.altos_hasta); });
   });

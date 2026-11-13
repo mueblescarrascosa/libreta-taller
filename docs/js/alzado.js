@@ -35,10 +35,10 @@ export function geometriaAlzado(d, pared, ajustes = null) {
 
   // Muebles: bajos con zócalo y encimera; columnas hasta arriba (la de frigo, hasta su alto si lo lleva); altos.
   const sit = situarMuebles(pared, d), frigosConAlto = new Set(sit.altos.filter(a => a.m.tipo === 'alto_frigo').map(a => a.desde));
-  const bajo = (x, w, texto, tipo) => {
+  const bajo = (x, w, texto, tipo, variante) => {
     pieza('zocalo', x, 0, w, ALTURAS.zocalo);
     pieza('bajo', x, ALTURAS.zocalo, w, ALTURAS.encimera - ALTURAS.grueso_encimera - ALTURAS.zocalo, texto, tipo);
-    frente(frenteModulo(tipo, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera), x);
+    frente(frenteModulo(tipo, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera, { variante }), x);
     pieza('encimera', x, ALTURAS.encimera - ALTURAS.grueso_encimera, w, ALTURAS.grueso_encimera);
   };
   if (sit.entran.izq) bajo(0, sit.entran.izq, '', 'rinconero');
@@ -49,9 +49,9 @@ export function geometriaAlzado(d, pared, ajustes = null) {
     if (esColumna(m)) {
       const h = m.tipo === 'columna_frigo' && frigosConAlto.has(desde) ? ALTURAS.frigo : col;
       pieza('columna', desde, 0, hasta - desde, h, texto, m.tipo);
-      return frente(m.tipo === 'columna_frigo' && frigoLibre(d) ? frenteFrigoLibre(hasta - desde, frigoLibre(d) === 'americano') : frenteModulo(m.tipo, hasta - desde, 0, h, { columna: true }), desde);
+      return frente(m.tipo === 'columna_frigo' && frigoLibre(d) ? frenteFrigoLibre(hasta - desde, frigoLibre(d) === 'americano') : frenteModulo(m.tipo, hasta - desde, 0, h, { columna: true, variante: m.variante }), desde);
     }
-    bajo(desde, hasta - desde, texto, m.tipo);
+    bajo(desde, hasta - desde, texto, m.tipo, m.variante);
   });
   sit.altos.forEach(({ m, desde, hasta }) => {
     if (m.tipo === 'hueco') return;
@@ -111,7 +111,13 @@ export function geometriaAlzado(d, pared, ajustes = null) {
 export function svgAlzado(g, { unidad = 'cm' } = {}) {
   const NS = 'http://www.w3.org/2000/svg', el = (t, a, txt) => { const e = document.createElementNS(NS, t); Object.entries(a).forEach(([k, v]) => e.setAttribute(k, v)); if (txt !== undefined) e.textContent = txt; return e; };
   const s = Math.max(g.largo, g.techo) / 120, pad = s * 12, Y = y => g.techo - y;
-  const svg = el('svg', { class: 'alzado', role: 'img', 'aria-label': 'Alzado de la pared ' + g.letra, 'data-acc': 'alzado', viewBox: `${-pad * 1.4} ${-pad} ${g.largo + pad * 2.4} ${g.techo + pad * 2.2}` });
+  // Los nombres de los muebles van fuera del dibujo, cada uno alineado con su mueble: los de bajos, columnas y cuerpos
+  // en una fila debajo del suelo; los de los altos, en una fila encima del techo. Así los frentes se ven limpios.
+  const FUERA = ['bajo', 'columna', 'cuerpo', 'hueco', 'alto'], hueco_ = s * 2, banda = s * 22;
+  const hayAbajo = g.piezas.some(p => p.texto && FUERA.includes(p.clase) && p.clase !== 'alto'), hayArriba = g.piezas.some(p => p.texto && p.clase === 'alto');
+  const extraAbajo = hayAbajo ? hueco_ + banda : 0, extraArriba = hayArriba ? hueco_ + banda : 0;
+  const svg = el('svg', { class: 'alzado', role: 'img', 'aria-label': 'Alzado de la pared ' + g.letra, 'data-acc': 'alzado',
+    viewBox: `${-pad * 1.4} ${-pad - extraArriba} ${g.largo + pad * 2.4} ${g.techo + pad * 2.2 + extraAbajo + extraArriba}` });
   const texto = (x, y, t, o) => svg.append(el('text', Object.assign({ x, y, 'font-size': s * 3.4, 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'paint-order': 'stroke', stroke: '#fff', 'stroke-width': s * 0.8 }, o), t));
   const caja = (p, o) => svg.append(el('rect', Object.assign({ x: p.x, y: Y(p.y + p.h), width: p.w, height: p.h, 'data-pieza': p.clase }, o)));
   // La pared.
@@ -151,11 +157,19 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
     if (clase === 'ventana') svg.append(el('path', { d: `M${p.x} ${Y(p.y)} L${p.x + p.w} ${Y(p.y + p.h)} M${p.x} ${Y(p.y + p.h)} L${p.x + p.w} ${Y(p.y)}`, stroke: '#7dd3fc', 'stroke-width': s * 0.25, fill: 'none' }));
     if (p.texto) rotulos.push([p, clase]);
   }));
-  // Rótulos de muebles y huecos, dentro de su pieza sin pisarse: en horizontal, girados, en dos líneas o con letra menor.
+  // Rótulos: los de los muebles en su fila de fuera (debajo del suelo o encima del techo), en el ancho de su mueble;
+  // los de ventanas, puertas, pilares y azulejo, dentro de su pieza. Sin pisarse: en horizontal, girados, en dos líneas
+  // o con letra menor. Cada fila lleva unas rayitas finas en los bordes de los muebles para ver a cuál va cada nombre.
   const ocupados = [];
+  const fila = (y0, y1) => rotulos.filter(([p, c]) => FUERA.includes(c) && (c === 'alto') === (y1 <= 0)).forEach(([p]) => [p.x, p.x + p.w].forEach(x =>
+    svg.append(el('line', { x1: x, y1: y0, x2: x, y2: y1, stroke: '#d6c3ae', 'stroke-width': s * 0.25, 'data-separa': '' }))));
+  if (hayAbajo) fila(g.techo + hueco_, g.techo + hueco_ + banda);
+  if (hayArriba) fila(-hueco_ - banda, -hueco_);
   rotulos.forEach(([p, clase]) => {
     const color = clase === 'alto' ? '#1e3a8a' : clase === 'ventana' ? '#075985' : clase === 'azulejo' ? '#0f766e' : '#78350f';
-    const hueco = { x0: p.x, x1: p.x + p.w, y0: Y(p.y + p.h), y1: Y(p.y) }, tamanos = [3.4, 3, 2.6, 2.2].map(k => k * s);
+    const fuera = FUERA.includes(clase), tamanos = [3.4, 3, 2.6, 2.2].map(k => k * s);
+    const hueco = !fuera ? { x0: p.x, x1: p.x + p.w, y0: Y(p.y + p.h), y1: Y(p.y) }
+      : clase === 'alto' ? { x0: p.x, x1: p.x + p.w, y0: -hueco_ - banda, y1: -hueco_ } : { x0: p.x, x1: p.x + p.w, y0: g.techo + hueco_, y1: g.techo + hueco_ + banda };
     const r = encajarRotulo(p.texto, hueco, { tamanos, puestos: ocupados }) || encajarRotulo(p.texto, hueco, { tamanos: [2.2 * s], margen: 1.2 })
       || { tam: 2.2 * s, girar: p.w < p.h, lineas: [String(p.texto)], cx: p.x + p.w / 2, cy: Y(p.y + p.h / 2), caja: null };
     if (r.caja) ocupados.push(r.caja);
@@ -175,8 +189,8 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
     if (paso > 1) svg.append(el('line', { x1: q.x, y1: py - s * 1.5, x2: q.x, y2: caja.y + hh, stroke: col, 'stroke-width': s * 0.3, opacity: 0.7 }));
     texto(q.x, caja.y + hh / 2, t, { fill: col, 'font-size': s * tam, 'data-rotulo-punto': q.tipo });
   });
-  // Cotas generales: largo abajo y altura del techo a la izquierda.
-  texto(g.largo / 2, g.techo + pad * 0.6, g.letra + ' · ' + verMedida(g.largo, 'm') + ' m', { 'font-weight': 700, 'font-size': s * 4 });
+  // Cotas generales: largo abajo (debajo de la fila de nombres) y altura del techo a la izquierda.
+  texto(g.largo / 2, g.techo + extraAbajo + pad * 0.6, g.letra + ' · ' + verMedida(g.largo, 'm') + ' m', { 'font-weight': 700, 'font-size': s * 4 });
   const tTecho = (g.techoMedido ? '' : '≈ ') + verMedida(g.techo, 'm') + ' m';
   texto(-pad * 0.7, g.techo / 2, tTecho, { 'font-size': s * 3.6, transform: `rotate(-90 ${-pad * 0.7} ${g.techo / 2})`, fill: g.techoMedido ? '#111827' : '#b45309' });
   return svg;

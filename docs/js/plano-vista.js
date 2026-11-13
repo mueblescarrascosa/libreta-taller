@@ -326,16 +326,21 @@ export function svgPlanta(geo) {
   });
   // Nombres sin pisarse: si uno cae encima de otro ya puesto, se aleja de la pared con una rayita hasta su sitio.
   // Primero hacia dentro; si por ahí está todo ocupado, el sitio libre más cercano hacia los lados o hacia fuera.
-  // Primero en su sitio (a «desde» de la pared, hacia d); si choca, corrido a lo largo de la pared un poco a cada lado;
-  // después, más lejos de la pared; y si por ahí está todo ocupado, el sitio libre más cercano hacia los lados o hacia el otro lado.
+  // El sitio libre más cercano a su elemento: hacia d (lo preferido) o hacia el otro lado, alejándose de la pared y
+  // corriéndose a lo largo de ella. El otro lado cuenta como un poco más lejos, para que solo se use si así queda más cerca.
   const nombre = (c, d, t, col, tipo, { tam = 4, desde = 6 } = {}) => {
-    const u = { x: -d.y, y: d.x }, paso1 = tam * 1.4, ancho = String(t).length * tam * 0.62;
-    const en = (k, j, dir = d) => cajaTexto(c.x + dir.x * s * (desde + k * paso1) + u.x * s * j, c.y + dir.y * s * (desde + k * paso1) + u.y * s * j, t, tam);
+    const u = { x: -d.y, y: d.x }, paso1 = tam * 1.4, ancho = String(t).length * tam * 0.62, otro = { x: -d.x, y: -d.y };
+    const en = (k, j, dir) => cajaTexto(c.x + dir.x * s * (desde + k * paso1) + u.x * s * j, c.y + dir.y * s * (desde + k * paso1) + u.y * s * j, t, tam);
     const libre = b => !puestos.some(q => pisa(b, q));
-    let caja = null, paso = 0;
-    for (let k = 0; k < 15 && !caja; k++) for (const j of [0, 1, -1, 2, -2].map(f => f * ancho * 0.5)) { const b = en(k, j); if (libre(b)) { caja = b; paso = k + 1 + (j ? 1 : 0); break; } }
-    for (let k = 0; k < 25 && !caja; k++) for (const dir of [u, { x: -u.x, y: -u.y }, { x: -d.x, y: -d.y }]) { const b = en(k + 1, 0, dir); if (libre(b)) { caja = b; paso = k + 2; break; } }
-    if (!caja) { caja = en(0, 0); paso = 1; }
+    let caja = null, mejor = Infinity;
+    for (const [dir, extra] of [[d, 0], [otro, tam * 4]]) for (let k = 0; k < 25; k++) for (const f of [0, 0.5, -0.5, 1, -1, 1.5, -1.5]) {
+      const coste = Math.hypot(desde + k * paso1, f * ancho) + extra;
+      if (coste >= mejor) continue;
+      const b = en(k, f * ancho, dir);
+      if (libre(b)) { caja = b; mejor = coste; }
+    }
+    if (!caja) caja = en(0, 0, d);
+    const paso = Math.hypot(caja.cx - c.x, caja.cy - c.y) > s * (desde + 1) ? 2 : 1;
     puestos.push(caja);
     if (paso > 1) { const vx = caja.cx - c.x, vy = caja.cy - c.y, l = Math.hypot(vx, vy) || 1;
       svg.append(el('line', { x1: c.x + vx / l * s * 2, y1: c.y + vy / l * s * 2, x2: caja.cx - vx / l * s * 2, y2: caja.cy - vy / l * s * 2, stroke: col, 'stroke-width': s * 0.3, opacity: 0.7 })); }
