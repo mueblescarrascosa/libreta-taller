@@ -430,3 +430,18 @@ button { background: #fffef9; border-color: var(--borde); }
 .papel .copy-cab { display: inline; }
 .papel > footer { display: none !important; }
 .papel .tabla-puertas th, .papel .tabla-puertas td { padding: 3px 4px; }
+
+/* 1.23.0: consejos de diseño (en la ficha de cocina) y guía de medidas */
+.tarjeta-consejos .consejos { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 6px; }
+.tarjeta-consejos .consejos li { background: #eff6ff; border: 1px solid #bfdbfe; border-left: 4px solid #3b82f6; border-radius: 8px; padding: 6px 9px; }
+.tarjeta-consejos .consejos li b { display: block; font-size: 14px; }
+.tarjeta-consejos .consejos li small { color: #475569; display: block; margin-top: 2px; }
+.enlace-guia { display: inline-block; margin-top: 4px; }
+.guia-apartado h2 { margin-top: 0; }
+.tabla-guia { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tabla-guia th, .tabla-guia td { text-align: left; border-bottom: 1px solid var(--borde); padding: 6px 5px; vertical-align: top; }
+.tabla-guia th { background: #fef3c7; }
+.tabla-guia td:nth-child(2) { white-space: nowrap; font-weight: 600; }
+.guia-lista { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.guia-resultado { font-size: 17px; font-weight: 600; margin: 8px 0 2px; }
+@media (max-width: 520px) { .tabla-guia td:nth-child(2) { white-space: normal; } .tabla-guia { font-size: 13px; } }

@@ -16,6 +16,7 @@ import { geometriaPlanta, svgPlanta, aplicarPlano, pilarEnParedes, pilaresEnPare
 import { abrirPlano } from '../plano-editor.js';
 import { geometriaAlzado, svgAlzado } from '../alzado.js';
 import { vistaInteractiva, abrirPerspectivaGrande } from './perspectiva-ui.js';
+import { consejosDiseno } from '../consejos.js';
 
 const RETARDO = 300;
 const nuevoId = () => crypto.randomUUID();
@@ -356,10 +357,26 @@ export async function pintarFicha(App, id) {
       h('div', { class: 'tarjeta' }, zonaAlto),
       (() => { const t = h('b', {}, 'Planta'); return plegarCaja(h('div', { class: 'tarjeta tarjeta-planta' }, h('div', { class: 'cab' }, t, botonForma), zonaPlanta), t, 'lat:planta'); })(),
       (() => { const t = h('b', {}, 'Paredes de frente'); return plegarCaja(h('div', { class: 'tarjeta tarjeta-alzado' }, t, botonesAlzado, zonaAlzado), t, 'lat:alzado'); })(),
-      (() => { const t = h('b', {}, 'Perspectiva'); return plegarCaja(h('div', { class: 'tarjeta tarjeta-perspectiva' }, t, zonaPersp), t, 'lat:perspectiva'); })()),
+      (() => { const t = h('b', {}, 'Perspectiva'); return plegarCaja(h('div', { class: 'tarjeta tarjeta-perspectiva' }, t, zonaPersp), t, 'lat:perspectiva'); })(),
+      tarjetaConsejos()),
     h('h2', {}, 'Paredes'),
     zona,
     h('button', { type: 'button', class: 'ancho', 'data-acc': 'anadir-pared', onclick: () => { d.paredes.push(paredNueva(d.paredes)); cambio(); repintar(); } }, '+ Añadir pared')];
+  }
+  // Consejos de diseño (solo cocinas): lo que funcionaría mal al usarla, con su porqué; se rehacen con cada cambio.
+  function tarjetaConsejos() {
+    if (ficha.tipo !== 'cocina') return null;
+    const t = h('b', {}), zonaC = h('div', { class: 'zona-consejos' });
+    const pintar = () => {
+      const c = consejosDiseno(ficha);
+      t.textContent = 'Consejos de diseño' + (c.length ? ' (' + c.length + ')' : '');
+      zonaC.replaceChildren(c.length
+        ? h('ul', { class: 'consejos' }, c.map(x => h('li', { 'data-consejo': x.campo }, h('b', {}, x.texto), h('small', {}, x.porque))))
+        : h('p', { class: 'ayuda' }, 'Nada que mejorar con lo que hay puesto.'));
+    };
+    pintar(); refrescos.push(() => { if (zonaC.isConnected) pintar(); });
+    return plegarCaja(h('div', { class: 'tarjeta tarjeta-consejos', 'data-acc': 'consejos' }, t, zonaC,
+      h('a', { class: 'mini enlace-guia', href: '#/guia/' + ficha.id, 'data-acc': 'ver-guia' }, 'Guía de medidas →')), t, 'lat:consejos');
   }
   const seccion = (clase, titulo, ...hijos) => {
     const t = h('h4', {}, titulo);

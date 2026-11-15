@@ -12,6 +12,7 @@ import { pintarFicha, descartarVacio } from './pantallas/ficha.js';
 import { pintarAjustes } from './pantallas/ajustes.js';
 import { pintarResumen, pintarResumenTrabajo } from './pantallas/resumen.js';
 import { pintarPapelera } from './pantallas/papelera.js';
+import { pintarGuia } from './pantallas/guia.js';
 import { fotosParaLimpiar, trabajosARecuperar } from './trabajos.js';
 import { pintarPendientes } from './pantallas/pendientes.js';
 import { vigilarVersion, pintarAvisoVersion } from './version.js';
@@ -155,6 +156,7 @@ async function ruta() {
   if (seccion === 'resumen-trabajo') return pintarResumenTrabajo(App, id);
   if (seccion === 'papelera') return pintarPapelera(App);
   if (seccion === 'pendientes') return pintarPendientes(App);
+  if (seccion === 'guia') return pintarGuia(App, id);
   return pintarInicio(App);
 }
 
