@@ -62,18 +62,28 @@ prueba('columna en medio de la encimera, paso estrecho entre paredes enfrentadas
 });
 prueba('solo en cocinas; altura de encimera según la estatura', () => {
   igual(consejosDiseno(fichaNueva('puerta', null, 't')), []);
-  // Mitad de la estatura + 5 (176 → 93); con gas, 3 menos.
-  igual(alturaEncimera(160), 85); igual(alturaEncimera(176), 93); igual(alturaEncimera(176, true), 90); igual(alturaEncimera(220), 100); igual(alturaEncimera(''), null);
-  const o = opcionesEncimera(93);
-  igual(o.map(x => [x.zocalo, x.mueble, x.grueso]), [[100, 800, 30], [100, 800, 40], [100, 800, 20]], 'zócalo 10 + mueble 80 con la encimera que toque');
-  igual(opcionesEncimera(89)[0].zocalo + '+' + opcionesEncimera(89)[0].mueble + '+' + opcionesEncimera(89)[0].grueso, '150+700+40', 'la de siempre');
-  const al = altosPara(o[1], 2500);
+  // Mitad de la estatura + 3 (170 → 88, 176 → 91); con gas, 3 menos; normal 85–95, hasta 100 solo pasado 1,85.
+  igual(alturaEncimera(160), 85); igual(alturaEncimera(170), 88); igual(alturaEncimera(176), 91); igual(alturaEncimera(176, true), 88);
+  igual(alturaEncimera(184), 95); igual(alturaEncimera(220), 100); igual(alturaEncimera(''), null);
+  // Mandan zócalo 10 o 15 y encimera 4 o 2, con un margen de ±2 cm sobre la altura ideal.
+  const o = opcionesEncimera(93), sum = x => [x.zocalo, x.mueble, x.grueso].join('+');
+  igual(o.map(sum), ['100+800+20', '100+800+40', '150+700+40'], 'las de siempre, la más baja primero, sin zócalo de 6 ni encimera de 3 o 1,2');
+  igual(sum(opcionesEncimera(91)[0]), '150+700+40', '176 cm: la estándar (89) está a 2 cm');
+  igual(sum(opcionesEncimera(96)[0]), '100+800+40', 'pasarse cuesta más que quedarse corto: 94 antes que 97');
+  igual(sum(opcionesEncimera(89)[0]), '150+700+40', 'la estándar');
+  igual(sum(opcionesEncimera(90)[0]), '150+700+40', 'dentro del margen de 2 cm, la estándar');
+  igual(opcionesEncimera(89)[0].clase, 'estandar');
+  // El hueco del lavavajillas no mueve la cocina: con gola se avisa, pero el orden es el mismo.
+  const og = opcionesEncimera(93, 3, true);
+  igual([sum(og[0]), og[0].lavaOk, og[0].libre], ['100+800+20', false, 844]);
+  const al = altosPara({ zocalo: 100, mueble: 800, grueso: 40, altura: 940 }, 2500);
   igual([al.desde, al.alto, al.hasta, al.columna, al.sobraTecho], [1500, 900, 2400, 2300, 100], 'altos de 90 y columna enrasada');
-  igual(altosPara(o[1], 2300).alto, 800, 'techo de 230: altos de 80'); igual(altosPara(o[1], 2250).alto, 700, 'techo de 225: altos de 70');
-  const e = electroPara(176, o[1], al);
-  igual([e.horno, e.micro, e.frigo, e.lavavajillas, e.lavaTipo], [860, 1310, 1940, 900, 'xxl']);
-  igual(electroPara(176, o[1], al, true).lavaTipo, 'normal', '10 + 80 con gola J: 84,4, cabe');
-  igual(electroPara(170, { zocalo: 150, mueble: 700, grueso: 40, altura: 890 }, al, true).lavaTipo, 'nocabe', '15 + 70 con gola J: 79,4, no cabe');
+  igual(altosPara({ altura: 940, zocalo: 100 }, 2300).alto, 800, 'techo de 230: altos de 80'); igual(altosPara({ altura: 940, zocalo: 100 }, 2250).alto, 700, 'techo de 225: altos de 70');
+  const e = electroPara(176, o[0], al);
+  igual([e.horno, e.micro, e.frigo, e.lavavajillas, e.lavaTipo], [860, 1310, 1940, 900, 'bien']);
+  igual(electroPara(176, o[0], al, true).lavaTipo, 'corto', '10 + 80 con gola: 84,4, menos de 85');
+  igual(electroPara(170, { zocalo: 150, mueble: 700, grueso: 40, altura: 890 }, al, true).lavaTipo, 'corto', '15 + 70 con gola: 79,4');
+  igual(electroPara(176, { zocalo: 150, mueble: 800, grueso: 20, altura: 970 }, al, true).lavaTipo, 'bien', '15 + 80 con gola: 89,4');
 });
 prueba('electrodomésticos: frigo que no cabe y lavavajillas con puertas de 80', () => {
   const A = pared('A', 3600, { bajos: [mod('columna_frigo', 600), mod('bajo', 600), mod('fregadero', 800), mod('lavavajillas', 600), mod('placa', 600), mod('bajo', 400)] });
@@ -82,16 +92,32 @@ prueba('electrodomésticos: frigo que no cabe y lavavajillas con puertas de 80',
   f.datos.electro[0].alto = 1780;
   igual(textos(f), [], 'el de 178 cabe en la columna de la cocina tipo y con puertas de 70 no hay aviso de lavavajillas');
   fijarCocinaTipo({ zocalo: 100, mueble: 800, grueso: 40, alto_alto: 900, separacion: 560 });
-  afirma(textos(f).includes('Hueco del lavavajillas de 90 cm (10 cm + 80 cm): más alto que uno normal'), textos(f).join(' | '));
-  f.datos.acabados = { tirador: 'gola' }; f.datos.electro = f.datos.electro.filter(e => e.clave !== 'lavavajillas');
-  afirma(!textos(f).some(x => /lavavajillas/i.test(x)), 'con gola J cabe: ' + textos(f).join(' | '));
+  igual(textos(f), [], '10 + 80 sin gola: 90 libres, bien');
+  f.datos.acabados = { tirador: 'gola' };
+  afirma(textos(f).includes('Para el lavavajillas quedan 84,4 cm libres (10 cm + 80 cm − gola 5,6 cm): menos de 85'), textos(f).join(' | '));
+  afirma(consejosDiseno(f).some(c => /zócalo 15 cm y mueble 80 cm \(quedan 89,4 cm\)/.test(c.porque) && /sin gola en ese frente/.test(c.porque)), 'opciones coherentes');
   fijarCocinaTipo(mezclarAjustes(null).cocina_tipo);
-  afirma(textos(f).includes('El lavavajillas no cabe: quedan 79,4 cm (15 cm + 70 cm − gola J 5,6 cm)'), textos(f).join(' | '));
+  afirma(textos(f).includes('Para el lavavajillas quedan 79,4 cm libres (15 cm + 70 cm − gola 5,6 cm): menos de 85'), textos(f).join(' | '));
+  f.datos.electro.push({ id: 'w', clave: 'lavadora', tipo: 'integrable', ancho: 600 });
+  afirma(textos(f).some(x => /^Para el lavavajillas y la lavadora quedan 79,4/.test(x)), textos(f).join(' | '));
+  f.datos.electro = f.datos.electro.filter(e => e.clave !== 'lavadora');
   f.datos.acabados = {};
   fijarCocinaTipo({ zocalo: 100, mueble: 800, grueso: 40, alto_alto: 900, separacion: 560 }); f.datos.electro.push({ id: 'l', clave: 'lavavajillas', tipo: 'integrable', ancho: 600, alto: 950 });
   f.datos.electro.push({ id: 'l', clave: 'lavavajillas', tipo: 'integrable', ancho: 600, alto: 950 });
-  afirma(textos(f).some(x => /^Lavavajillas de 95 cm de alto: no cabe/.test(x)), textos(f).join(' | '));
+  afirma(textos(f).some(x => /^El lavavajillas de 95 cm no cabe: quedan 90 cm/.test(x)), textos(f).join(' | '));
   fijarCocinaTipo(mezclarAjustes(null).cocina_tipo);
+});
+prueba('vestidor: paso entre cuerpos enfrentados y barra larga sin apoyo', () => {
+  const f = fichaNueva('armario', 'vestidor', 't'), A = f.datos.paredes[0];
+  Object.assign(A, { largo: 2000, cuerpos: [{ id: 'c1', ancho: 1200, interior: 'barra' }] });
+  const B = Object.assign(paredNueva([A]), { letra: 'B', largo: 1900, elementos: [], cuerpos: [] });
+  const C = Object.assign(paredNueva([A, B]), { letra: 'C', largo: 2000, elementos: [], cuerpos: [{ id: 'c2', ancho: 800, interior: 'cajones' }] });
+  f.datos.paredes = [A, B, C];
+  const t = consejosDiseno(f).map(c => c.texto);
+  afirma(t.includes('Entre los cuerpos de A y C quedan unos 70 cm de paso'), t.join(' | '));
+  afirma(t.includes('Cuerpo 1 de la pared A: barra de 120 cm sin apoyo'), t.join(' | '));
+  B.largo = 2300;
+  afirma(!consejosDiseno(f).some(c => /paso/.test(c.texto)), 'con 110 de paso, bien');
 });
 prueba('cocina tipo de los ajustes: dibujos y consejos la siguen', () => {
   igual(mezclarAjustes(null).cocina_tipo, { zocalo: 150, mueble: 700, grueso: 40, alto_alto: 700, separacion: 560 });
@@ -122,15 +148,21 @@ prueba('app: tarjeta de consejos en la ficha de cocina y guía de medidas con su
     afirma((await a.page.innerText('[data-apartado="1"]')).includes('15 cm + 70 cm + 4 cm'));
     await a.page.fill('[data-acc="estatura"]', '176'); await a.page.fill('[data-acc="techo"]', '250');
     const res = await a.page.innerText('[data-res="encimera"]');
-    afirma(res.startsWith('Encimera a unos 93 cm.') && res.includes('10 cm + 80 cm + 3 cm') && !res.includes('null'), res);
-    afirma((await a.page.innerText('[data-res="electro"]')).includes('pieza lacada del color de las puertas'), await a.page.innerText('[data-res="electro"]'));
+    afirma(res.startsWith('Encimera a unos 91 cm.') && res.includes('15 cm + 70 cm + 4 cm') && res.includes('La estándar') && res.includes('lavavajillas: 85 cm libres') && !res.includes('null'), res);
+    afirma((await a.page.innerText('[data-res="electro"]')).includes('Lavavajillas y lavadora: quedan 85 cm libres'), await a.page.innerText('[data-res="electro"]'));
+    await a.page.click('[data-acc="gola"][data-v="true"]');
+    const conGola = await a.page.innerText('[data-res="encimera"]');
+    afirma(conGola.includes('15 cm + 70 cm + 4 cm') && conGola.includes('No se sube la cocina por eso') && conGola.includes('quitan unos 3 cm para meter la mano'), conGola);
+    await a.page.click('[data-acc="gola"][data-v="false"]');
     await a.page.click('[data-acc="placa-gas"][data-v="true"]');
-    afirma((await a.page.innerText('[data-res="encimera"]')).startsWith('Encimera a unos 90 cm (3 cm menos'));
+    afirma((await a.page.innerText('[data-res="encimera"]')).startsWith('Encimera a unos 88 cm (3 cm menos'), 'con gas, 3 menos');
     await a.page.click('[data-acc="placa-gas"][data-v="false"]');
     await a.page.click('[data-acc="opcion-encimera"][data-v="1"]'); await a.page.click('[data-acc="usar-cocina-tipo"]');
     await a.page.waitForFunction(() => /Es tu cocina tipo/.test(document.querySelector('[data-acc="usar-cocina-tipo"]').textContent));
     afirma(!(await a.page.innerText('[data-apartado="1"]')).includes('15 cm + 70 cm + 4 cm'), 'la cocina tipo ha cambiado');
-    afirma((await a.page.innerText('[data-apartado="1"]')).includes('10 cm + 80 cm + 4 cm'), await a.page.innerText('[data-apartado="1"]'));
+    afirma((await a.page.innerText('[data-apartado="1"]')).includes('10 cm + 80 cm + 2 cm'), await a.page.innerText('[data-apartado="1"]'));
+    afirma((await a.page.innerText('[data-apartado="0"]')).includes('más bajo antes que más alto'), 'reglas de prioridad');
+    afirma((await a.page.innerText('[data-apartado="11"]')).includes('Alrededor de la isla'), 'vestidores con isla');
     afirma((await a.page.innerText('main')).includes('Entre encimeras enfrentadas'));
     igual(a.errores, []);
   } finally { await a.cerrar(); }

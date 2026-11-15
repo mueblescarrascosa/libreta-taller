@@ -6,26 +6,38 @@ import { MEDIDAS as M } from '../consejos.js';
 const cm = mm => String(Math.round(mm) / 10).replace('.', ',') + ' cm';
 // Piezas con las que se juega para llegar a una altura de encimera (mm).
 export const PIEZAS = { zocalos: [60, 100, 150], muebles: [700, 800], gruesos: [12, 20, 30, 40], altos: [900, 800, 700] };
-const NORMALES = ['100+800+40', '150+700+40'];   // las combinaciones de siempre
+// Lo de siempre: zócalo de 10 o 15 y encimera de 4 o 2; la estándar, 15 + 70 + 4. Zócalo de 6 y encimera de 3 o 1,2, casos especiales.
+const ESTANDAR = '150+700+40', ZOCALO_NORMAL = [100, 150], GRUESO_NORMAL = [40, 20], MARGEN = 20;   // ±2 cm sobre la altura ideal
 const GRUESO = { 12: 'porcelánico', 20: 'cuarzo o compacto', 30: 'laminado o cuarzo', 40: 'laminado' };
+export const clase = o => (o.zocalo + '+' + o.mueble + '+' + o.grueso === ESTANDAR ? 'estandar' : ZOCALO_NORMAL.includes(o.zocalo) && GRUESO_NORMAL.includes(o.grueso) ? 'normal' : 'especial');
 
-// Altura cómoda de encimera: la mitad de la estatura más 5 cm (176 → 93). Con placa de gas, 3 cm menos:
-// la parrilla queda unos 5 cm por encima de la encimera.
+// Altura cómoda de encimera: la mitad de la estatura más 3 cm (170 → 88, 176 → 91, 180 → 93), la parte baja de las
+// tablas de ergonomía (10–15 cm por debajo del codo): ante la duda, más baja. Con placa de gas, 3 cm menos (la parrilla
+// sube unos 5). Lo normal, entre 85 y 95; más de 95 solo para quien pase de 1,85 (como mucho 100).
+export const LIMITES_ENCIMERA = { min: 85, max: 95, maxAlto: 100 };
 export function alturaEncimera(estatura, gas = false) {
   const e = Number(estatura);
   if (!e || e < 120 || e > 230) return null;
-  return Math.max(80, Math.min(100, Math.round(e / 2 + 5 - (gas ? 3 : 0))));
+  const tope = e > 185 ? LIMITES_ENCIMERA.maxAlto : LIMITES_ENCIMERA.max;
+  return Math.max(LIMITES_ENCIMERA.min - (gas ? 3 : 0), Math.min(tope, Math.round(e / 2 + 3 - (gas ? 3 : 0))));
 }
 
-// Las combinaciones zócalo + mueble + encimera más cercanas a la altura que se busca (cm), las normales primero si empatan.
-export function opcionesEncimera(objetivoCm, cuantas = 3) {
+// Las combinaciones zócalo + mueble + encimera para la altura que se busca (cm), por prioridad:
+//  1) dentro de ±2 cm, la estándar (15 + 70 + 4), luego las normales (zócalo 10 o 15, encimera 4 o 2), y de ellas la más baja;
+//  2) fuera del margen, pasarse cuenta el doble que quedarse corto (mejor baja que alta);
+//  3) los casos especiales (zócalo de 6, encimera de 3 o 1,2) solo si no hay otra;
+//  4) el hueco del lavavajillas NO mueve la cocina: si con gola no llega a 85, se arregla en ese frente (se avisa).
+export function opcionesEncimera(objetivoCm, cuantas = 3, gola = false) {
   const obj = objetivoCm * 10, l = [];
   PIEZAS.zocalos.forEach(z => PIEZAS.muebles.forEach(m => PIEZAS.gruesos.forEach(g => {
-    const alt = z + m + g, normal = NORMALES.includes(z + '+' + m + '+' + g);
-    const coste = Math.abs(alt - obj) + (normal ? 0 : 4) + (z === 60 ? 6 : 0) + (g === 12 ? 3 : 0);
-    l.push({ zocalo: z, mueble: m, grueso: g, altura: alt, dif: alt - obj, normal, coste });
+    const o = { zocalo: z, mueble: m, grueso: g, altura: z + m + g, dif: z + m + g - obj, libre: z + m - (gola ? M.gola : 0) };
+    o.clase = clase(o); o.normal = o.clase !== 'especial'; o.lavaOk = o.libre >= M.libre_electro;
+    // Margen de ±2 cm: dentro de él, la diferencia no cuenta (manda que sea de las de siempre).
+    const fuera = Math.max(0, Math.abs(o.dif) - MARGEN) * (o.dif > 0 ? 2 : 1);
+    o.coste = fuera + (o.clase === 'estandar' ? 0 : o.clase === 'normal' ? 5 : 30) + (z === 60 ? 20 : 0);
+    l.push(o);
   })));
-  l.sort((a, b) => a.coste - b.coste || b.normal - a.normal || b.grueso - a.grueso);
+  l.sort((a, b) => a.coste - b.coste || a.altura - b.altura || b.grueso - a.grueso);
   const vistas = new Set(), r = [];
   for (const o of l) { if (vistas.has(o.altura)) continue; vistas.add(o.altura); r.push(o); if (r.length === cuantas) break; }
   return r;
@@ -45,7 +57,7 @@ export function altosPara(op, techoMm) {
 //  · horno en columna: base unos 25 cm por debajo del codo (el codo, ≈ 63 % de la estatura);
 //  · microondas: base unos 20 cm por encima del codo y al menos 25 cm por debajo de los ojos (estatura − 12), para ver dentro;
 //  · frigo integrable: el hueco europeo más alto que cabe en la columna (deja encima un alto de 20 cm o más);
-//  · lavavajillas integrable (81,5–87,5 con las patas; XXL hasta 92,5): hueco = zócalo + mueble − gola J (5,6) si la lleva.
+//  · lavavajillas y lavadora integrables: hueco libre = zócalo + mueble − gola (5,6) si la lleva; mínimo 85 cm.
 export const HUECOS_FRIGO = [1940, 1780, 1580, 1400, 1220];
 export function electroPara(estatura, op, al, gola = false) {
   const e = Number(estatura) * 10, codo = e * 0.63, ojos = e - 120, redondo = v => Math.round(v / 10) * 10;
@@ -55,7 +67,7 @@ export function electroPara(estatura, op, al, gola = false) {
   const frigo = HUECOS_FRIGO.find(f => f <= al.columna - 200) || null;
   const lava = op.zocalo + op.mueble - (gola ? M.gola : 0);
   return { horno, micro, juntos, juntosAlto: juntos > micro + 150, frigo, encimaFrigo: frigo ? al.columna - frigo : null,
-    lavavajillas: lava, lavaTipo: lava < M.lavavajillas_min ? 'nocabe' : lava <= M.lavavajillas_max ? 'normal' : lava <= M.lavavajillas_xxl ? 'xxl' : 'alto' };
+    lavavajillas: lava, lavaTipo: lava < M.libre_electro ? 'corto' : lava > M.libre_electro_max ? 'sobra' : 'bien' };
 }
 
 const tabla = (cab, filas) => h('table', { class: 'tabla-guia' }, h('thead', {}, h('tr', {}, cab.map(t => h('th', {}, t)))),
@@ -74,17 +86,19 @@ export function pintarGuia(App, fichaId) {
   let gas = false, gola = false, elegida = 0;
   const botonGas = h('div', { class: 'chips' }, [[false, 'Inducción o vitro'], [true, 'Gas']].map(([v, t]) => h('button', { type: 'button', 'data-acc': 'placa-gas', 'data-v': String(v), class: v === gas ? 'on' : '',
     onclick: () => { gas = v; botonGas.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === String(v))); pintar(); } }, t)));
-  const botonGola = h('div', { class: 'chips' }, [[false, 'Tirador, uñero o integrado'], [true, 'Gola J']].map(([v, t]) => h('button', { type: 'button', 'data-acc': 'gola', 'data-v': String(v), class: v === gola ? 'on' : '',
+  const botonGola = h('div', { class: 'chips' }, [[false, 'Tirador, uñero o integrado'], [true, 'Gola']].map(([v, t]) => h('button', { type: 'button', 'data-acc': 'gola', 'data-v': String(v), class: v === gola ? 'on' : '',
     onclick: () => { gola = v; botonGola.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === String(v))); pintar(); } }, t)));
   const salida = h('div', { class: 'guia-resultado', 'data-res': 'encimera' }, 'Escribe la estatura de quien más cocina.');
   function pintar() {
     const a = alturaEncimera(est.value, gas);
     if (a === null) { salida.replaceChildren('Escribe la estatura en cm (entre 120 y 230).'); return; }
-    const ops = opcionesEncimera(a), t = Number(techo.value) > 0 ? Number(techo.value) * 10 : null;
+    const ops = opcionesEncimera(a, 3, gola), t = Number(techo.value) > 0 ? Number(techo.value) * 10 : null;
     if (elegida >= ops.length) elegida = 0;
     const op = ops[elegida], al = altosPara(op, t);
     const tarjetas = ops.map((o, i) => h('button', { type: 'button', class: 'opcion-encimera' + (i === elegida ? ' on' : ''), 'data-acc': 'opcion-encimera', 'data-v': String(i), onclick: () => { elegida = i; pintar(); } },
-      h('b', {}, cm(o.altura)), h('span', {}, suma(o)), h('small', {}, (o.normal ? 'La de siempre · ' : '') + 'encimera de ' + cm(o.grueso) + ' (' + GRUESO[o.grueso] + ')' + (o.dif ? ' · ' + (o.dif > 0 ? '+' : '') + cm(o.dif) : ''))));
+      h('b', {}, cm(o.altura)), h('span', {}, suma(o)),
+      h('small', {}, ({ estandar: 'La estándar', normal: 'Normal', especial: 'Caso especial' })[o.clase] + ' · encimera de ' + cm(o.grueso) + ' (' + GRUESO[o.grueso] + ')' + (o.dif ? ' · ' + (o.dif > 0 ? '+' : '') + cm(o.dif) : '')),
+      h('small', { class: o.lavaOk ? 'lava-ok' : 'lava-mal' }, (o.lavaOk ? '✓ ' : '⚠ ') + 'lavavajillas: ' + cm(o.libre) + ' libres' + (o.lavaOk ? '' : ' (mínimo 85)'))));
     const usar = h('button', { type: 'button', 'data-acc': 'usar-cocina-tipo', onclick: async () => {
       await App.cambiarAjustes({ cocina_tipo: { zocalo: op.zocalo, mueble: op.mueble, grueso: op.grueso, alto_alto: al.alto, separacion: al.separacion } });
       usar.textContent = '✓ Es tu cocina tipo'; pintarTipo();
@@ -97,13 +111,15 @@ export function pintarGuia(App, fichaId) {
       al.sobraTecho !== null ? nota(al.sobraTecho >= 0 ? 'Quedan ' + cm(al.sobraTecho) + ' hasta el techo' + (al.sobraTecho > 150 ? ': altillo o tapeta para no acumular polvo.' : '.') : 'No cabe ni con altos de 70: hay que recortar.') : null,
       gas ? nota('Con gas: campana a 75 cm sobre la placa (nunca menos de 65).') : null,
       (() => { const el = electroPara(est.value, op, al, gola); return h('div', { 'data-res': 'electro' },
-        h('p', {}, 'Horno en columna con la base a ', h('b', {}, cm(el.horno)), '; microondas con la base a ', h('b', {}, cm(el.micro)), '.',
-          el.juntosAlto ? ' Si van juntos (micro encima del horno), el micro queda a ' + cm(el.juntos) + ': algo alto, mejor en otra columna o bajo.' : ' Pueden ir juntos en la misma columna (micro a ' + cm(el.juntos) + ').'),
+        h('p', {}, 'Horno en columna: la base a ', h('b', {}, cm(el.horno)), ' del suelo (la bandeja sale a la altura de las manos, sin agacharse). ',
+          'Microondas: la base a ', h('b', {}, cm(el.micro)), ' (por debajo de los ojos, para ver dentro). ',
+          el.juntosAlto ? 'Si van juntos en la misma columna, el micro queda a ' + cm(el.juntos) + ': algo alto; mejor en otra columna o en un alto.' : 'Pueden ir juntos en la misma columna, el micro encima (a ' + cm(el.juntos) + ').'),
         h('p', {}, el.frigo ? ['Frigo integrable de hueco ', h('b', {}, cm(el.frigo)), ' y alto encima de ', cm(el.encimaFrigo), '.'] : 'La columna es baja para un frigo integrable de serie.'),
-        h('p', {}, 'Lavavajillas integrable: hueco de ', h('b', {}, cm(el.lavavajillas)), ' (', cm(op.zocalo), ' + ', cm(op.mueble), gola ? ' − gola J ' + cm(M.gola) : '', ')',
-          el.lavaTipo === 'normal' ? ': cabe uno normal (81,5–87,5).' : el.lavaTipo === 'nocabe' ? ': NO cabe (necesita 81,5–87,5); baja el zócalo en esa zona o mueble de 80.'
-            : el.lavaTipo === 'xxl' ? ': un XXL (86,5–92,5)' + (gola ? '' : ', la gola J') + ' o una pieza lacada del color de las puertas para lo que sobra.' : ': ni un XXL llega; pieza lacada del color de las puertas para lo que sobra.',
-          op.mueble >= 800 ? ' Con puerta de 80, mejor de puerta deslizante para que el panel no choque con el zócalo.' : '')); })(),
+        h('p', { class: el.lavaTipo === 'corto' ? 'lava-mal' : '' }, 'Lavavajillas y lavadora: quedan ', h('b', {}, cm(el.lavavajillas)), ' libres (', cm(op.zocalo), ' + ', cm(op.mueble), gola ? ' − gola ' + cm(M.gola) : '', ')',
+          el.lavaTipo === 'bien' ? ': bien (mínimo 85).'
+            : el.lavaTipo === 'corto' ? ': menos de 85. No se sube la cocina por eso: ' + (gola ? 'en ese frente, tirador o uñero en vez de gola (quedan ' + cm(op.zocalo + op.mueble) + ')' + (op.zocalo + op.mueble < M.libre_electro ? ', y zócalo más bajo o mueble de 80 solo en esa zona' : '') + '.' : 'zócalo más bajo o mueble de 80 solo en esa zona.')
+              : ': sobra hueco; una pieza lacada del color de las puertas' + (gola ? '' : ' o la gola') + ' lo tapa.',
+          gola ? ' Con gola, a la puerta de los bajos se le quitan unos ' + cm(M.gola_mano) + ' para meter la mano.' : '')); })(),
       usar].filter(Boolean));
   }
   est.addEventListener('input', pintar); techo.addEventListener('input', pintar);
@@ -112,9 +128,11 @@ export function pintarGuia(App, fichaId) {
   const zonaTipo = h('div');
   function pintarTipo() {
     zonaTipo.replaceChildren(tabla(['Pieza', 'Medida', ''], [
-      ['Zócalo', cm(M.zocalo), 'De serie: 6, 10 y 15'],
+      ['Zócalo', cm(M.zocalo), 'Lo normal, 10 o 15; de 6, solo casos especiales'],
       ['Mueble bajo', cm(M.mueble_bajo) + ' de alto', 'Puertas de 70 u 80; fondo ' + cm(M.fondo_bajo) + ' con la puerta'],
-      ['Encimera', cm(M.grueso_encimera) + ' de grueso', 'De 1,2 a 4 cm; fondo ' + cm(M.fondo_encimera) + ' (vuela 2–4 cm)'],
+      ['Encimera', cm(M.grueso_encimera) + ' de grueso', 'Lo normal, 4 o 2 cm; de 3 o 1,2, casos especiales. Fondo ' + cm(M.fondo_encimera) + ' (vuela 2–4 cm)'],
+      ['Gola', cm(M.gola) + ' de perfil', 'A la puerta de los bajos se le quitan unos ' + cm(M.gola_mano) + ' para meter la mano (2,5–3,5)'],
+      ['Hueco libre para lavavajillas y lavadora', cm(M.zocalo + M.mueble_bajo) + ' (con gola, ' + cm(M.zocalo + M.mueble_bajo - M.gola) + ')', 'Mínimo 85 cm'],
       ['Altura de la encimera', cm(M.encimera), suma({ zocalo: M.zocalo, mueble: M.mueble_bajo, grueso: M.grueso_encimera })],
       ['Altos', 'de ' + cm(M.altos_desde) + ' a ' + cm(M.altos_hasta), 'Altos de ' + cm(M.altos_hasta - M.altos_desde) + ', a ' + cm(M.altos_desde - M.encimera) + ' de la encimera; fondo ' + cm(M.fondo_alto)],
       ['Columnas', cm(M.columna - M.zocalo) + ' + zócalo', 'Hasta ' + cm(M.columna) + ': enrasan con los altos'],
@@ -124,11 +142,18 @@ export function pintarGuia(App, fichaId) {
 
   main.append(
     nota('Medidas de referencia del taller. Los consejos de diseño de cada ficha usan estas mismas cifras. Son orientativas: manda el manual de cada electrodoméstico.'),
+    apartado(0, 'Reglas de prioridad', h('ol', { class: 'guia-lista' },
+        h('li', {}, h('b', {}, 'Que quepa y sea seguro:'), ' electrodomésticos con su hueco (lavavajillas y lavadora, 85 libres), pasos mínimos y techo.'),
+        h('li', {}, h('b', {}, 'Que sea cómodo'), ' para quien lo usa; ante la duda, ', h('b', {}, 'más bajo antes que más alto'), '.'),
+        h('li', {}, h('b', {}, 'Lo estándar del taller'), ' (15 + 70 + 4; zócalo 10 o 15; encimera 4 o 2) si queda a ±2 cm de lo ideal.'),
+        h('li', {}, h('b', {}, 'Estética'), ' y gusto del cliente.'),
+        h('li', {}, h('b', {}, 'Casos especiales'), ' (zócalo de 6, encimera de 3 o 1,2) solo si no hay otra forma.')),
+      nota('Un problema de una zona se arregla en esa zona: si el lavavajillas no cabe con gola, se cambia ese frente (tirador, uñero o pieza), no se sube toda la cocina.')),
     apartado(1, 'Tu cocina tipo', zonaTipo, nota('Así salen los dibujos, la perspectiva y el material. Se cambia con la calculadora de abajo («Usar como mi cocina tipo»).')),
     apartado(2, 'Altura de encimera, altos y columnas',
       h('div', { class: 'dos' }, h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Estatura (cm)'), est), h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Techo (cm)'), techo)),
       h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Placa'), botonGas), h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Tirador'), botonGola), salida,
-      nota('Lo cómodo: la mitad de la estatura más 5 cm. Se llega con el zócalo (6, 10 o 15), el mueble (70 u 80) y el grueso de la encimera (1,2 a 4).')),
+      nota('Lo cómodo: la mitad de la estatura más 3 cm, entre 10 y 15 cm por debajo del codo; ante la duda, más baja. Normal entre 85 y 95. Se respeta un margen de ±2 cm para quedarse en lo estándar (zócalo 10 o 15, mueble 70 u 80, encimera 4 o 2).')),
     apartado(3, 'Placa y campana',
       tabla(['Qué', 'Medida', 'Nota'], [
         ['Placa (aparato)', cm(M.placa) + ' lo normal', 'En un mueble de 60, 80 o 90 suele ir una de 60; las de 70–90 se dicen aparte'],
@@ -153,7 +178,7 @@ export function pintarGuia(App, fichaId) {
         ['Frigo americano', 'ancho 91–92 · alto 178–180', 'Fondo 70–75: sobresale de los bajos'],
         ['Horno', '60 × 60 (compacto 45)', 'Fondo 55; bajo encimera o en columna'],
         ['Microondas integrable', '38 o 45 de alto', 'En hueco de 60 de ancho (o 50); libre, en un estante de 40 de fondo'],
-        ['Lavavajillas integrable', 'ancho 45 o 60 · alto 81,5–87,5 (XXL 86,5–92,5)', 'Hueco = zócalo + mueble − gola J (5,6). 15 + 70 con gola: 79,4, no cabe. 10 + 80 con gola: 84,4, cabe. Lo que sobre, pieza lacada del color de las puertas. Con puerta de 80, de puerta deslizante'],
+        ['Lavavajillas y lavadora integrables', 'ancho 45 o 60 · mínimo 85 libres', 'Hueco libre = zócalo + mueble − gola (5,6). 15 + 70 con gola: 79,4 (no llega). 15 + 80 con gola: 89,4. Lo que sobre, pieza lacada del color de las puertas'],
         ['Placa', '60 · 70 · 80 · 90', 'Hueco en la encimera según el modelo (56 × 49 la de 60)'],
         ['Campana', '60 · 90 (isla 90–120)', 'Igual o más ancha que la placa'],
       ])),
@@ -178,7 +203,28 @@ export function pintarGuia(App, fichaId) {
         ['Paredes enfrentadas con muebles en las dos', cm(M.pasillo + 2 * M.fondo_encimera), 'Por debajo, muebles solo en una pared o de poco fondo'],
       ]),
       nota('El paso se mide desde el canto de la encimera (' + cm(M.fondo_encimera) + ' desde la pared).')),
-    apartado(9, 'Soluciones habituales', lista([
+    apartado(10, 'Armarios', tabla(['Qué', 'Medida', 'Nota'], [
+        ['Fondo', '60 cm (55 útiles)', 'Con correderas, 65 (las guías comen 8–9). Con 50, solo ropa doblada o infantil'],
+        ['Ancho', '100 cm por persona', 'Módulos de 60 a 100; una barra de más de 100 sin apoyo se comba'],
+        ['Hueco de colgar largo', '150–170 cm', 'Abrigos y vestidos. La barra, a 170–180 del suelo'],
+        ['Hueco de colgar corto', '90–110 cm', 'Camisas y chaquetas: dos barras en un cuerpo de 200 (a unos 100 y 200)'],
+        ['Pantalones en percha', '60–90 cm', ''],
+        ['Baldas', '30–40 cm entre ellas', '20 para ropa fina'],
+        ['Cajones', '12–20 cm (ropa) · 20–25 (volumen)', 'Accesorios 10–12; la cajonera, por debajo de 100 para ver dentro'],
+        ['Altillo o maletero', '35–50 cm', 'Desde 180–190; una barra por encima de 200 necesita elevador'],
+        ['Delante del armario', '80–90 cm libres', 'Para abrir puertas y cajones y ponerse delante'],
+        ['Puertas abatibles', 'unos 50 cm por hoja', 'Correderas: hojas de 60–100'],
+      ])),
+    apartado(11, 'Vestidores', tabla(['Qué', 'Mínimo', 'Cómodo'], [
+        ['Paso con muebles a un lado', '70 cm', '90 cm'],
+        ['Paso con muebles a los dos lados', '80 cm', '100 cm (dos personas a la vez, 107)'],
+        ['Alrededor de la isla', '80 cm', '90 cm a cada lado (si menos, los cajones no abren bien)'],
+        ['Isla: fondo', '50 cm (cajones a un lado)', '90–100 si abre por los dos lados'],
+        ['Isla: largo', '100 cm', '100–150'],
+        ['Isla: alto', '85 cm', '85–90 para apoyar y doblar ropa; ante la duda, 85'],
+        ['Cuarto para isla con muebles a los dos lados', '330 cm entre paredes', '60 + 90 + 50 + 90 + 60 = 350'],
+      ]), nota('Ideas: espejo de cuerpo entero en una puerta o al fondo; luz en la barra o en el cajón; un banco o la isla para sentarse a calzarse; zapatero inclinado a la altura de la vista.')),
+    apartado(12, 'Soluciones habituales', lista([
       ['Rincones:', 'rinconero en L de 90–100 con bandejas extraíbles o carrusel; si no, rincón ciego con puerta. Entre el rincón y un lavavajillas, horno o cajonero, un bajo o regleta de 5–10 cm.'],
       ['Cocina estrecha:', 'muebles en una sola pared, o enfrente solo altos o bajos de 30–40 cm de fondo. Cajones mejor que puertas.'],
       ['Poca encimera:', 'placa de dos zonas, tabla sobre el fregadero, estante o sobre-encimera para los pequeños electrodomésticos.'],

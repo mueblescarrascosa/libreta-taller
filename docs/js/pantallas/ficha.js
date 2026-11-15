@@ -22,7 +22,7 @@ import { comoRellenar } from '../ayuda.js';
 const RETARDO = 300;
 const nuevoId = () => crypto.randomUUID();
 const SI_NO = [[true, 'Sí'], [false, 'No']];
-const TIRADORES = [['visto', 'Visto'], ['gola', 'Gola J'], ['unero', 'Uñero'], ['integrado', 'Integrado']];
+const TIRADORES = [['visto', 'Visto'], ['gola', 'Gola'], ['unero', 'Uñero'], ['integrado', 'Integrado']];
 
 // Una medida mal escrita no se guarda como número: queda vacía y el texto se conserva en obj.mal para seguir avisando.
 function anotarMedida(obj, k, mm, textoMal) {
@@ -368,7 +368,7 @@ export async function pintarFicha(App, id) {
   }
   // Consejos de diseño (solo cocinas): lo que funcionaría mal al usarla, con su porqué; se rehacen con cada cambio.
   function tarjetaConsejos() {
-    if (ficha.tipo !== 'cocina') return null;
+    if (ficha.tipo !== 'cocina' && ficha.subtipo !== 'vestidor') return null;
     const t = h('b', {}), zonaC = h('div', { class: 'zona-consejos' });
     const pintar = () => {
       const c = consejosDiseno(ficha);

@@ -485,3 +485,6 @@ button.enlace { background: none; border: 0; padding: 0; min-height: 0; color: v
 .botones-ayuda { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
 @media print { .como-rellenar, header .letra-boton, header .ayuda-boton { display: none !important; } }
 .cab .et-paredes { margin-left: auto; margin-right: 6px; align-self: center; }
+/* 1.25.1: hueco libre del lavavajillas en la calculadora */
+.opcion-encimera .lava-ok { color: #15803d; font-weight: 600; }
+.opcion-encimera .lava-mal, p.lava-mal { color: #b45309; font-weight: 600; }

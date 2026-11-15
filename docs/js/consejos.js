@@ -25,8 +25,9 @@ export const MEDIDAS = {
   frigo_placa: 300,                            // separación frigo–placa
   pasillo: 900, pasillo_bien: 1200,            // paso entre encimeras enfrentadas o hasta la isla
   encimera_libre: 900,                         // encimera de trabajo mínima en total
-  gola: 56,                                    // perfil gola en J (lo que quita de hueco por arriba)
-  lavavajillas_min: 815, lavavajillas_max: 875, lavavajillas_xxl: 925,   // alto del lavavajillas integrable con las patas (XXL hasta 92,5)
+  gola: 56,                                    // perfil de gola bajo la encimera (lo que quita de hueco a los electrodomésticos)
+  gola_mano: 30,                               // hueco para la mano con gola (2,5–3,5 cm): lo que se descuenta a la puerta
+  libre_electro: 850, libre_electro_max: 920,  // hueco libre bajo la encimera para lavavajillas y lavadora: mínimo 85; más de 92, sobra
 };
 // Grupos de consejos, en el orden en que salen (y el de la guía).
 export const GRUPOS = [['placa', 'Placa y campana'], ['agua', 'Fregadero y lavavajillas'], ['frio', 'Frigorífico'], ['encimera', 'Encimera y columnas'], ['paso', 'Pasos y pasillos']];
@@ -61,7 +62,30 @@ function aparatos(d) {
   };
 }
 
+// Vestidor: paso entre cuerpos enfrentados (mínimo 80, cómodo 100) y barras de más de 100 cm sin apoyo.
+export const VESTIDOR = { fondo: 600, paso: 800, paso_bien: 1000, paso_un_lado: 700, barra_max: 1000 };
+function consejosVestidor(d) {
+  const l = [], V = VESTIDOR, cuerpos = p => (p.cuerpos || []).length > 0;
+  const vistas = new Set();
+  (d.paredes || []).forEach(p => {
+    const q = paredesVecinas(d, p).der, r = q && paredesVecinas(d, q).der;
+    if (!q || !r || r === p || !hay(q.largo) || !cuerpos(p) || !cuerpos(r)) return;
+    const clave = [p.letra, r.letra].sort().join('');
+    if (vistas.has(clave)) return; vistas.add(clave);
+    const paso = q.largo - 2 * V.fondo;
+    if (paso < V.paso) l.push({ grupo: 'paso', campo: 'pared.' + q.id, texto: 'Entre los cuerpos de ' + p.letra + ' y ' + r.letra + ' quedan unos ' + cm(Math.max(0, paso)) + ' de paso',
+      porque: 'Con muebles a los dos lados hacen falta ' + cm(V.paso) + ' como mínimo para abrir cajones y vestirse; cómodo, ' + cm(V.paso_bien) + '.' });
+  });
+  (d.paredes || []).forEach(p => (p.cuerpos || []).forEach((c, i) => {
+    const barra = c.interior === 'barra' || c.interior === 'doble_barra' || c.interior2 === 'barra';
+    if (barra && hay(c.ancho) && c.ancho > V.barra_max) l.push({ grupo: 'encimera', campo: 'pared.' + p.id, texto: 'Cuerpo ' + (i + 1) + ' de la pared ' + p.letra + ': barra de ' + cm(c.ancho) + ' sin apoyo',
+      porque: 'Una barra de más de ' + cm(V.barra_max) + ' se comba con el peso: pon un soporte central o divide el cuerpo.' });
+  }));
+  return l;
+}
+
 export function consejosDiseno(ficha) {
+  if (ficha && ficha.subtipo === 'vestidor') return consejosVestidor(ficha.datos || {});
   if (!ficha || ficha.tipo !== 'cocina') return [];
   const d = ficha.datos, l = [], M = MEDIDAS, ap = aparatos(d);
   const anchoPlaca = ap.placa || M.placa;
@@ -134,17 +158,23 @@ export function consejosDiseno(ficha) {
   const frigo = (d.electro || []).find(e => e.clave === 'frigo' && e.tipo === 'integrable' && hay(e.alto));
   if (frigo && de('columna_frigo').length && M.zocalo + frigo.alto + 20 > M.columna)
     poner('frio', 'electro', 'Frigo integrable de ' + cm(frigo.alto) + ': no cabe en la columna (' + cm(M.columna - M.zocalo) + ' sobre el zócalo)', 'Mira un frigo de hueco más bajo (178, 158…) o sube la columna.');
-  if (de('lavavajillas').length) {
-    // Hueco del lavavajillas: zócalo + mueble, menos la gola en J si la lleva (5,6 cm).
-    const gola = (d.acabados || {}).tirador === 'gola' ? M.gola : 0, hueco = M.zocalo + M.mueble_bajo - gola, lv = (d.electro || []).find(e => e.clave === 'lavavajillas' && hay(e.alto));
-    const cuenta = cm(M.zocalo) + ' + ' + cm(M.mueble_bajo) + (gola ? ' − gola J ' + cm(gola) : '');
-    if (lv && lv.alto > hueco) poner('agua', 'electro', 'Lavavajillas de ' + cm(lv.alto) + ' de alto: no cabe en el hueco de ' + cm(hueco), 'El hueco es ' + cuenta + '. Los integrables miden de 81,5 a 87,5 con las patas regulables.');
-    else if (hueco < M.lavavajillas_min) poner('agua', 'electro', 'El lavavajillas no cabe: quedan ' + cm(hueco) + ' (' + cuenta + ')',
-      'Los integrables necesitan de 81,5 a 87,5. Baja el zócalo en esa zona (de 15 a 10 cm), pon mueble de 80 o busca un modelo más bajo.');
-    else if (hueco > M.lavavajillas_xxl) poner('agua', 'electro', 'Hueco del lavavajillas de ' + cm(hueco) + ' (' + cuenta + '): ni un XXL llega',
-      'Los XXL llegan a 92,5: lo que sobre, con una pieza lacada del color de las puertas' + (gola ? '' : ' o la gola J') + '.');
-    else if (hueco > M.lavavajillas_max) poner('agua', 'electro', 'Hueco del lavavajillas de ' + cm(hueco) + ' (' + cuenta + '): más alto que uno normal',
-      'Uno normal llega a 87,5: un XXL (86,5–92,5)' + (gola ? '' : ', la gola J (5,6 cm)') + ' o una pieza lacada del color de las puertas para tapar lo que sobra. Con puerta de ' + cm(M.mueble_bajo) + ', mejor un modelo de puerta deslizante para que el panel no choque con el zócalo.');
+  // Hueco libre para lavavajillas y lavadora integrables: zócalo + mueble, menos la gola si la lleva. Mínimo 85 cm.
+  const lavadora = (d.electro || []).find(e => e.clave === 'lavadora' && e.tipo === 'integrable');
+  if (de('lavavajillas').length || lavadora) {
+    const conGola = (d.acabados || {}).tirador === 'gola', gola = conGola ? M.gola : 0, libre = M.zocalo + M.mueble_bajo - gola;
+    const quien = de('lavavajillas').length ? (lavadora ? 'el lavavajillas y la lavadora' : 'el lavavajillas') : 'la lavadora';
+    const cuenta = cm(M.zocalo) + ' + ' + cm(M.mueble_bajo) + (gola ? ' − gola ' + cm(gola) : '');
+    const ap = (d.electro || []).find(e => (e.clave === 'lavavajillas' || e.clave === 'lavadora') && hay(e.alto) && e.alto > libre);
+    if (ap) poner('agua', 'electro', (ap.clave === 'lavadora' ? 'La lavadora' : 'El lavavajillas') + ' de ' + cm(ap.alto) + ' no cabe: quedan ' + cm(libre) + ' (' + cuenta + ')', 'El hueco libre es zócalo + mueble' + (gola ? ' menos la gola' : '') + '.');
+    else if (libre < M.libre_electro) {
+      // Lo que sí llega a 85, con los zócalos y muebles de siempre.
+      const vale = [[150, 800], [100, 800], [150, 700]].filter(([z, m]) => z + m - gola >= M.libre_electro).map(([z, m]) => 'zócalo ' + cm(z) + ' y mueble ' + cm(m) + ' (quedan ' + cm(z + m - gola) + ')');
+      const opciones = [];
+      if (vale.length) opciones.push(vale[0]);
+      if (conGola && M.zocalo + M.mueble_bajo >= M.libre_electro) opciones.push('sin gola en ese frente: tirador o uñero (quedan ' + cm(M.zocalo + M.mueble_bajo) + ')');
+      poner('agua', 'electro', 'Para ' + quien + ' quedan ' + cm(libre) + ' libres (' + cuenta + '): menos de 85', 'Hacen falta 85 cm libres bajo la encimera. ' + (opciones.length ? 'Opciones: ' + opciones.join('; o ') + '.' : 'Sube el zócalo o el mueble en esa zona.'));
+    } else if (libre > M.libre_electro_max) poner('agua', 'electro', 'Para ' + quien + ' quedan ' + cm(libre) + ' (' + cuenta + '): sobra hueco por encima',
+      'Llegan hasta unos 92 con las patas. Lo que sobre, con una pieza lacada del color de las puertas' + (conGola ? '' : ' o con la gola') + '.');
   }
   // Lavavajillas lejos del fregadero (también en otra pared).
   de('lavavajillas').forEach(lv => {
