@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guía de uso de la Libreta Taller</title>
+<style>
+:root { --tinta: #1f2937; --suave: #4b5563; --linea: #ddd6c8; --fondo: #f4efe3; --acento: #b45309; --nota: #fffbea; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fondo); color: var(--tinta); font: 19px/1.6 'Segoe UI', Arial, sans-serif; }
+.hoja { max-width: 820px; margin: 0 auto; padding: 28px 20px 60px; }
+header { border-bottom: 3px solid var(--acento); padding-bottom: 14px; margin-bottom: 20px; }
+h1 { font-size: 34px; margin: 0 0 6px; line-height: 1.2; }
+h2 { font-size: 26px; margin: 34px 0 10px; padding-top: 8px; border-top: 1px solid var(--linea); }
+h3 { font-size: 21px; margin: 20px 0 6px; }
+p, li { max-width: 68ch; }
+ol, ul { padding-left: 28px; }
+li { margin: 6px 0; }
+.boton { display: inline-block; border: 2px solid var(--acento); border-radius: 8px; padding: 1px 9px; font-weight: 700; color: var(--acento); background: #fff; white-space: nowrap; }
+.nota { background: var(--nota); border: 1px solid #ecd9a0; border-radius: 10px; padding: 12px 16px; margin: 14px 0; }
+.indice { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; padding: 0; list-style: none; }
+.indice a { display: block; padding: 10px 14px; border: 1px solid var(--linea); border-radius: 10px; background: #fff; color: var(--tinta); text-decoration: none; font-weight: 600; }
+.indice a:hover, .indice a:focus-visible { border-color: var(--acento); outline: none; }
+.imprimir { float: right; font: 600 16px inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--acento); background: #fff; color: var(--acento); cursor: pointer; }
+@media print { body { background: #fff; font-size: 13pt; } .imprimir { display: none; } h2 { break-after: avoid; } }
+</style>
+</head>
+<body>
+<div class="hoja">
+<header>
+  <button class="imprimir" onclick="window.print()">Imprimir esta guía</button>
+  <h1>Guía de uso de la Libreta Taller</h1>
+  <p>Muebles Carrascosa. Para apuntar las medidas de cada obra: puertas, cocinas, armarios y vestidores.</p>
+</header>
+
+<ul class="indice">
+  <li><a href="#inicio">La pantalla de inicio</a></li>
+  <li><a href="#trabajo">Un trabajo</a></li>
+  <li><a href="#puerta">Ficha de puertas</a></li>
+  <li><a href="#cocina">Ficha de cocina</a></li>
+  <li><a href="#armario">Armario</a></li>
+  <li><a href="#vestidor">Vestidor</a></li>
+  <li><a href="#nota">Nota</a></li>
+  <li><a href="#resumen">Resumen, PDF y WhatsApp</a></li>
+  <li><a href="#presupuesto">Pasar a presupuesto</a></li>
+  <li><a href="#guia">Guía de medidas</a></li>
+  <li><a href="#ajustes">Ajustes, letra grande y ayuda</a></li>
+  <li><a href="#problemas">Si algo no va</a></li>
+</ul>
+
+<h2 id="inicio">La pantalla de inicio</h2>
+<p>Aquí están todos los <b>trabajos</b> (uno por cliente u obra). Arriba hay un buscador.</p>
+<ul>
+  <li><span class="boton">+ Nuevo trabajo</span> crea uno: escribe un nombre (por ejemplo «Piso calle Real») y pulsa <span class="boton">Crear</span>. Puedes marcar ya que lleva puertas o cocina.</li>
+  <li><b>Notas sueltas</b> son fichas que no son de ningún trabajo (una medida rápida, un recado).</li>
+  <li><b>Papelera</b>: lo que borres se queda ahí 30 días y se puede recuperar.</li>
+</ul>
+<div class="nota"><b>Para practicar:</b> en la pantalla de inicio, «Crear un trabajo de ejemplo para practicar» hace un trabajo inventado con puertas y una cocina. Cámbialo o bórralo cuando quieras.</div>
+<p>Arriba a la derecha: <b>¿?</b> abre esta guía, <b>A+</b> agranda la letra, la <b>calculadora</b>, la <b>nube</b> (verde: todo guardado; con un número: cambios que aún no han subido) y los <b>ajustes</b>.</p>
+
+<h2 id="trabajo">Un trabajo</h2>
+<ol>
+  <li>Arriba, los datos del cliente: nombre, dirección y teléfono. Con la dirección sale el botón para abrirla en el mapa; con el teléfono, llamar o WhatsApp.</li>
+  <li>El <b>estado</b> (por medir, medido, enviado…) se marca con un toque y apunta la fecha.</li>
+  <li>La <b>unidad</b>: centímetros normalmente. Las paredes de cocinas y vestidores siempre van en metros.</li>
+  <li>En <b>Nueva ficha</b> elige qué vas a medir: <span class="boton">Puertas</span>, <span class="boton">Cocina</span>, <span class="boton">Armario</span> o <span class="boton">Nota</span>.</li>
+</ol>
+<p>Cada ficha sale en la lista con lo que le falta. Tocarla abre su resumen; <b>Editar</b> la abre para cambiarla. Abajo, <span class="boton">Resumen de todo el trabajo</span> junta todas las fichas.</p>
+
+<h2 id="ficha">En cualquier ficha</h2>
+<p>Arriba hay un recuadro amarillo, <b>«Cómo rellenar esta ficha»</b>, con el orden a seguir. Se pliega tocando su título.</p>
+<p>Todo <b>se guarda solo</b> mientras escribes. Las medidas mal escritas se quedan marcadas en rojo. Al terminar, <span class="boton">Terminar y ver resumen</span>.</p>
+
+<h2 id="puerta">Ficha de puertas</h2>
+<ol>
+  <li>Pon nombre a cada puerta con los botones rápidos (Salón, Baño…).</li>
+  <li>Ancho y alto del hueco (o del premarco) y el grueso del tabique. Los botones rápidos ponen las medidas habituales.</li>
+  <li>Hacia dónde abre, y si lleva condena (cerrojo) o cristal.</li>
+  <li><span class="boton">+ Añadir puerta</span> para la siguiente.</li>
+</ol>
+<p>El resumen del trabajo calcula el <b>pedido de puertas</b> agrupando las iguales.</p>
+
+<h2 id="cocina">Ficha de cocina</h2>
+<ol>
+  <li><b>Altura del techo</b> y el <b>largo de cada pared</b> en metros. <span class="boton">+ Añadir pared</span> para la siguiente (van en orden, girando).</li>
+  <li>En cada pared, sus <b>elementos</b>: ventana, puerta, pilar, enchufes, agua, desagüe, humos… Se mide a cada uno su distancia a la esquina y su altura.</li>
+  <li>Los <b>muebles</b> de cada pared, de izquierda a derecha: primero bajos y columnas, luego altos. Los anchos habituales salen en botones.</li>
+  <li><b>Acabados</b> (colores, encimera, tirador) y <b>electrodomésticos</b> con su ancho y alto.</li>
+</ol>
+<p>Mientras tanto, a la derecha (en el ordenador) se dibujan la <b>planta</b>, las <b>paredes de frente</b> y la <b>perspectiva</b>.</p>
+<div class="nota">Los <b>avisos</b> (en rojo o naranja) son errores de medida o de obra: algo no cabe o choca. Los <b>consejos de diseño</b> (en azul) son cosas que funcionarían mal al usar la cocina, con su porqué. Ninguno impide seguir.</div>
+
+<h2 id="armario">Armario</h2>
+<ol>
+  <li>Ancho del hueco arriba, en medio y abajo (si difieren, avisa de que no está a escuadra).</li>
+  <li>Alto a la izquierda y a la derecha, y el fondo.</li>
+  <li>Rodapié, hojas, puertas y los cuerpos por dentro (barras, cajones, baldas).</li>
+</ol>
+
+<h2 id="vestidor">Vestidor</h2>
+<p>Como la cocina: el techo y el largo de cada pared, sus ventanas, puertas y enchufes, y los cuerpos de cada pared de izquierda a derecha con su interior.</p>
+
+<h2 id="nota">Nota</h2>
+<p>Para lo que no encaja en las demás: texto libre, medidas sueltas con <span class="boton">＋ Medida</span>, y fotos o un croquis.</p>
+
+<h2 id="resumen">Resumen, PDF y WhatsApp</h2>
+<p>El resumen enseña la ficha (o el trabajo entero) limpia, con los dibujos. Arriba:</p>
+<ul>
+  <li><b>WhatsApp</b>: manda el texto de las medidas.</li>
+  <li><b>Enviar PDF</b> o <b>Descargar</b>: el PDF con los dibujos.</li>
+  <li><b>Imprimir</b>.</li>
+</ul>
+<p>Con los botones de «Dibujos que van» quitas o pones la planta, las paredes de frente, la perspectiva, las instalaciones o las fotos.</p>
+
+<h2 id="presupuesto">Pasar a presupuesto</h2>
+<p>En la ficha de cocina o vestidor hay un botón para pasarla al presupuestador. Se abre con los muebles ya puestos; lo que no encaje con el catálogo sale en un grupo «Revisar».</p>
+
+<h2 id="guia">Guía de medidas</h2>
+<p>En Ajustes o desde los consejos de una cocina: medidas de referencia (alturas, distancias, electrodomésticos) y una <b>calculadora</b> que, con la estatura de quien cocina, da la altura de encimera, altos, columnas, horno y microondas.</p>
+
+<h2 id="ajustes">Ajustes, letra grande y ayuda</h2>
+<ul>
+  <li><b>Letra grande</b>: botón <b>A+</b> arriba, o en Ajustes. Se recuerda en este dispositivo.</li>
+  <li><b>Ver la bienvenida otra vez</b> y <b>Crear un trabajo de ejemplo</b>, en Ajustes → Ayuda.</li>
+  <li>Las medidas rápidas (anchos de puerta, módulos…) y la cocina tipo se cambian en Ajustes.</li>
+</ul>
+
+<h2 id="problemas">Si algo no va</h2>
+<ul>
+  <li><b>La nube tiene un número:</b> son cambios que aún no han subido (por ejemplo, sin cobertura). Suben solos al volver la conexión; tocándola se fuerza.</li>
+  <li><b>He borrado algo sin querer:</b> está en la <b>Papelera</b> 30 días.</li>
+  <li><b>Una medida sale en rojo:</b> está mal escrita o es rara (demasiado grande o pequeña). Revísala.</li>
+  <li><b>No veo los dibujos:</b> falta el largo de alguna pared.</li>
+</ul>
+</div>
+</body>
+</html>

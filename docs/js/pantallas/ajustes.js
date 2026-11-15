@@ -1,6 +1,7 @@
 // Ajustes compartidos entre dispositivos: unidades, margen de aviso y listas (botones rápidos, usos, lineales…).
 import { h, segmentado } from '../util.js';
 import { VERSION, COPYRIGHT, CREDITO } from '../config.js';
+import { bienvenida, crearEjemplo, letraGrande, GUIA } from '../ayuda.js';
 import { AJUSTES_FABRICA, claveDe } from '../modelo.js';
 import { leerMedida, verMedida } from '../unidades.js';
 import { copiaSeguridad } from '../trabajos.js';
@@ -110,7 +111,13 @@ export async function pintarAjustes(App) {
     h('div', { class: 'tarjeta' },
       h('small', { class: 'ayuda' }, 'Un archivo con todos tus trabajos, fichas, notas, papelera y ajustes (cada ficha con su resumen en texto). Las fotos no van dentro: siguen en la nube. Guárdalo en el ordenador o en tu correo de vez en cuando.'),
       h('button', { type: 'button', 'data-acc': 'copia-seguridad', onclick: () => descargarCopia(App, msgCopia) }, 'Descargar copia de seguridad'), msgCopia),
-    h('h2', {}, 'Guía'),
+    h('h2', {}, 'Ayuda'),
+    h('div', { class: 'tarjeta botones-ayuda' },
+      h('a', { class: 'boton-enlace', href: GUIA, target: '_blank', rel: 'noopener', 'data-acc': 'guia-uso' }, 'Guía de uso de la Libreta'),
+      h('button', { type: 'button', 'data-acc': 'ver-bienvenida', onclick: () => bienvenida(App, { forzar: true }) }, 'Ver la bienvenida otra vez'),
+      h('button', { type: 'button', 'data-acc': 'crear-ejemplo', onclick: async () => { const t = await crearEjemplo(App); App.ir('#/trabajo/' + t.id); } }, 'Crear un trabajo de ejemplo'),
+      h('button', { type: 'button', 'data-acc': 'letra-ajustes', onclick: ev => { const on = letraGrande(!document.documentElement.classList.contains('letra-grande')); ev.currentTarget.textContent = on ? 'Letra normal' : 'Letra grande'; } }, document.documentElement.classList.contains('letra-grande') ? 'Letra normal' : 'Letra grande')),
+    h('h2', {}, 'Guía de medidas'),
     h('div', { class: 'tarjeta' }, h('button', { type: 'button', 'data-acc': 'abrir-guia', onclick: () => { location.hash = '#/guia'; } }, 'Guía de medidas de cocina'),
       h('small', { class: 'ayuda' }, 'Alturas, anchos, distancias y soluciones habituales, y la altura de encimera según la estatura.')),
     h('h2', {}, 'Cuenta'),

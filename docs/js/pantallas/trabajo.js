@@ -76,7 +76,8 @@ export async function pintarTrabajo(App, id) {
     const pendiente = () => { clearTimeout(espera); espera = null; return App.guardarFila('trabajos', trabajo); };
     const cambio = () => { clearTimeout(espera); espera = setTimeout(pendiente, RETARDO); };
     App.vaciar = () => (espera ? pendiente() : undefined);
-    const campo = (acc, k, ph, extra) => h('input', Object.assign({ 'data-acc': acc, placeholder: ph, value: trabajo[k] || '', oninput: ev => { trabajo[k] = ev.target.value; cambio(); if (extra) extra(); } }, {}));
+    const campo = (acc, k, ph, extra) => h('label', { class: 'campo-et' }, h('span', { class: 'et' }, ph),
+      h('input', { 'data-acc': acc, placeholder: ph, value: trabajo[k] || '', oninput: ev => { trabajo[k] = ev.target.value; cambio(); if (extra) extra(); } }));
     const mapa = h('a', { class: 'boton-enlace', 'data-acc': 'mapa', target: '_blank', rel: 'noopener' }, 'Abrir en Maps');
     const pintarMapa = () => { const d = String(trabajo.direccion || '').trim(); mapa.hidden = !d; mapa.href = d ? urlMapa(d) : ''; };
     pintarMapa();
@@ -94,12 +95,12 @@ export async function pintarTrabajo(App, id) {
       pintarTel();
       const fechas = h('small', { class: 'ayuda fechas-estado', 'data-acc': 'fechas-estado' }, textoFechas(td));
       const tel = h('input', { 'data-acc': 'telefono', type: 'tel', placeholder: 'Teléfono', value: td.telefono || '', oninput: ev => { td.telefono = ev.target.value; cambio(); pintarTel(); } });
-      tarjeta.append(h('div', { class: 'con-boton' }, tel, llamar, wa),
+      tarjeta.append(h('div', { class: 'con-boton' }, h('label', { class: 'campo-et' }, h('span', { class: 'et' }, 'Teléfono'), tel), llamar, wa),
         h('label', { class: 'et' }, 'Estado'),
         h('div', { class: 'seg-varias' }, segmentado({ acc: 'estado-trabajo', opciones: ESTADOS, valor: td.estado || null, permitirVacio: true, alCambiar: v => { ponerEstado(td, v); cambio(); fechas.textContent = textoFechas(td); } })),
         fechas);
     }
-    tarjeta.append(h('label', { class: 'et' }, 'Unidad de este trabajo'),
+    tarjeta.append(h('label', { class: 'et' }, 'Unidad de las medidas de este trabajo (las paredes de cocinas y vestidores van en metros)'),
       segmentado({ acc: 'unidad', opciones: [['mm', 'Milímetros'], ['cm', 'Centímetros']], valor: trabajo.unidad, alCambiar: v => { trabajo.unidad = v; App.guardarFila('trabajos', trabajo); } }));
     // Con fichas ya hechas, los datos del cliente se pliegan en una línea con sus botones; tocarla los abre.
     if (nFichas) {

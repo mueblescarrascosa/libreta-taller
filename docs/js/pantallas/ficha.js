@@ -17,6 +17,7 @@ import { abrirPlano } from '../plano-editor.js';
 import { geometriaAlzado, svgAlzado } from '../alzado.js';
 import { vistaInteractiva, abrirPerspectivaGrande } from './perspectiva-ui.js';
 import { consejosDiseno, GRUPOS as GRUPOS_CONSEJO } from '../consejos.js';
+import { comoRellenar } from '../ayuda.js';
 
 const RETARDO = 300;
 const nuevoId = () => crypto.randomUUID();
@@ -352,6 +353,7 @@ export async function pintarFicha(App, id) {
     };
     const botonForma = h('button', { type: 'button', class: 'mini', 'data-acc': 'dibujar-planta', onclick: dibujar }, d.plano ? 'Editar la forma' : 'Dibujar la forma');
     return [h('div', { class: 'cab' }, h('h2', {}, 'Habitación'),
+      h('small', { class: 'ayuda et-paredes' }, 'Paredes en:'),
       segmentado({ acc: 'ud-paredes', opciones: [[false, unidad], [true, 'm']], valor: !!enM(), alCambiar: v => { d.paredes_m = v; App.cambiarParedesM(v); cambio(); pintarAlto(); repintar(); } })),
     // Altura y planta juntas: en el ordenador van a la derecha y se quedan fijas al bajar.
     h('div', { class: 'lateral' },
@@ -804,7 +806,8 @@ export async function pintarFicha(App, id) {
   repintarLibres();
   main.append(
     general,
-    ...(ficha.tipo === 'puerta' ? [nombreZona()] : [h('input', { 'data-acc': 'nombre-ficha', placeholder: 'Nombre', value: ficha.nombre, oninput: ev => { ficha.nombre = ev.target.value; cambio(); } })]),
+    comoRellenar(ficha.tipo, ficha.subtipo),
+    ...(ficha.tipo === 'puerta' ? [nombreZona()] : [h('input', { 'data-acc': 'nombre-ficha', placeholder: 'Nombre de esta ficha (opcional)', 'aria-label': 'Nombre de esta ficha', value: ficha.nombre, oninput: ev => { ficha.nombre = ev.target.value; cambio(); } })]),
     ...propios(), tituloLibres, zonaLibres, ...notas(),
     ...adjuntos.nodos,
     // Lo que se puede añadir a cualquier ficha, en una sola fila.

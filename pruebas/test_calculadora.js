@@ -35,6 +35,7 @@ prueba('el icono de la calculadora está arriba en todas las pantallas y la calc
 }));
 prueba('el estado de la nube es un icono pequeño, con el texto para el lector', con(async a => {
   await a.page.waitForFunction(() => /Todo guardado/.test(document.querySelector('[data-acc="estado"]').innerText), null, { timeout: 8000 });
+  await a.page.setViewportSize({ width: 390, height: 844 });   // en el móvil, solo el icono (en el ordenador lleva el texto al lado)
   const r = await a.page.$eval('[data-acc="estado"]', e => ({ w: e.getBoundingClientRect().width, svg: !!e.querySelector('svg'), title: e.title }));
   afirma(r.svg && r.w < 40, JSON.stringify(r)); igual(r.title, 'Todo guardado en la nube');
 }));

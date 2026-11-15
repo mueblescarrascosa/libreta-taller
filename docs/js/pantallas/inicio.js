@@ -4,6 +4,7 @@ import { buscar, trabajoNuevo } from '../modelo.js';
 import { actividad, fichasDePlantilla } from '../trabajos.js';
 import { NOMBRE_ESTADO, ESTADOS } from './trabajo.js';
 import { COPYRIGHT, CREDITO } from '../config.js';
+import { bienvenida, crearEjemplo, GUIA } from '../ayuda.js';
 
 const porFecha = (a, b) => String(b.creado_at).localeCompare(String(a.creado_at));
 const ARMARIOS = [['corredera', 'Armario corredera'], ['abatible', 'Armario abatible'], ['vestidor', 'Vestidor']];
@@ -94,11 +95,14 @@ export async function pintarInicio(App) {
 
   main.append(
     h('input', { type: 'search', class: 'buscador', 'data-acc': 'buscar', placeholder: 'Buscar por nombre, cliente o texto', oninput: ev => { consulta = ev.target.value; pintarLista(); } }),
-    h('a', { class: 'fila suelta', href: '#/sueltas', 'data-acc': 'sueltas' }, h('b', {}, 'Notas sueltas')),
+    h('a', { class: 'fila suelta', href: '#/sueltas', 'data-acc': 'sueltas' }, h('b', {}, 'Notas sueltas'), h('small', {}, 'Fichas que no son de ningún trabajo')),
     h('button', { type: 'button', class: 'prin ancho', 'data-acc': 'nuevo-trabajo', onclick: abrirForm }, '+ Nuevo trabajo'),
     zonaForm, zonaFiltro, lista,
+    h('p', { class: 'ayuda ayuda-inicio' }, '¿Primera vez? ', h('a', { href: GUIA, target: '_blank', rel: 'noopener', 'data-acc': 'guia-uso' }, 'Guía de uso'), ' · ',
+      h('button', { type: 'button', class: 'enlace', 'data-acc': 'crear-ejemplo', onclick: async () => { const t = await crearEjemplo(App); App.ir('#/trabajo/' + t.id); } }, 'Crear un trabajo de ejemplo para practicar')),
     h('a', { class: 'enlace-papelera', href: '#/papelera', 'data-acc': 'papelera' }, 'Papelera'));
   App.refrescar = cargar;
   main.append(h('small', { class: 'version' }, COPYRIGHT + ' · ' + CREDITO));
   await cargar();
+  bienvenida(App);
 }

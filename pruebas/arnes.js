@@ -95,6 +95,8 @@ export async function abrir(op = {}) {
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
   const ctx = await browser.newContext({ viewport: { width: op.ancho || 1000, height: 800 }, serviceWorkers: 'block', hasTouch: !!op.tactil });
   const page = await ctx.newPage();
+  // 1.25.0: la bienvenida de la primera vez no tapa las pruebas (las de ayuda piden { bienvenida: true }).
+  if (!op.bienvenida) await page.addInitScript(() => { try { localStorage.setItem('med-bienvenida', '1'); } catch (e) { /* nada */ } });
   const nube = op.nube || nubeNueva(), errores = [], estado = { aceptar: true, dialogos: [] };
   page.on('pageerror', e => errores.push(String(e)));
   page.on('dialog', d => { estado.dialogos.push(d.type() + ':' + d.message()); return estado.aceptar || d.type() === 'alert' ? d.accept() : d.dismiss(); });

@@ -14,6 +14,7 @@ import { pintarResumen, pintarResumenTrabajo } from './pantallas/resumen.js';
 import { pintarPapelera } from './pantallas/papelera.js';
 import { pintarGuia } from './pantallas/guia.js';
 import { fijarCocinaTipo } from './alzado.js';
+import { letraGrande, GUIA } from './ayuda.js';
 import { fotosParaLimpiar, trabajosARecuperar } from './trabajos.js';
 import { pintarPendientes } from './pantallas/pendientes.js';
 import { vigilarVersion, pintarAvisoVersion } from './version.js';
@@ -88,6 +89,9 @@ const App = {
         atras ? h('a', { class: 'atras', href: atras, 'aria-label': 'Volver' }, '←') : null,
         h('b', { class: 'titulo' }, titulo),
         botones && botones.length ? h('span', { class: botones[0].classList.contains('boton-barra') ? 'barra-acciones' : 'botones-cab' }, ...botones) : null,
+        h('button', { type: 'button', class: 'letra-boton', 'data-acc': 'letra-grande', 'aria-label': 'Letra grande', title: 'Agranda o reduce la letra en este dispositivo',
+          onclick: ev => { const on = letraGrande(!document.documentElement.classList.contains('letra-grande')); ev.currentTarget.setAttribute('aria-label', on ? 'Letra normal' : 'Letra grande'); } }, 'A+'),
+        h('a', { class: 'ayuda-boton', href: GUIA + '#' + pantalla, target: '_blank', rel: 'noopener', 'data-acc': 'ayuda', 'aria-label': 'Ayuda', title: 'Guía de uso de esta pantalla' }, '?'),
         icono(h('button', { type: 'button', class: 'calc-boton', 'data-acc': 'abrir-calculadora', onclick: abrirCalculadora }), 'calculadora', 'Calculadora'),
         h('button', { type: 'button', 'data-acc': 'estado', class: 'estado', onclick: () => App.alTocarEstado() }, ''),
         pantalla === 'ajustes' ? null : h('a', { class: 'engranaje', href: '#/ajustes', 'data-acc': 'ajustes', 'aria-label': 'Ajustes' }, '⚙')),
@@ -179,6 +183,7 @@ async function limpiarFotos() {
 }
 
 async function arrancar() {
+  letraGrande();
   pedirAlmacenFijo();
   App.almacen = await abrirAlmacen();
   App.email = (await App.almacen.getMeta('email')) || '';
