@@ -13,6 +13,7 @@ import { pintarAjustes } from './pantallas/ajustes.js';
 import { pintarResumen, pintarResumenTrabajo } from './pantallas/resumen.js';
 import { pintarPapelera } from './pantallas/papelera.js';
 import { pintarGuia } from './pantallas/guia.js';
+import { fijarCocinaTipo } from './alzado.js';
 import { fotosParaLimpiar, trabajosARecuperar } from './trabajos.js';
 import { pintarPendientes } from './pantallas/pendientes.js';
 import { vigilarVersion, pintarAvisoVersion } from './version.js';
@@ -35,18 +36,20 @@ const App = {
   async cargarAjustes() {
     const f = App.uid ? await App.almacen.leer('ajustes', App.uid) : null;
     App._filaAjustes = f;
-    if (f) { App._ajustes = mezclarAjustes(f.datos); return; }
+    if (f) { App._ajustes = mezclarAjustes(f.datos); fijarCocinaTipo(App._ajustes.cocina_tipo); return; }
     // Aún sin ajustes compartidos: los que tuviera este dispositivo.
     const d = {}, u = await App.almacen.getMeta('unidad'), pm = await App.almacen.getMeta('paredesM');
     if (u) d.unidad = u;
     if (pm !== null) d.paredes_m = pm;
     App._ajustes = mezclarAjustes(d);
+    fijarCocinaTipo(App._ajustes.cocina_tipo);
   },
   async cambiarAjustes(cambios) {
     const f = App._filaAjustes || { id: App.uid, datos: {}, creado_at: new Date().toISOString(), updated_at: null, borrado_at: null };
     const fila = Object.assign({}, f, { datos: Object.assign({}, f.datos, cambios) });
     App._filaAjustes = fila;
     App._ajustes = mezclarAjustes(fila.datos);
+    fijarCocinaTipo(App._ajustes.cocina_tipo);
     await App.guardarFila('ajustes', fila);
   },
   cambiarUnidad(u) { return App.cambiarAjustes({ unidad: u }); },

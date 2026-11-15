@@ -6,7 +6,7 @@ import { nombrarPuerta, CORTO_ELEMENTO, HUMOS_DIAMETROS, HUMOS_RECTANGULARES, is
 import { duplicarFicha } from '../trabajos.js';
 import { campoMedida, campoEntero } from '../campos.js';
 import { verMedida } from '../unidades.js';
-import { TIPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, medidasModulo, anchosDe, FORMAS_RINCONERO, LADOS_RINCONERO, paredesVecinas, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, FORMAS_RINCON_CUERPO, LADOS_RINCON_CUERPO, INTERIOR_RINCON, textoRincon, textoCuadre, lineaNueva, nombreLineal, nombreInterior, interioresDe, elegirInterior, textoInteriores, acabadosNuevos, MATERIALES_ENCIMERA, ELECTRO, datosElectro, electroNuevo } from '../modulos.js';
+import { ANCHOS_ELECTRO, ALTOS_ELECTRO, TIPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, medidasModulo, anchosDe, FORMAS_RINCONERO, LADOS_RINCONERO, paredesVecinas, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, FORMAS_RINCON_CUERPO, LADOS_RINCON_CUERPO, INTERIOR_RINCON, textoRincon, textoCuadre, lineaNueva, nombreLineal, nombreInterior, interioresDe, elegirInterior, textoInteriores, acabadosNuevos, MATERIALES_ENCIMERA, ELECTRO, datosElectro, electroNuevo } from '../modulos.js';
 import { seccionAdjuntos } from './adjuntos.js';
 import { textoMaterial } from '../material.js';
 import { variantesDe, varianteHabitual, alturasDe, alturaHabitual, NOMBRE_VARIANTE, articulo, paquetePresupuesto, CLAVE_PASO } from '../presupuesto.js';
@@ -21,6 +21,7 @@ import { consejosDiseno, GRUPOS as GRUPOS_CONSEJO } from '../consejos.js';
 const RETARDO = 300;
 const nuevoId = () => crypto.randomUUID();
 const SI_NO = [[true, 'Sí'], [false, 'No']];
+const TIRADORES = [['visto', 'Visto'], ['gola', 'Gola J'], ['unero', 'Uñero'], ['integrado', 'Integrado']];
 
 // Una medida mal escrita no se guarda como número: queda vacía y el texto se conserva en obj.mal para seguir avisando.
 function anotarMedida(obj, k, mm, textoMal) {
@@ -635,6 +636,7 @@ export async function pintarFicha(App, id) {
     const ac = d.acabados || {}, t = [];
     if (ac.bitono) t.push('bitono'); if (ac.modelo || ac.color) t.push([ac.modelo, ac.color].filter(Boolean).join(' '));
     if (ac.casco) t.push('cascos ' + ac.casco);
+    if (ac.tirador) t.push((TIRADORES.find(x => x[0] === ac.tirador) || [, ac.tirador])[1].toLowerCase());
     if (ac.encimera && (ac.encimera.material || ac.encimera.modelo || ac.encimera.color)) t.push('encimera ' + [ac.encimera.material, ac.encimera.modelo, ac.encimera.color].filter(Boolean).join(' '));
     if ((ac.lineales || []).length) t.push(ac.lineales.length + ' lineal' + (ac.lineales.length > 1 ? 'es' : ''));
     return t.join(' · ');
@@ -675,6 +677,8 @@ export async function pintarFicha(App, id) {
           : [h('label', { class: 'et' }, 'Frentes (puertas)'), h('div', { class: 'dos' }, texto(ac, 'modelo', 'acab-modelo', 'Modelo'), texto(ac, 'color', 'acab-color', 'Color'))]),
         ...cascos(),
         ...(vestidor ? [] : [
+          h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Tirador'),
+            segmentado({ acc: 'tirador', opciones: TIRADORES, valor: ac.tirador || null, permitirVacio: true, alCambiar: v => { ac.tirador = v || null; cambio(); } })),
           h('label', { class: 'et' }, 'Encimera'),
           segmentado({ acc: 'encimera-material', opciones: MATERIALES_ENCIMERA.map(m => [m, m]), valor: ac.encimera.material || null, permitirVacio: true, alCambiar: v => { ac.encimera.material = v || ''; cambio(); } }),
           h('div', { class: 'dos' }, texto(ac.encimera, 'modelo', 'encimera-modelo', 'Modelo'), texto(ac.encimera, 'color', 'encimera-color', 'Color')),
@@ -698,8 +702,9 @@ export async function pintarFicha(App, id) {
           h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-electro', onclick: () => { if (confirmarQuitar((e.clave === 'otro' ? e.nombre || 'el electrodoméstico' : nombre).toLowerCase())) { d.electro.splice(d.electro.indexOf(e), 1); cambio(); repintar(); } } }, 'Quitar')),
         tipos.length ? h('div', { class: 'campo' }, segmentado({ acc: 'electro-tipo', opciones: tipos, valor: e.tipo, permitirVacio: true, alCambiar: v => { e.tipo = v; cambio(); } })) : null,
         h('div', { class: 'dos' },
-          campoMedida({ etiqueta: 'Ancho', acc: 'ancho', valor: e.ancho, mal: e.mal && e.mal.ancho, unidad: 'cm', alCambiar: (v, t) => { anotarMedida(e, 'ancho', v, t); cambio(); } }),
-          h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Modelo'), texto(e, 'modelo', 'electro-modelo', 'Marca y modelo'))));
+          campoMedida({ etiqueta: 'Ancho', acc: 'ancho', valor: e.ancho, mal: e.mal && e.mal.ancho, unidad: 'cm', rapidos: ANCHOS_ELECTRO[e.clave], alCambiar: (v, t) => { anotarMedida(e, 'ancho', v, t); cambio(); } }),
+          ALTOS_ELECTRO[e.clave] ? campoMedida({ etiqueta: 'Alto', acc: 'alto', valor: e.alto, mal: e.mal && e.mal.alto, unidad: 'cm', rapidos: ALTOS_ELECTRO[e.clave], alCambiar: (v, t) => { anotarMedida(e, 'alto', v, t); cambio(); } }) : null),
+        h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Modelo'), texto(e, 'modelo', 'electro-modelo', 'Marca y modelo')));
     }));
     repintar();
     return h('div', { class: 'tarjeta' }, h('b', {}, 'Electrodomésticos'), zona,

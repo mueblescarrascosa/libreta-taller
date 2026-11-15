@@ -31,6 +31,9 @@ export const AJUSTES_FABRICA = {
   // Acabados: colores rápidos del interior (cascos) y gruesos de encimera.
   colores_casco: [['blanco', 'Blanco'], ['roble', 'Roble'], ['gris', 'Gris'], ['antracita', 'Antracita'], ['negro', 'Negro']],
   encimera_gruesos: [40, 20],
+  // Cocina tipo del taller (mm): zócalo + mueble bajo + encimera; altos de «alto_alto» a «separacion» de la encimera.
+  // Las columnas llegan arriba como los altos. Los dibujos, el material y los consejos siguen estas alturas.
+  cocina_tipo: { zocalo: 150, mueble: 700, grueso: 40, alto_alto: 700, separacion: 560 },
   interiores: [['barra', 'Barra'], ['doble_barra', 'Doble barra'], ['estantes', 'Estantes'], ['cajonera', 'Cajonera'], ['zapatero', 'Zapatero'], ['pantalonero', 'Pantalonero'], ['pantalonero_doble', 'Pantalonero doble']],
 };
 export const USOS = { toma: AJUSTES_FABRICA.usos_toma, enchufe: AJUSTES_FABRICA.usos_enchufe };
@@ -48,6 +51,8 @@ export function mezclarAjustes(g) {
   ['puerta_anchos', 'puerta_altos', 'puerta_tabiques', 'modulo_anchos', 'premarco_anchos', 'premarco_altos', 'pedido_anchos', 'pedido_anchos_extra', 'pedido_altos', 'encimera_gruesos'].forEach(k => { if (listaNumeros(d[k])) a[k] = copiar(d[k]); });
   ['holgura_ancho', 'holgura_alto', 'rebaje_max'].forEach(k => { if (Number.isInteger(d[k]) && d[k] >= 0) a[k] = d[k]; });
   ['usos_toma', 'usos_enchufe', 'lineales', 'interiores', 'nombres_puerta', 'colores_casco'].forEach(k => { if (listaPares(d[k])) a[k] = copiar(d[k]); });
+  const ct = d.cocina_tipo, entre = (v, a0, b0) => Number.isInteger(v) && v >= a0 && v <= b0;
+  if (ct && entre(ct.zocalo, 30, 300) && entre(ct.mueble, 500, 1000) && entre(ct.grueso, 6, 100) && entre(ct.alto_alto, 300, 1300) && entre(ct.separacion, 400, 900)) a.cocina_tipo = copiar(ct);
   return a;
 }
 

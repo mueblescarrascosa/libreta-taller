@@ -12,9 +12,9 @@ const cm = mm => verMedida(Math.round(mm), 'cm') + ' cm';
 
 // ── Medidas de referencia (mm) ──
 export const MEDIDAS = {
-  // Cocina tipo del taller (de alzado.js): zócalo 15 + mueble 70 + encimera 4.
-  zocalo: ALTURAS.zocalo, mueble_bajo: ALTURAS.mueble_bajo, grueso_encimera: ALTURAS.grueso_encimera, encimera: ALTURAS.encimera,
-  altos_desde: ALTURAS.altos_desde, altos_hasta: ALTURAS.altos_hasta, columna: ALTURAS.columna,
+  // Cocina tipo (de alzado.js, que sigue los ajustes): por defecto zócalo 15 + mueble 70 + encimera 4.
+  get zocalo() { return ALTURAS.zocalo; }, get mueble_bajo() { return ALTURAS.mueble_bajo; }, get grueso_encimera() { return ALTURAS.grueso_encimera; }, get encimera() { return ALTURAS.encimera; },
+  get altos_desde() { return ALTURAS.altos_desde; }, get altos_hasta() { return ALTURAS.altos_hasta; }, get columna() { return ALTURAS.columna; },
   fondo_bajo: 580, fondo_encimera: 620, fondo_alto: 350,
   // Electrodomésticos: lo habitual si en la ficha no está su ancho.
   placa: 600, campana_sobre_electrica: 650, campana_sobre_gas: 750,
@@ -25,6 +25,8 @@ export const MEDIDAS = {
   frigo_placa: 300,                            // separación frigo–placa
   pasillo: 900, pasillo_bien: 1200,            // paso entre encimeras enfrentadas o hasta la isla
   encimera_libre: 900,                         // encimera de trabajo mínima en total
+  gola: 56,                                    // perfil gola en J (lo que quita de hueco por arriba)
+  lavavajillas_min: 815, lavavajillas_max: 875, lavavajillas_xxl: 925,   // alto del lavavajillas integrable con las patas (XXL hasta 92,5)
 };
 // Grupos de consejos, en el orden en que salen (y el de la guía).
 export const GRUPOS = [['placa', 'Placa y campana'], ['agua', 'Fregadero y lavavajillas'], ['frio', 'Frigorífico'], ['encimera', 'Encimera y columnas'], ['paso', 'Pasos y pasillos']];
@@ -128,6 +130,22 @@ export function consejosDiseno(ficha) {
     });
   });
 
+  // Frigo integrable que no cabe en la columna, y lavavajillas que no casa con el hueco de la cocina tipo.
+  const frigo = (d.electro || []).find(e => e.clave === 'frigo' && e.tipo === 'integrable' && hay(e.alto));
+  if (frigo && de('columna_frigo').length && M.zocalo + frigo.alto + 20 > M.columna)
+    poner('frio', 'electro', 'Frigo integrable de ' + cm(frigo.alto) + ': no cabe en la columna (' + cm(M.columna - M.zocalo) + ' sobre el zócalo)', 'Mira un frigo de hueco más bajo (178, 158…) o sube la columna.');
+  if (de('lavavajillas').length) {
+    // Hueco del lavavajillas: zócalo + mueble, menos la gola en J si la lleva (5,6 cm).
+    const gola = (d.acabados || {}).tirador === 'gola' ? M.gola : 0, hueco = M.zocalo + M.mueble_bajo - gola, lv = (d.electro || []).find(e => e.clave === 'lavavajillas' && hay(e.alto));
+    const cuenta = cm(M.zocalo) + ' + ' + cm(M.mueble_bajo) + (gola ? ' − gola J ' + cm(gola) : '');
+    if (lv && lv.alto > hueco) poner('agua', 'electro', 'Lavavajillas de ' + cm(lv.alto) + ' de alto: no cabe en el hueco de ' + cm(hueco), 'El hueco es ' + cuenta + '. Los integrables miden de 81,5 a 87,5 con las patas regulables.');
+    else if (hueco < M.lavavajillas_min) poner('agua', 'electro', 'El lavavajillas no cabe: quedan ' + cm(hueco) + ' (' + cuenta + ')',
+      'Los integrables necesitan de 81,5 a 87,5. Baja el zócalo en esa zona (de 15 a 10 cm), pon mueble de 80 o busca un modelo más bajo.');
+    else if (hueco > M.lavavajillas_xxl) poner('agua', 'electro', 'Hueco del lavavajillas de ' + cm(hueco) + ' (' + cuenta + '): ni un XXL llega',
+      'Los XXL llegan a 92,5: lo que sobre, con una pieza lacada del color de las puertas' + (gola ? '' : ' o la gola J') + '.');
+    else if (hueco > M.lavavajillas_max) poner('agua', 'electro', 'Hueco del lavavajillas de ' + cm(hueco) + ' (' + cuenta + '): más alto que uno normal',
+      'Uno normal llega a 87,5: un XXL (86,5–92,5)' + (gola ? '' : ', la gola J (5,6 cm)') + ' o una pieza lacada del color de las puertas para tapar lo que sobra. Con puerta de ' + cm(M.mueble_bajo) + ', mejor un modelo de puerta deslizante para que el panel no choque con el zócalo.');
+  }
   // Lavavajillas lejos del fregadero (también en otra pared).
   de('lavavajillas').forEach(lv => {
     const fr = de('fregadero');

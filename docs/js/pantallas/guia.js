@@ -1,22 +1,61 @@
-// Guía de medidas para diseñar una cocina. Parte de la cocina tipo del taller (zócalo 15 + mueble 70 + encimera 4)
-// y de las mismas medidas de referencia que usan los consejos de diseño (consejos.js: MEDIDAS), en el mismo orden.
+// Guía de medidas para diseñar una cocina. Parte de la cocina tipo (Ajustes; por defecto zócalo 15 + mueble 70 +
+// encimera 4) y de las mismas medidas de referencia que usan los consejos de diseño (consejos.js: MEDIDAS).
 import { h } from '../util.js';
 import { MEDIDAS as M } from '../consejos.js';
 
 const cm = mm => String(Math.round(mm) / 10).replace('.', ',') + ' cm';
-const ZOCALOS = [100, 150];   // zócalos de serie (mm)
+// Piezas con las que se juega para llegar a una altura de encimera (mm).
+export const PIEZAS = { zocalos: [60, 100, 150], muebles: [700, 800], gruesos: [12, 20, 30, 40], altos: [900, 800, 700] };
+const NORMALES = ['100+800+40', '150+700+40'];   // las combinaciones de siempre
+const GRUESO = { 12: 'porcelánico', 20: 'cuarzo o compacto', 30: 'laminado o cuarzo', 40: 'laminado' };
 
-// Altura cómoda de encimera según la estatura de quien más cocina: el codo (≈ 63 % de la estatura) menos unos 15 cm.
-export function alturaEncimera(estatura) {
+// Altura cómoda de encimera: la mitad de la estatura más 5 cm (176 → 93). Con placa de gas, 3 cm menos:
+// la parrilla queda unos 5 cm por encima de la encimera.
+export function alturaEncimera(estatura, gas = false) {
   const e = Number(estatura);
   if (!e || e < 120 || e > 230) return null;
-  return Math.max(82, Math.min(100, Math.round(e * 0.63 - 15)));
+  return Math.max(80, Math.min(100, Math.round(e / 2 + 5 - (gas ? 3 : 0))));
 }
-// Cómo llegar a esa altura con la cocina tipo: el mueble (70) y la encimera (4) no cambian; se juega con el zócalo.
-export function zocaloPara(alturaCm) {
-  const sinZocalo = (M.mueble_bajo + M.grueso_encimera) / 10, z = alturaCm - sinZocalo;
-  const serie = ZOCALOS.map(x => x / 10).reduce((a, b) => (Math.abs(b - z) < Math.abs(a - z) ? b : a));
-  return { zocalo: z, serie, queda: serie + sinZocalo, aMedida: Math.abs(serie - z) > 2 };
+
+// Las combinaciones zócalo + mueble + encimera más cercanas a la altura que se busca (cm), las normales primero si empatan.
+export function opcionesEncimera(objetivoCm, cuantas = 3) {
+  const obj = objetivoCm * 10, l = [];
+  PIEZAS.zocalos.forEach(z => PIEZAS.muebles.forEach(m => PIEZAS.gruesos.forEach(g => {
+    const alt = z + m + g, normal = NORMALES.includes(z + '+' + m + '+' + g);
+    const coste = Math.abs(alt - obj) + (normal ? 0 : 4) + (z === 60 ? 6 : 0) + (g === 12 ? 3 : 0);
+    l.push({ zocalo: z, mueble: m, grueso: g, altura: alt, dif: alt - obj, normal, coste });
+  })));
+  l.sort((a, b) => a.coste - b.coste || b.normal - a.normal || b.grueso - a.grueso);
+  const vistas = new Set(), r = [];
+  for (const o of l) { if (vistas.has(o.altura)) continue; vistas.add(o.altura); r.push(o); if (r.length === cuantas) break; }
+  return r;
+}
+
+// Altos y columnas para una encimera: altos a 56 cm (55–60) sobre la encimera, de 90 si cabe (si no, 80 o 70);
+// la columna, de la medida que la deja enrasada con los altos (lo que se pide es la columna sin el zócalo).
+export function altosPara(op, techoMm) {
+  const separacion = 560, desde = op.altura + separacion;
+  const cabe = a => !techoMm || desde + a <= techoMm;
+  const alto = PIEZAS.altos.find(cabe) || PIEZAS.altos[PIEZAS.altos.length - 1];
+  const hasta = desde + alto;
+  return { separacion, desde, alto, hasta, columna: hasta - op.zocalo, sobraTecho: techoMm ? techoMm - hasta : null };
+}
+
+// Electrodomésticos a la medida de la persona y de la cocina (estándar europeo de huecos):
+//  · horno en columna: base unos 25 cm por debajo del codo (el codo, ≈ 63 % de la estatura);
+//  · microondas: base unos 20 cm por encima del codo y al menos 25 cm por debajo de los ojos (estatura − 12), para ver dentro;
+//  · frigo integrable: el hueco europeo más alto que cabe en la columna (deja encima un alto de 20 cm o más);
+//  · lavavajillas integrable (81,5–87,5 con las patas; XXL hasta 92,5): hueco = zócalo + mueble − gola J (5,6) si la lleva.
+export const HUECOS_FRIGO = [1940, 1780, 1580, 1400, 1220];
+export function electroPara(estatura, op, al, gola = false) {
+  const e = Number(estatura) * 10, codo = e * 0.63, ojos = e - 120, redondo = v => Math.round(v / 10) * 10;
+  const horno = Math.max(700, Math.min(1000, redondo(codo - 250)));
+  const micro = Math.max(1100, Math.min(1500, redondo(codo + 200), redondo(ojos - 250)));
+  const juntos = horno + 600;   // micro justo encima del horno en la misma columna
+  const frigo = HUECOS_FRIGO.find(f => f <= al.columna - 200) || null;
+  const lava = op.zocalo + op.mueble - (gola ? M.gola : 0);
+  return { horno, micro, juntos, juntosAlto: juntos > micro + 150, frigo, encimaFrigo: frigo ? al.columna - frigo : null,
+    lavavajillas: lava, lavaTipo: lava < M.lavavajillas_min ? 'nocabe' : lava <= M.lavavajillas_max ? 'normal' : lava <= M.lavavajillas_xxl ? 'xxl' : 'alto' };
 }
 
 const tabla = (cab, filas) => h('table', { class: 'tabla-guia' }, h('thead', {}, h('tr', {}, cab.map(t => h('th', {}, t)))),
@@ -24,37 +63,72 @@ const tabla = (cab, filas) => h('table', { class: 'tabla-guia' }, h('thead', {},
 const apartado = (n, titulo, ...hijos) => h('section', { class: 'tarjeta guia-apartado', 'data-apartado': n }, h('h2', {}, n + '. ' + titulo), ...hijos);
 const lista = items => h('ul', { class: 'guia-lista' }, items.map(([b, t]) => h('li', {}, h('b', {}, b), ' ', t)));
 const nota = t => h('small', { class: 'ayuda' }, t);
+const suma = o => cm(o.zocalo) + ' + ' + cm(o.mueble) + ' + ' + cm(o.grueso);
 
 export function pintarGuia(App, fichaId) {
   const main = App.marco('guia', 'Guía de medidas', fichaId ? '#/ficha/' + fichaId : '#/');
-  const tipo = cm(M.zocalo) + ' + ' + cm(M.mueble_bajo) + ' + ' + cm(M.grueso_encimera);
-  // Calculadora: estatura → altura de encimera y zócalo.
-  const salida = h('p', { class: 'guia-resultado', 'data-res': 'encimera' }, 'Escribe la estatura de quien más cocina.');
-  const entrada = h('input', { type: 'number', inputmode: 'numeric', min: '120', max: '230', placeholder: 'p. ej. 170', 'data-acc': 'estatura',
-    oninput: () => {
-      const a = alturaEncimera(entrada.value);
-      if (a === null) { salida.textContent = 'Escribe la estatura en cm (entre 120 y 230).'; return; }
-      const z = zocaloPara(a), tipoCm = M.encimera / 10;
-      salida.textContent = 'Encimera a unos ' + a + ' cm. ' + (Math.abs(a - tipoCm) <= 2 ? 'Es la cocina tipo (' + tipoCm + ' cm): no hay que cambiar nada.'
-        : z.aMedida ? 'Haría falta un zócalo de ' + z.zocalo + ' cm (a medida o con patas más altas); con el de ' + z.serie + ' queda en ' + z.queda + ' cm.'
-          : 'Con zócalo de ' + z.serie + ' cm queda en ' + z.queda + ' cm.');
-    } });
+
+  // ── Calculadora: estatura (y gas, techo) → encimera, altos y columnas ──
+  const est = h('input', { type: 'number', inputmode: 'numeric', min: '120', max: '230', placeholder: 'p. ej. 176', 'data-acc': 'estatura' });
+  const techo = h('input', { type: 'number', inputmode: 'numeric', min: '200', max: '400', placeholder: 'opcional', 'data-acc': 'techo' });
+  let gas = false, gola = false, elegida = 0;
+  const botonGas = h('div', { class: 'chips' }, [[false, 'Inducción o vitro'], [true, 'Gas']].map(([v, t]) => h('button', { type: 'button', 'data-acc': 'placa-gas', 'data-v': String(v), class: v === gas ? 'on' : '',
+    onclick: () => { gas = v; botonGas.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === String(v))); pintar(); } }, t)));
+  const botonGola = h('div', { class: 'chips' }, [[false, 'Tirador, uñero o integrado'], [true, 'Gola J']].map(([v, t]) => h('button', { type: 'button', 'data-acc': 'gola', 'data-v': String(v), class: v === gola ? 'on' : '',
+    onclick: () => { gola = v; botonGola.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === String(v))); pintar(); } }, t)));
+  const salida = h('div', { class: 'guia-resultado', 'data-res': 'encimera' }, 'Escribe la estatura de quien más cocina.');
+  function pintar() {
+    const a = alturaEncimera(est.value, gas);
+    if (a === null) { salida.replaceChildren('Escribe la estatura en cm (entre 120 y 230).'); return; }
+    const ops = opcionesEncimera(a), t = Number(techo.value) > 0 ? Number(techo.value) * 10 : null;
+    if (elegida >= ops.length) elegida = 0;
+    const op = ops[elegida], al = altosPara(op, t);
+    const tarjetas = ops.map((o, i) => h('button', { type: 'button', class: 'opcion-encimera' + (i === elegida ? ' on' : ''), 'data-acc': 'opcion-encimera', 'data-v': String(i), onclick: () => { elegida = i; pintar(); } },
+      h('b', {}, cm(o.altura)), h('span', {}, suma(o)), h('small', {}, (o.normal ? 'La de siempre · ' : '') + 'encimera de ' + cm(o.grueso) + ' (' + GRUESO[o.grueso] + ')' + (o.dif ? ' · ' + (o.dif > 0 ? '+' : '') + cm(o.dif) : ''))));
+    const usar = h('button', { type: 'button', 'data-acc': 'usar-cocina-tipo', onclick: async () => {
+      await App.cambiarAjustes({ cocina_tipo: { zocalo: op.zocalo, mueble: op.mueble, grueso: op.grueso, alto_alto: al.alto, separacion: al.separacion } });
+      usar.textContent = '✓ Es tu cocina tipo'; pintarTipo();
+    } }, 'Usar como mi cocina tipo');
+    salida.replaceChildren(...[
+      h('p', {}, 'Encimera a unos ', h('b', {}, a + ' cm'), gas ? ' (3 cm menos por la parrilla del gas).' : '.'),
+      h('div', { class: 'opciones-encimera' }, tarjetas),
+      h('p', { 'data-res': 'altos' }, 'Altos de ', h('b', {}, cm(al.alto)), ' desde ', cm(al.desde), ' hasta ', cm(al.hasta), ' (', cm(al.separacion), ' sobre la encimera). ',
+        'Columnas de ', h('b', {}, cm(al.columna)), ' sobre el zócalo de ', cm(op.zocalo), ': arriba enrasan con los altos.'),
+      al.sobraTecho !== null ? nota(al.sobraTecho >= 0 ? 'Quedan ' + cm(al.sobraTecho) + ' hasta el techo' + (al.sobraTecho > 150 ? ': altillo o tapeta para no acumular polvo.' : '.') : 'No cabe ni con altos de 70: hay que recortar.') : null,
+      gas ? nota('Con gas: campana a 75 cm sobre la placa (nunca menos de 65).') : null,
+      (() => { const el = electroPara(est.value, op, al, gola); return h('div', { 'data-res': 'electro' },
+        h('p', {}, 'Horno en columna con la base a ', h('b', {}, cm(el.horno)), '; microondas con la base a ', h('b', {}, cm(el.micro)), '.',
+          el.juntosAlto ? ' Si van juntos (micro encima del horno), el micro queda a ' + cm(el.juntos) + ': algo alto, mejor en otra columna o bajo.' : ' Pueden ir juntos en la misma columna (micro a ' + cm(el.juntos) + ').'),
+        h('p', {}, el.frigo ? ['Frigo integrable de hueco ', h('b', {}, cm(el.frigo)), ' y alto encima de ', cm(el.encimaFrigo), '.'] : 'La columna es baja para un frigo integrable de serie.'),
+        h('p', {}, 'Lavavajillas integrable: hueco de ', h('b', {}, cm(el.lavavajillas)), ' (', cm(op.zocalo), ' + ', cm(op.mueble), gola ? ' − gola J ' + cm(M.gola) : '', ')',
+          el.lavaTipo === 'normal' ? ': cabe uno normal (81,5–87,5).' : el.lavaTipo === 'nocabe' ? ': NO cabe (necesita 81,5–87,5); baja el zócalo en esa zona o mueble de 80.'
+            : el.lavaTipo === 'xxl' ? ': un XXL (86,5–92,5)' + (gola ? '' : ', la gola J') + ' o una pieza lacada del color de las puertas para lo que sobra.' : ': ni un XXL llega; pieza lacada del color de las puertas para lo que sobra.',
+          op.mueble >= 800 ? ' Con puerta de 80, mejor de puerta deslizante para que el panel no choque con el zócalo.' : '')); })(),
+      usar].filter(Boolean));
+  }
+  est.addEventListener('input', pintar); techo.addEventListener('input', pintar);
+
+  // ── La cocina tipo actual (de Ajustes) ──
+  const zonaTipo = h('div');
+  function pintarTipo() {
+    zonaTipo.replaceChildren(tabla(['Pieza', 'Medida', ''], [
+      ['Zócalo', cm(M.zocalo), 'De serie: 6, 10 y 15'],
+      ['Mueble bajo', cm(M.mueble_bajo) + ' de alto', 'Puertas de 70 u 80; fondo ' + cm(M.fondo_bajo) + ' con la puerta'],
+      ['Encimera', cm(M.grueso_encimera) + ' de grueso', 'De 1,2 a 4 cm; fondo ' + cm(M.fondo_encimera) + ' (vuela 2–4 cm)'],
+      ['Altura de la encimera', cm(M.encimera), suma({ zocalo: M.zocalo, mueble: M.mueble_bajo, grueso: M.grueso_encimera })],
+      ['Altos', 'de ' + cm(M.altos_desde) + ' a ' + cm(M.altos_hasta), 'Altos de ' + cm(M.altos_hasta - M.altos_desde) + ', a ' + cm(M.altos_desde - M.encimera) + ' de la encimera; fondo ' + cm(M.fondo_alto)],
+      ['Columnas', cm(M.columna - M.zocalo) + ' + zócalo', 'Hasta ' + cm(M.columna) + ': enrasan con los altos'],
+    ]));
+  }
+  pintarTipo();
 
   main.append(
     nota('Medidas de referencia del taller. Los consejos de diseño de cada ficha usan estas mismas cifras. Son orientativas: manda el manual de cada electrodoméstico.'),
-    apartado(1, 'La cocina tipo',
-      tabla(['Pieza', 'Medida', ''], [
-        ['Zócalo', cm(M.zocalo), 'De serie hay de 10 y de 15'],
-        ['Mueble bajo', cm(M.mueble_bajo) + ' de alto', 'Fondo ' + cm(M.fondo_bajo) + ' con la puerta'],
-        ['Encimera', cm(M.grueso_encimera) + ' de grueso', 'Fondo ' + cm(M.fondo_encimera) + ' (vuela 2–4 cm)'],
-        ['Altura de la encimera', cm(M.encimera), tipo],
-        ['Altos', 'de ' + cm(M.altos_desde) + ' a ' + cm(M.altos_hasta), 'Altos de 70; quedan ' + cm(M.altos_desde - M.encimera) + ' sobre la encimera; fondo ' + cm(M.fondo_alto)],
-        ['Columnas', 'hasta ' + cm(M.columna), 'A la misma altura que los altos'],
-      ]),
-      nota('Así salen los dibujos, la perspectiva y el material de la app.')),
-    apartado(2, 'Altura de encimera según la estatura',
-      h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Estatura (cm)'), entrada), salida,
-      nota('Lo cómodo: 10–15 cm por debajo del codo. Se ajusta con el zócalo: el mueble y la encimera son siempre los mismos.')),
+    apartado(1, 'Tu cocina tipo', zonaTipo, nota('Así salen los dibujos, la perspectiva y el material. Se cambia con la calculadora de abajo («Usar como mi cocina tipo»).')),
+    apartado(2, 'Altura de encimera, altos y columnas',
+      h('div', { class: 'dos' }, h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Estatura (cm)'), est), h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Techo (cm)'), techo)),
+      h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Placa'), botonGas), h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Tirador'), botonGola), salida,
+      nota('Lo cómodo: la mitad de la estatura más 5 cm. Se llega con el zócalo (6, 10 o 15), el mueble (70 u 80) y el grueso de la encimera (1,2 a 4).')),
     apartado(3, 'Placa y campana',
       tabla(['Qué', 'Medida', 'Nota'], [
         ['Placa (aparato)', cm(M.placa) + ' lo normal', 'En un mueble de 60, 80 o 90 suele ir una de 60; las de 70–90 se dicen aparte'],
@@ -62,43 +136,55 @@ export function pintarGuia(App, fichaId) {
         ['Campana', 'igual o más ancha que la placa', 'No que el mueble: una de 60 vale para una placa de 60 en mueble de 90'],
         ['Altura de campana: inducción o vitro', cm(M.campana_sobre_electrica) + ' sobre la placa', 'Mirar el manual'],
         ['Altura de campana: gas', cm(M.campana_sobre_gas) + ' sobre la placa', 'Nunca menos de 65'],
+        ['Gas', 'la parrilla sube unos 5 cm', 'Encimera 3 cm más baja de lo normal para esa persona'],
         ['Ventana', 'nunca encima de la placa', 'Sin campana, con corrientes y cortinas cerca'],
       ])),
     apartado(4, 'Fregadero y lavavajillas',
       tabla(['Qué', 'Medida', 'Nota'], [
         ['Encimera entre fregadero y placa', cm(M.preparar) + ' mínimo', cm(M.preparar_bien) + ' es lo cómodo: es la zona de preparar'],
         ['Mueble de fregadero', '80 (un seno) · 90–100 (dos)', 'Mirar la medida mínima de mueble del fregadero'],
-        ['Lavavajillas', '45 o 60', 'Pegado al fregadero, como mucho a ' + cm(M.lavavajillas)],
+        ['Lavavajillas', '45 o 60', 'Pegado al fregadero, como mucho a ' + cm(M.lavavajillas) + '. Con mueble de 80 o zócalo de 6, mirar que entre de alto'],
         ['Lavavajillas en el rincón', 'no', 'Su puerta tapa el rinconero: un bajo o regleta de 5–10 cm entre medias'],
       ])),
-    apartado(5, 'Frigorífico',
+    apartado(5, 'Electrodomésticos: huecos (estándar europeo)',
+      tabla(['Qué', 'Hueco', 'Nota'], [
+        ['Frigo integrable: alto', '82 (bajo encimera) · 122 · 140 · 158 · 178 · 194', 'Ancho de hueco 56–57 (mueble de 60); el más vendido, 178'],
+        ['Frigo de libre instalación', 'ancho 60 o 70 · alto 185–203', 'Combis altos de 70 cada vez más; 2–3 cm a cada lado y 5 arriba para que respire'],
+        ['Frigo americano', 'ancho 91–92 · alto 178–180', 'Fondo 70–75: sobresale de los bajos'],
+        ['Horno', '60 × 60 (compacto 45)', 'Fondo 55; bajo encimera o en columna'],
+        ['Microondas integrable', '38 o 45 de alto', 'En hueco de 60 de ancho (o 50); libre, en un estante de 40 de fondo'],
+        ['Lavavajillas integrable', 'ancho 45 o 60 · alto 81,5–87,5 (XXL 86,5–92,5)', 'Hueco = zócalo + mueble − gola J (5,6). 15 + 70 con gola: 79,4, no cabe. 10 + 80 con gola: 84,4, cabe. Lo que sobre, pieza lacada del color de las puertas. Con puerta de 80, de puerta deslizante'],
+        ['Placa', '60 · 70 · 80 · 90', 'Hueco en la encimera según el modelo (56 × 49 la de 60)'],
+        ['Campana', '60 · 90 (isla 90–120)', 'Igual o más ancha que la placa'],
+      ])),
+    apartado(6, 'Frigorífico',
       tabla(['Qué', 'Medida', 'Nota'], [
-        ['Columna de frigo', '60 · americano 92', 'Libre instalación: 2–3 cm a cada lado para que respire'],
+        ['Columna de frigo', '60 · 70 · americano 92', 'Libre instalación: 2–3 cm a cada lado para que respire'],
         ['Frigo – placa', cm(M.frigo_placa) + ' mínimo', 'O panel aislante entre los dos'],
         ['Frigo contra pared o en rincón', 'regleta de 3–5 cm', 'Para que la puerta abra más de 90° y salgan los cajones'],
       ])),
-    apartado(6, 'Encimera y columnas',
+    apartado(7, 'Encimera y columnas',
       tabla(['Qué', 'Medida', 'Nota'], [
         ['Encimera de trabajo en total', cm(M.encimera_libre) + ' mínimo', 'Mejor 120 cm o más seguidos'],
-        ['Columnas', 'juntas, al final de un tramo', 'En medio parten la encimera'],
-        ['Horno y microondas en columna', 'horno a 80–90 · micro a 130–150', 'Del suelo a la base del aparato'],
-        ['Enchufes de encimera', '110–120 cm del suelo', 'Uno doble cada 1–1,5 m; los de electrodomésticos, en el mueble de al lado'],
+        ['Columnas', 'juntas, al final de un tramo', 'En medio parten la encimera; arriba, enrasadas con los altos'],
+        ['Horno y microondas en columna', 'horno a 80–90 · micro a 120–145', 'Del suelo a la base; según la estatura, en la calculadora (apartado 2)'],
+        ['Enchufes de encimera', '20–30 cm sobre la encimera', 'Uno doble cada 1–1,5 m; los de electrodomésticos, en el mueble de al lado'],
         ['Barra', '25–30 cm de vuelo · 60 cm por persona', 'Mesa 75 · mostrador 90 (taburete 65) · barra alta 105 (taburete 75–80)'],
       ])),
-    apartado(7, 'Pasos y pasillos',
+    apartado(8, 'Pasos y pasillos',
       tabla(['Qué', 'Mínimo', 'Cómodo'], [
         ['Entre encimeras enfrentadas', cm(M.pasillo), cm(M.pasillo_bien) + ' si cocinan dos'],
         ['Hasta la isla o península', cm(M.pasillo), '100–' + cm(M.pasillo_bien)],
         ['Paredes enfrentadas con muebles en las dos', cm(M.pasillo + 2 * M.fondo_encimera), 'Por debajo, muebles solo en una pared o de poco fondo'],
       ]),
       nota('El paso se mide desde el canto de la encimera (' + cm(M.fondo_encimera) + ' desde la pared).')),
-    apartado(8, 'Soluciones habituales', lista([
+    apartado(9, 'Soluciones habituales', lista([
       ['Rincones:', 'rinconero en L de 90–100 con bandejas extraíbles o carrusel; si no, rincón ciego con puerta. Entre el rincón y un lavavajillas, horno o cajonero, un bajo o regleta de 5–10 cm.'],
       ['Cocina estrecha:', 'muebles en una sola pared, o enfrente solo altos o bajos de 30–40 cm de fondo. Cajones mejor que puertas.'],
       ['Poca encimera:', 'placa de dos zonas, tabla sobre el fregadero, estante o sobre-encimera para los pequeños electrodomésticos.'],
-      ['Ventana baja:', 'debajo va bien el fregadero, nunca la placa. La encimera ' + cm(M.encimera) + ' tiene que quedar 5 cm por debajo del marco.'],
+      ['Ventana baja:', 'debajo va bien el fregadero, nunca la placa. La encimera tiene que quedar 5 cm por debajo del marco.'],
       ['Isla:', 'con placa o fregadero, 90–100 cm de fondo; con barra, 25–30 cm más de vuelo.'],
-      ['Altos hasta el techo:', 'por encima de ' + cm(M.altos_hasta) + ', altillos o una tapeta para que no se acumule polvo.'],
+      ['Altos hasta el techo:', 'lo que sobre por encima de los altos, altillos o una tapeta para que no se acumule polvo.'],
     ])),
   );
 }

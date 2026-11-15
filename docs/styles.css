@@ -446,3 +446,10 @@ button { background: #fffef9; border-color: var(--borde); }
 .guia-resultado { font-size: 17px; font-weight: 600; margin: 8px 0 2px; }
 @media (max-width: 520px) { .tabla-guia td:nth-child(2) { white-space: normal; } .tabla-guia { font-size: 13px; } }
 .grupo-consejos h5 { margin: 8px 0 2px; font-size: 13px; color: #1e3a8a; text-transform: uppercase; letter-spacing: .04em; }
+/* 1.24.0: calculadora de la guía (opciones de encimera) */
+.opciones-encimera { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; margin: 6px 0; }
+.opcion-encimera { display: grid; gap: 2px; text-align: left; padding: 8px 10px; border: 1px solid var(--borde); border-radius: 8px; background: #fff; font-size: 14px; }
+.opcion-encimera b { font-size: 18px; }
+.opcion-encimera small { color: var(--tenue); font-weight: normal; }
+.opcion-encimera.on { border: 2px solid var(--oscuro); background: #f8f5ee; }
+.guia-resultado p { margin: 6px 0; font-size: 15px; font-weight: normal; }

@@ -279,11 +279,15 @@ export const ELECTRO = [
   ['lavadora', 'Lavadora', [['integrable', 'Integrable'], ['libre', 'Libre']]],
   ['otro', 'Otro', []],
 ];
+// Medidas habituales (mm, estándar europeo): anchos y altos del aparato o de su hueco.
+export const ANCHOS_ELECTRO = { frigo: [600, 700, 910], horno: [600], microondas: [600, 500], placa: [600, 700, 800, 900], campana: [600, 900, 1200], lavavajillas: [450, 600], lavadora: [600] };
+export const ALTOS_ELECTRO = { frigo: [1220, 1400, 1580, 1780, 1940, 1850, 2010], horno: [600, 450], microondas: [380, 450], lavavajillas: [820, 865] };
 export const datosElectro = clave => ELECTRO.find(e => e[0] === clave) || ['otro', 'Otro', []];
-export const electroNuevo = clave => ({ id: id(), clave, tipo: null, ancho: null, modelo: '', nombre: '' });
+export const electroNuevo = clave => ({ id: id(), clave, tipo: null, ancho: null, alto: null, modelo: '', nombre: '' });
 export const nombreElectro = e => (e.clave === 'otro' ? e.nombre || 'Otro' : datosElectro(e.clave)[1]);
 export function textoElectro(e) {
   const tipo = (datosElectro(e.clave)[2].find(t => t[0] === e.tipo) || [])[1];
-  const partes = [tipo && tipo.toLowerCase(), hay(e.ancho) ? verMedida(e.ancho, 'cm') + ' cm' : null, e.modelo && e.modelo.trim()].filter(Boolean);
+  const medida = hay(e.ancho) && hay(e.alto) ? verMedida(e.ancho, 'cm') + ' × ' + verMedida(e.alto, 'cm') + ' cm (ancho × alto)' : hay(e.ancho) ? verMedida(e.ancho, 'cm') + ' cm' : hay(e.alto) ? 'alto ' + verMedida(e.alto, 'cm') + ' cm' : null;
+  const partes = [tipo && tipo.toLowerCase(), medida, e.modelo && e.modelo.trim()].filter(Boolean);
   return nombreElectro(e) + (partes.length ? ': ' + partes.join(' · ') : '');
 }

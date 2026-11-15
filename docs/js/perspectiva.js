@@ -2,7 +2,7 @@
 // Dibujo sencillo de cajas de colores (como los alzados), hecho a mano: funciona sin conexión y sale en el PDF.
 // Todo va en mm: x e y como en la planta (y hacia abajo), z hacia arriba desde el suelo.
 import { geometriaPlanta } from './plano-vista.js';
-import { ALTURAS, frigoLibre } from './alzado.js';
+import { ALTURAS, frigoLibre, techoFrigo } from './alzado.js';
 import { piezasInterior, textoInteriores } from './modulos.js';
 import { frenteModulo, frenteCuerpo, puertasCuerpo, frenteFrigoLibre, varianteDe } from './frentes.js';
 
@@ -13,9 +13,26 @@ const hay = v => v !== null && v !== undefined;
 const COLOR = {
   suelo: ['#ece6da', '#d6cfc0'], pared: ['#faf8f3', '#6b7280'], azulejo: ['#ccfbf1', '#5eead4'], ventana: ['#bae6fd', '#0369a1'], puerta: ['#e5e7eb', '#374151'],
   bajo: ['#f5ede4', '#92400e'], cuerpo: ['#f5ede4', '#92400e'], barra: ['#57534e', '#44403c'], estante: ['#c08a4a', '#92400e'], zapato: ['#a8a29e', '#78716c'],
-  cajon: ['#fde68a', '#92400e'], hoja: ['#fbf6f0', '#92400e'], hoja_alto: ['#e8f0fe', '#1d4ed8'], tirador: ['#57534e', '#44403c'], electro: ['#3f3f46', '#18181b'],
+  cajon: ['#fde68a', '#92400e'], hoja: ['#fbf6f0', '#92400e'], hoja_alto: ['#e8f0fe', '#1d4ed8'], hoja_columna: ['#fbf6f0', '#92400e'], tirador: ['#57534e', '#44403c'], electro: ['#3f3f46', '#18181b'],
   cristal: ['#52525b', '#a1a1aa'], acero: ['#e2e8f0', '#64748b'], campana: ['#a1a1aa', '#52525b'], zocalo: ['#d6c3ae', '#92400e'], tablero: ['#e2cdb5', '#92400e'], pantalonero: ['#fef3c7', '#78350f'], encimera: ['#9ca3af', '#4b5563'], columna: ['#e7d8c9', '#92400e'], alto: ['#dbeafe', '#1d4ed8'], pilar: ['#d1d5db', '#6b7280'], isla: ['#fef3c7', '#b45309'],
 };
+
+// Colores elegidos (guía de colores de Presupuestos): { altos, bajos, columnas, encimera, tirador, suelo, pared } en #rrggbb.
+// Los frentes de las columnas van como los altos si no se dice otra cosa.
+const oscurecer = (hex, f) => '#' + [1, 3, 5].map(i => Math.round(parseInt(hex.slice(i, i + 2), 16) * f).toString(16).padStart(2, '0')).join('');
+export function paletaDe(c) {
+  const P = Object.assign({}, COLOR), par = hex => [hex, oscurecer(hex, 0.62)], ok = v => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
+  if (!c) return P;
+  if (ok(c.bajos)) Object.assign(P, { hoja: par(c.bajos), cajon: par(c.bajos), bajo: par(c.bajos), zocalo: par(oscurecer(c.bajos, 0.85)) });
+  const col = ok(c.columnas) ? c.columnas : c.altos;
+  if (ok(c.altos)) Object.assign(P, { hoja_alto: par(c.altos), alto: par(c.altos) });
+  if (ok(col)) Object.assign(P, { hoja_columna: par(col), columna: par(col) });
+  if (ok(c.encimera)) P.encimera = par(c.encimera);
+  if (ok(c.tirador)) P.tirador = par(c.tirador);
+  if (ok(c.suelo)) P.suelo = par(c.suelo);
+  if (ok(c.pared)) P.pared = [c.pared, '#6b7280'];
+  return P;
+}
 
 // mm por unidad de la planta: 1 si está a escala; si no, lo que dicen los largos (la mediana).
 function escalaDe(geo) {
@@ -24,7 +41,7 @@ function escalaDe(geo) {
 }
 
 // La escena: caras en 3D agrupadas (cada caja, un grupo) y lo que hace falta para situar la vista.
-export function escenaPerspectiva(d, { margen = 10, ajustes = null } = {}) {
+export function escenaPerspectiva(d, { margen = 10, ajustes = null, colores = null } = {}) {
   const geo = geometriaPlanta(d, { margen, unidad: 'cm' });
   if (!geo.paredes.length) return null;
   const k = escalaDe(geo);
@@ -32,7 +49,8 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null } = {}) {
   const techo = hay(d.alto_techo) && d.alto_techo > 0 ? d.alto_techo : ALTURAS.techo;
   const P = p => ({ x: p.x * k, y: p.y * k });
   const fondo = [], paredes = [], sobre = [], cajas = [], rotulos = [];
-  const cara = (pts, color, n, extra) => Object.assign({ pts, fill: COLOR[color][0], stroke: COLOR[color][1], n }, extra || {});
+  const PAL = paletaDe(colores);
+  const cara = (pts, color, n, extra) => { const c = PAL[color] || COLOR[color] || COLOR.bajo; return Object.assign({ pts, fill: c[0], stroke: c[1], n }, extra || {}); };
 
   // Suelo.
   const contorno = geo.paredes.map(p => P(p.a)).concat([P(geo.paredes[geo.paredes.length - 1].b)]);
@@ -113,10 +131,10 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null } = {}) {
   // Ancho del frente: en el chaflán, la diagonal (de r[1] a r[2]).
   const ancho = r => (r.length === 5 ? Math.hypot(r[2].x - r[1].x, r[2].y - r[1].y) : Math.hypot(r[1].x - r[0].x, r[1].y - r[0].y)) || 1;
   const fiDe = m => (m.chaflan ? 1 : 2);
-  const detallesDe = (lista, w, alto = false) => lista.map(q => ({ t0: q.x0 / w, t1: q.x1 / w, z0: q.z0, z1: q.z1, color: q.k === 'hoja' && alto ? 'hoja_alto' : q.k }));
+  const detallesDe = (lista, w, alto = false, columna = false) => lista.map(q => ({ t0: q.x0 / w, t1: q.x1 / w, z0: q.z0, z1: q.z1, color: q.k === 'hoja' && alto ? 'hoja_alto' : q.k === 'hoja' && columna ? 'hoja_columna' : q.k }));
   mods.filter(m => m.r).forEach(m => {
     const t = m.sinTexto ? '' : [m.nombre, m.medidas].filter(Boolean).join(' ');
-    if (m.alto) { const y0 = m.tipo === 'alto_frigo' ? ALTURAS.frigo : ALTURAS.altos_desde, w = ancho(m.r);
+    if (m.alto) { const y0 = m.tipo === 'alto_frigo' ? techoFrigo(d) : ALTURAS.altos_desde, w = ancho(m.r);
       return mueble(m.r, y0, arriba, 'alto', t, null, detallesDe(frenteModulo(m.tipo, w, y0, arriba), w, true)); }
     // La columna del frigo con un alto encima llega hasta el frigo; el alto va encima.
     const conAlto = m.tipo === 'columna_frigo' && geo.modulos.some(a => a.alto && a.tipo === 'alto_frigo' && a.pared === m.pared && Math.hypot(a.rect[0].x - m.rect[0].x, a.rect[0].y - m.rect[0].y) < 1e-6 + 0.01 * Math.hypot(m.rect[1].x - m.rect[0].x, m.rect[1].y - m.rect[0].y));
@@ -131,9 +149,9 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null } = {}) {
       return mueble(m.r, 0, col, 'cuerpo', m.sinTexto ? '' : m.nombre.replace('Cuerpo ', 'C') + (m.rincon ? ' rincón' : '') + (ti ? ' ' + ti : ''), null, (m.dato && m.dato.puertas ? [] : det).concat(detallesDe(frenteCuerpo(ancho, col).concat(puertasCuerpo(ancho, col, m.dato && m.dato.puertas)), ancho)), fiDe(m));
     }
     const w = ancho(m.r);
-    if (m.columna) { const top = conAlto ? Math.min(ALTURAS.frigo, techo) : col;
+    if (m.columna) { const top = conAlto ? Math.min(techoFrigo(d), techo) : col;
       const fl = m.tipo === 'columna_frigo' && frigoLibre(d);
-      return mueble(m.r, 0, top, 'columna', t, null, detallesDe(fl ? frenteFrigoLibre(w, fl === 'americano') : frenteModulo(m.tipo, w, 0, top, { columna: true, variante: varianteDe(m.dato) }), w)); }
+      return mueble(m.r, 0, top, 'columna', t, null, detallesDe(fl ? frenteFrigoLibre(w, fl === 'americano') : frenteModulo(m.tipo, w, 0, top, { columna: true, variante: varianteDe(m.dato) }), w, false, true)); }
     mueble(m.r, 0, bajoEncimera, 'bajo', t, null, [{ t0: 0, t1: 1, z0: 0, z1: ALTURAS.zocalo, color: 'zocalo' }].concat(detallesDe(frenteModulo(m.chaflan ? 'bajo' : m.tipo, w, ALTURAS.zocalo, bajoEncimera, { variante: varianteDe(m.dato) }), w)), fiDe(m));
     // Encimera del chaflán: la misma pieza, con 2 cm de vuelo en la diagonal.
     if (m.chaflan) {
@@ -375,13 +393,13 @@ export function ordenCajas(cajas, C) {
 }
 
 // SVG de la perspectiva. Solo en el navegador.
-export function svgPerspectiva(esc, vista, { W = 1000, H = 640 } = {}) {
+export function svgPerspectiva(esc, vista, { W = 1000, H = 640, textos = true, fondo = '#f3efe6' } = {}) {
   const NS = 'http://www.w3.org/2000/svg', el = (t, a, txt) => { const e = document.createElementNS(NS, t); Object.entries(a).forEach(([k, v]) => e.setAttribute(k, v)); if (txt !== undefined) e.textContent = txt; return e; };
   const r = proyectar(esc, vista, W, H);
   const svg = el('svg', { class: 'perspectiva', viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': 'Perspectiva de la habitación', 'data-acc': 'perspectiva' });
-  svg.append(el('rect', { x: 0, y: 0, width: W, height: H, fill: '#f3efe6' }));
+  svg.append(el('rect', { x: 0, y: 0, width: W, height: H, fill: fondo }));
   r.poligonos.forEach(p => svg.append(el('polygon', { points: p.pts.map(q => q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(' '), fill: p.fill, stroke: p.stroke, 'stroke-width': 1.2, 'stroke-linejoin': 'round' })));
-  r.textos.forEach(t => svg.append(el('text', { x: t.x, y: t.y, 'font-size': t.tam, 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'paint-order': 'stroke', stroke: '#fff', 'stroke-width': t.tam / 5,
+  if (textos) r.textos.forEach(t => svg.append(el('text', { x: t.x, y: t.y, 'font-size': t.tam, 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'paint-order': 'stroke', stroke: '#fff', 'stroke-width': t.tam / 5,
     fill: t.clase === 'pared' ? '#111827' : '#78350f', 'font-weight': t.clase === 'pared' ? 700 : 400 }, t.texto)));
   return svg;
 }

@@ -13,9 +13,22 @@ const hay = v => v !== null && v !== undefined;
 // Cocina tipo del taller: zócalo 15 + mueble 70 + encimera 4 = 89 cm; altos de 70 desde 145 (56 cm sobre la encimera) hasta 215, como las columnas.
 // La guía de medidas y los consejos de diseño leen de aquí.
 export const ALTURAS = { techo: 2500, zocalo: 150, mueble_bajo: 700, encimera: 890, grueso_encimera: 40, altos_desde: 1450, altos_hasta: 2150, columna: 2150, frigo: 1850 };
+// La cocina tipo de los ajustes (cocina_tipo: zócalo, mueble, grueso, alto de los altos y su separación de la encimera).
+export function fijarCocinaTipo(ct) {
+  if (!ct) return ALTURAS;
+  const encimera = ct.zocalo + ct.mueble + ct.grueso, desde = encimera + ct.separacion, hasta = desde + ct.alto_alto;
+  return Object.assign(ALTURAS, { zocalo: ct.zocalo, mueble_bajo: ct.mueble, grueso_encimera: ct.grueso, encimera, altos_desde: desde, altos_hasta: hasta, columna: hasta, frigo: Math.min(1850, hasta - 300) });
+}
 const PUNTOS = ['humos', 'desague', 'toma', 'agua', 'gas', 'enchufe', 'otro'];
 
 // El frigorífico, si es de libre instalación: 'libre' o 'americano' (de los electrodomésticos de la cocina); si no, null.
+// Dónde acaba el frigo por arriba (y empieza el alto de encima): con su alto en Electrodomésticos, el integrable
+// va sobre el zócalo y lleva 2 cm de holgura; si no, el de la cocina tipo.
+export function techoFrigo(d) {
+  const f = ((d && d.electro) || []).find(e => e.clave === 'frigo' && hay(e.alto) && e.alto > 0);
+  if (!f) return ALTURAS.frigo;
+  return Math.min(ALTURAS.columna, (f.tipo === 'integrable' ? ALTURAS.zocalo : 0) + f.alto + 20);
+}
 export const frigoLibre = d => { const f = (d.electro || []).find(e => e.clave === 'frigo' && (e.tipo === 'libre' || e.tipo === 'americano')); return f ? f.tipo : null; };
 
 export function geometriaAlzado(d, pared, ajustes = null) {
@@ -49,7 +62,7 @@ export function geometriaAlzado(d, pared, ajustes = null) {
     const texto = (m.tipo === 'rinconero' ? 'Rinc.' : nombreModulo(m)) + ' ' + medidasModulo(m);
     if (m.tipo === 'hueco') return pieza('hueco', desde, 0, hasta - desde, ALTURAS.encimera, texto);
     if (esColumna(m)) {
-      const h = m.tipo === 'columna_frigo' && frigosConAlto.has(desde) ? ALTURAS.frigo : col;
+      const h = m.tipo === 'columna_frigo' && frigosConAlto.has(desde) ? Math.min(techoFrigo(d), col) : col;
       pieza('columna', desde, 0, hasta - desde, h, texto, m.tipo);
       return frente(m.tipo === 'columna_frigo' && frigoLibre(d) ? frenteFrigoLibre(hasta - desde, frigoLibre(d) === 'americano') : frenteModulo(m.tipo, hasta - desde, 0, h, { columna: true, variante: varianteDe(m) }), desde);
     }
@@ -57,7 +70,7 @@ export function geometriaAlzado(d, pared, ajustes = null) {
   });
   sit.altos.forEach(({ m, desde, hasta }) => {
     if (m.tipo === 'hueco') return;
-    const y0 = m.tipo === 'alto_frigo' ? ALTURAS.frigo : ALTURAS.altos_desde;
+    const y0 = m.tipo === 'alto_frigo' ? techoFrigo(d) : ALTURAS.altos_desde;
     pieza('alto', desde, y0, hasta - desde, arriba - y0, nombreModulo(m) + ' ' + medidasModulo(m), m.tipo);
     frente(frenteModulo(m.tipo, hasta - desde, y0, arriba), desde, true);
   });
