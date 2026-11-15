@@ -33,7 +33,9 @@ const cabecera = trabajo => h('header', {},
   h('p', { class: 'empresa' }, EMPRESA),
   h('h1', {}, trabajo ? trabajo.nombre || 'Trabajo' : 'Nota suelta'),
   trabajo && (trabajo.cliente || trabajo.direccion) ? h('p', {}, [trabajo.cliente, trabajo.direccion].filter(Boolean).join(' · ')) : null,
-  h('p', { class: 'fecha' }, new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })));
+  h('p', { class: 'fecha' }, new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }),
+    // Al imprimir y en el PDF el copyright va aquí arriba (el pie solo dejaba a veces una hoja con él solo).
+    h('span', { class: 'copy-cab' }, ' · ' + COPYRIGHT)));
 
 // Tomas, desagües, salidas de humos y enchufes en una tabla: dónde va cada uno y a qué altura.
 // Es lo que necesita el albañil, el fontanero o el electricista si aún no están sacadas.
@@ -119,6 +121,7 @@ function guardarFrente(ficha, letras) {
 // Lo de una ficha: título, tabla de puertas, planta, el resto en bloques y las fotos (ver: qué dibujos van).
 async function nodosFicha(App, ficha, trabajo, AJ, ver = partesGuardadas()) {
   const d = ficha.datos, { u } = unidadesDe(ficha, trabajo, AJ), nodos = [h('h2', {}, tituloFicha(ficha))];
+  let conTabla = false;
   if (ficha.tipo === 'puerta') {
     if (d.modelo || d.color) nodos.push(h('p', {}, [d.modelo && 'Modelo: ' + d.modelo, d.color && 'Color: ' + d.color].filter(Boolean).join(' · ')));
     nodos.push(...tablaPuertas(d.puertas || [], u, d.medida === 'premarco'));
@@ -149,10 +152,11 @@ async function nodosFicha(App, ficha, trabajo, AJ, ver = partesGuardadas()) {
     if (pareja.childNodes.length) nodos.push(pareja);
     nodos.push(...frentes);
     const t = ver.instalaciones ? tablaInstalaciones(d, u) : null;
-    if (t) nodos.push(t);
+    if (t) { nodos.push(t); conTabla = true; }
   }
   // El resto, con los mismos bloques que el texto de WhatsApp (sin la cabecera del trabajo ni el título).
-  const bloques = bloquesResumen({ ficha, trabajo, ajustes: AJ }).slice(trabajo ? 1 : 0);
+  // Si ya va la tabla de instalaciones, las tomas no se repiten en el texto de cada pared.
+  const bloques = bloquesResumen({ ficha, trabajo, ajustes: AJ, sinInstalaciones: conTabla }).slice(trabajo ? 1 : 0);
   bloques.forEach((b, i) => {
     let lineas = i === 0 ? b.slice(1) : b;
     if (ficha.tipo === 'puerta' && i === 0) lineas = [];

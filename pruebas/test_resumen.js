@@ -1,5 +1,5 @@
 import { prueba, afirma, igual, fin } from './mini.js';
-import { textoResumen } from '../docs/js/resumen.js';
+import { textoResumen, bloquesResumen } from '../docs/js/resumen.js';
 import { fichaNueva, trabajoNuevo, elementoNuevo, AJUSTES_FABRICA } from '../docs/js/modelo.js';
 import { moduloNuevo } from '../docs/js/modulos.js';
 
@@ -41,5 +41,16 @@ prueba('texto de armario con cuerpos, y notas y otras medidas al final', () => {
 prueba('sin datos no salen líneas vacías', () => {
   const t = textoResumen({ ficha: fichaNueva('nota', null, null), trabajo: null, ajustes: AJUSTES_FABRICA });
   afirma(!/undefined|null|NaN/.test(t), t); afirma(!/\n\n\n/.test(t), JSON.stringify(t));
+});
+prueba('1.22.4: con la tabla de instalaciones, las tomas no se repiten en el texto de la pared (y la ventana sí sale)', () => {
+  const f = fichaNueva('cocina', null, 't'), p = f.datos.paredes[0];
+  p.largo = 3000;
+  p.elementos.push(Object.assign(elementoNuevo('desague', 'izq'), { distancia: 1800, altura: 450 }), Object.assign(elementoNuevo('enchufe', 'izq'), { distancia: 300, altura: 1100 }),
+    Object.assign(elementoNuevo('ventana', 'izq'), { distancia: 1500, ancho: 1200, altura: 1100, alto: 1100 }));
+  const todo = bloquesResumen({ ficha: f, trabajo, ajustes: AJUSTES_FABRICA }).flat().join(' | ');
+  const sin = bloquesResumen({ ficha: f, trabajo, ajustes: AJUSTES_FABRICA, sinInstalaciones: true }).flat().join(' | ');
+  afirma(/Desagüe/.test(todo) && /Enchufe/.test(todo), todo);
+  afirma(!/Desagüe/.test(sin) && !/Enchufe/.test(sin), sin);
+  afirma(/Ventana/.test(sin), sin);
 });
 fin();

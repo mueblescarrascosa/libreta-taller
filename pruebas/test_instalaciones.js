@@ -15,6 +15,12 @@ prueba('resumen: nombre de la empresa y tabla de tomas con dónde y a qué altur
     igual(await a.page.innerText('.resumen-doc footer'), '© 2026 Alfonso Carrascosa Martínez');
     const filas = await a.page.$$eval('.instalaciones tbody tr', ts => ts.map(t => [...t.children].map(c => c.textContent)));
     igual(filas, [['A', 'Desagüe', 'a 120 cm desde la izquierda', '45 cm']]);
+    // 1.22.4: el desagüe no se repite en el texto de la pared; al imprimir, el copyright va arriba y no hay pie.
+    igual(await a.page.$$eval('.resumen-doc > section:not(.instalaciones)', ss => ss.some(s => /Desagüe/.test(s.textContent))), false);
+    await a.page.emulateMedia({ media: 'print' });
+    igual(await a.page.$eval('.resumen-doc > footer', e => getComputedStyle(e).display), 'none');
+    igual(await a.page.$eval('.resumen-doc .copy-cab', e => getComputedStyle(e).display), 'inline');
+    await a.page.emulateMedia({ media: 'screen' });
     igual(a.errores, []);
   } finally { await a.cerrar(); }
 });
@@ -36,7 +42,7 @@ prueba('salida de humos: redonda o rectangular con medidas rápidas', async () =
     await a.page.click('header [data-acc="cab-resumen"]'); await a.page.waitForSelector('[data-pantalla="resumen"]');
     const fila = await a.page.$$eval('.instalaciones tbody tr td', ts => ts.map(t => t.textContent));
     igual(fila[1], 'Salida de humos 17×8 cm');
-    afirma((await a.page.innerText('.resumen-doc')).includes('Salida de humos: 17×8 cm'));
+    afirma(!(await a.page.innerText('.resumen-doc')).includes('Salida de humos: 17×8 cm'), 'se repite en el texto de la pared');
     await a.page.click('header [data-acc="editar"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
     await a.page.click(E + '[data-acc="humos-forma"][data-v="recirculacion"]');
     afirma(!(await a.page.$(E + '[data-acc="altura"]')) && !(await a.page.$(E + '[data-acc="humos-sale"]')), 'recirculación sigue pidiendo altura');
@@ -60,7 +66,7 @@ prueba('salida de humos por el techo: separación de la pared en vez de altura',
     await a.page.waitForFunction(() => [...document.querySelectorAll('[data-acc="planta"] text')].some(t => t.textContent.startsWith('Humos techo')));
     await a.page.click('header [data-acc="cab-resumen"]'); await a.page.waitForSelector('[data-pantalla="resumen"]');
     igual((await a.page.$$eval('.instalaciones tbody tr td', ts => ts.map(t => t.textContent)))[3], 'techo, a 30 cm de la pared');
-    afirma((await a.page.innerText('.resumen-doc')).includes('por el techo, separada 30 cm de la pared'));
+    afirma(!(await a.page.innerText('.resumen-doc')).includes('por el techo, separada 30 cm de la pared'), 'se repite en el texto de la pared');
     igual(a.errores, []);
   } finally { await a.cerrar(); }
 });

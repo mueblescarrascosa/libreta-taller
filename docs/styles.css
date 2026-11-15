@@ -416,3 +416,17 @@ button { background: #fffef9; border-color: var(--borde); }
 @media print {
   .resumen-doc section, .resumen-doc .recuento { break-inside: auto; page-break-inside: auto; }
 }
+
+/* 1.22.4: el copyright, al imprimir y en el PDF, va en la cabecera (el pie a veces se iba solo a otra hoja);
+   y la tabla de puertas más apretada para que un pedido quepa en una hoja. */
+.copy-cab { display: none; }
+@media print {
+  .resumen-doc .copy-cab { display: inline; }
+  .resumen-doc > footer { display: none; }
+  .resumen-doc .tabla-puertas th, .resumen-doc .tabla-puertas td { padding: 2px 4px; }
+  .resumen-doc .recuento { padding: 3px 0; }
+  .resumen-doc .ficha-resumen { margin-top: 8px; }
+}
+.papel .copy-cab { display: inline; }
+.papel > footer { display: none !important; }
+.papel .tabla-puertas th, .papel .tabla-puertas td { padding: 3px 4px; }

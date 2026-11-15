@@ -58,7 +58,9 @@ const textoCuerpo = (c, ajustes, sigue) => (c.rincon
   ? unir([textoRincon(c), textoInteriores(c, ajustes) || null], ' ') + conPuertas(c) + (sigue ? ' (sigue en ' + sigue + ')' : '')
   : unir([hay(c.ancho) ? verMedida(c.ancho, 'cm') : '?', textoInteriores(c, ajustes) || null], ' ') + conPuertas(c));
 
-function bloquePared(p, ud, u, ajustes, d) {
+// sinInst: las tomas, desagües, humos y enchufes no van (en el resumen ya salen en su tabla).
+const INSTALACIONES = ['humos', 'desague', 'toma', 'agua', 'gas', 'enchufe'];
+function bloquePared(p, ud, u, ajustes, d, sinInst) {
   const l = [unir(['*Pared ' + p.letra + '*', hay(p.largo) ? verMedida(p.largo, ud) + ' ' + ud : null, hay(p.alto) ? 'alto ' + verMedida(p.alto, ud) + ' ' + ud : null])];
   // Esquinas descuadradas de esta pared (salen en las dos paredes que la forman).
   ['izq', 'der'].forEach(lado => {
@@ -73,7 +75,7 @@ function bloquePared(p, ud, u, ajustes, d) {
     const c = textoCuadre(cuadreCuerposPared(p, d), 'cm'), vc = paredesVecinas(d, p);
     l.push('- Cuerpos: ' + p.cuerpos.map(x => textoCuerpo(x, ajustes, x.rincon && vc[x.gira === 'izq' ? 'izq' : 'der'] ? vc[x.gira === 'izq' ? 'izq' : 'der'].letra : null)).join(', ') + (c ? ' (' + c.charAt(0).toLowerCase() + c.slice(1) + ')' : ''));
   }
-  (p.elementos || []).filter(e => e.tipo !== 'zona').forEach(e => l.push(lineaElemento(e, u, extraPilar(d, p, e) > 0)));
+  (p.elementos || []).filter(e => e.tipo !== 'zona' && !(sinInst && INSTALACIONES.includes(e.tipo))).forEach(e => l.push(lineaElemento(e, u, extraPilar(d, p, e) > 0)));
   // El rinconero dice en qué pared sigue.
   const v = paredesVecinas(d, p), bajos = (p.bajos || []).map(m => (m.tipo === 'rinconero' && v[m.gira === 'izq' ? 'izq' : 'der'] ? Object.assign({}, m, { sigue: v[m.gira === 'izq' ? 'izq' : 'der'].letra }) : m));
   l.push(lineaModulos('Bajos', bajos, cuadreBajos(p, d)), (p.altos || []).length ? lineaModulos('Altos', p.altos, cuadreAltos(p)) : null);
@@ -93,7 +95,7 @@ function acabadosTexto(ac, ajustes) {
 }
 
 // Bloques de líneas (la primera de cada bloque suele ser un título entre asteriscos).
-export function bloquesResumen({ ficha, trabajo, ajustes }) {
+export function bloquesResumen({ ficha, trabajo, ajustes, sinInstalaciones = false }) {
   const d = ficha.datos, { u, pared } = unidadesDe(ficha, trabajo, ajustes), v = (mm, ud = u) => verMedida(mm, ud);
   const bloques = [];
   if (trabajo) bloques.push(['*' + (trabajo.nombre || 'Trabajo') + '*', unir([trabajo.cliente, trabajo.direccion])].filter(hay));
@@ -109,7 +111,7 @@ export function bloquesResumen({ ficha, trabajo, ajustes }) {
     cab.push(...acabadosTexto(d.acabados, ajustes));
     (d.electro || []).forEach(e => cab.push(textoElectro(e)));
     bloques.push(cab);
-    (d.paredes || []).forEach(p => bloques.push(bloquePared(p, pared, u, ajustes, d)));
+    (d.paredes || []).forEach(p => bloques.push(bloquePared(p, pared, u, ajustes, d, sinInstalaciones)));
     const islas = (d.islas || []).filter(x => hay(x.largo) || hay(x.fondo) || hay(x.distancia));
     if (islas.length) bloques.push(['*Islas y penínsulas*', ...islas.map(x => lineaIsla(x, u))]);
     // Material para pedir (orientativo).
