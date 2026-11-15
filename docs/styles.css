@@ -445,3 +445,4 @@ button { background: #fffef9; border-color: var(--borde); }
 .guia-lista { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
 .guia-resultado { font-size: 17px; font-weight: 600; margin: 8px 0 2px; }
 @media (max-width: 520px) { .tabla-guia td:nth-child(2) { white-space: normal; } .tabla-guia { font-size: 13px; } }
+.grupo-consejos h5 { margin: 8px 0 2px; font-size: 13px; color: #1e3a8a; text-transform: uppercase; letter-spacing: .04em; }

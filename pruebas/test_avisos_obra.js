@@ -27,7 +27,7 @@ prueba('ventanas y puertas: un alto o un bajo que la tapa, un mueble contra la p
   A.elementos.push(el('ventana', { distancia: 100, ancho: 1000, altura: 800, alto: 1000 }));
   B.bajos = [mod('columna_hmo', 600)]; B.elementos.push(el('puerta', { distancia: 300, ancho: 820 }));
   const t = textos(f);
-  afirma(t.some(x => /Ventana de la pared A a 80 cm del suelo: queda por debajo de la encimera \(85 cm\) sobre Bajo 60/.test(x)), t.join(' | '));
+  afirma(t.some(x => /Ventana de la pared A a 80 cm del suelo: queda por debajo de la encimera \(89 cm\) sobre Bajo 60/.test(x)), t.join(' | '));
   afirma(t.some(x => x === 'Alto 60 de la pared A tapa la ventana'), t.join(' | '));
   afirma(t.some(x => x === 'Columna H/MO 60 de la pared B choca con la puerta'), t.join(' | '));
 });

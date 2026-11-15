@@ -10,7 +10,9 @@ import { frenteModulo, frenteCuerpo, puertasCuerpo, frenteFrigoLibre, varianteDe
 
 const hay = v => v !== null && v !== undefined;
 // Alturas orientativas (mm desde el suelo).
-export const ALTURAS = { techo: 2500, zocalo: 100, encimera: 850, grueso_encimera: 30, altos_desde: 1450, altos_hasta: 2150, columna: 2150, frigo: 1850 };
+// Cocina tipo del taller: zócalo 15 + mueble 70 + encimera 4 = 89 cm; altos de 70 desde 145 (56 cm sobre la encimera) hasta 215, como las columnas.
+// La guía de medidas y los consejos de diseño leen de aquí.
+export const ALTURAS = { techo: 2500, zocalo: 150, mueble_bajo: 700, encimera: 890, grueso_encimera: 40, altos_desde: 1450, altos_hasta: 2150, columna: 2150, frigo: 1850 };
 const PUNTOS = ['humos', 'desague', 'toma', 'agua', 'gas', 'enchufe', 'otro'];
 
 // El frigorífico, si es de libre instalación: 'libre' o 'americano' (de los electrodomésticos de la cocina); si no, null.

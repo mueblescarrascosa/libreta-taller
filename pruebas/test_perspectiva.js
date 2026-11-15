@@ -71,7 +71,7 @@ prueba('esquina con rinconero: nada se pisa, la encimera va seguida hasta la col
   igual(losas.length, 2);
   // 62 de fondo (2 de vuelo); la de C empieza en el canto de la de B y acaba en la columna.
   igual(losas.map(l => Math.round(area(l.huella) / 620)).sort((a, b) => a - b), [1560, 2230]); // B: 50+80+93; C: de 62 (canto de B) a 218
-  afirma(losas.every(l => l.z1 === 850 && l.z0 === 820), 'encimera de 3 cm a 85');
+  afirma(losas.every(l => l.z1 === 890 && l.z0 === 850), 'encimera de 4 cm a 89 (cocina tipo 15 + 70 + 4)');
 });
 
 prueba('pilar: los muebles y la encimera se cajean alrededor, sin meterse en él', () => {

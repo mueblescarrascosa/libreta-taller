@@ -3,7 +3,7 @@ import { prueba, afirma, igual, fin } from './mini.js';
 import { fichaNueva, paredNueva } from '../docs/js/modelo.js';
 import { moduloNuevo } from '../docs/js/modulos.js';
 import { consejosDiseno } from '../docs/js/consejos.js';
-import { alturaEncimera } from '../docs/js/pantallas/guia.js';
+import { alturaEncimera, zocaloPara } from '../docs/js/pantallas/guia.js';
 import { abrir, entrar, crearTrabajo } from './arnes.js';
 
 const mod = (tipo, ancho, o) => Object.assign(moduloNuevo(tipo), { ancho }, o);
@@ -15,23 +15,29 @@ prueba('una cocina bien planteada no da consejos', () => {
   const f = cocina([pared('A', 3600, { bajos: [mod('columna_frigo', 600), mod('bajo', 600), mod('fregadero', 800), mod('lavavajillas', 600), mod('placa', 600), mod('bajo', 400)], altos: [mod('alto', 600), mod('alto', 800), mod('alto', 600), mod('alto_campana', 600)] })]);
   igual(textos(f), []);
 });
-prueba('placa: pegada a la columna, junto al fregadero, frigo al lado, bajo la ventana y campana estrecha', () => {
+prueba('placa en mueble de 90 (aparato de 60): columna, fregadero, frigo, ventana y campana como consejo suave', () => {
   const f = cocina([pared('A', 3600, { elementos: [{ id: 'v', tipo: 'ventana', ref: 'izq', distancia: 700, ancho: 600, altura: 1000, alto: 1000 }],
     bajos: [mod('columna_frigo', 600), mod('placa', 900), mod('fregadero', 800), mod('bajo', 600)], altos: [mod('alto', 600), mod('alto_campana', 600)] })]);
   const t = textos(f);
-  afirma(t.includes('Placa pegada a la columna frigo por la izquierda (pared A): deja al menos 30 cm de encimera'), t.join(' | '));
+  afirma(t.includes('Placa junto a la columna frigo por la izquierda: solo 15 cm de encimera (pared A)'), t.join(' | '));
   afirma(t.includes('Placa y fregadero juntos (pared A)'), t.join(' | '));
-  afirma(t.includes('El frigo está pegado a la placa (pared A)'), t.join(' | '));
+  afirma(t.includes('Frigorífico a 15 cm de la placa (pared A)'), t.join(' | '));
   afirma(t.includes('Placa debajo de la ventana (pared A)'), t.join(' | '));
-  afirma(t.includes('Campana de 60 cm sobre una placa de 90 cm (pared A)'), t.join(' | '));
+  afirma(t.includes('Mueble de placa de 90 cm con campana de 60 cm (pared A)'), t.join(' | '));
+  // Con la placa puesta en Electrodomésticos se compara el aparato: de 60, la campana de 60 vale; de 90, no.
+  f.datos.electro = [{ id: 'e', clave: 'placa', tipo: 'induccion', ancho: 600 }];
+  afirma(!textos(f).some(x => /campana/i.test(x)), textos(f).join(' | '));
+  f.datos.electro[0].ancho = 900;
+  afirma(textos(f).includes('Campana de 60 cm para una placa de 90 cm (pared A)'), textos(f).join(' | '));
+  igual(consejosDiseno(f).map(c => c.grupo).filter((g, i, a) => a.indexOf(g) === i), ['placa', 'agua', 'frio', 'encimera'], 'ordenados por grupo');
   afirma(consejosDiseno(f).every(c => c.porque && c.campo), 'cada consejo lleva su porqué');
 });
 prueba('placa pegada a la pared, poca encimera entre fregadero y placa, campana fuera de la placa', () => {
   const f = cocina([pared('A', 3000, { bajos: [mod('placa', 600), mod('bajo', 400), mod('fregadero', 800), mod('bajo', 600)], altos: [mod('alto_campana', 600, {}), mod('alto', 600)] })]);
   f.datos.paredes[0].altos = [mod('alto', 600), mod('alto_campana', 600)];
   const t = textos(f);
-  afirma(t.includes('Placa pegada a la pared por la izquierda (pared A): deja al menos 30 cm de encimera'), t.join(' | '));
-  afirma(t.includes('Solo 40 cm entre el fregadero y la placa (pared A)'), t.join(' | '));
+  afirma(t.includes('Placa junto a la pared por la izquierda: nada de encimera (pared A)'), t.join(' | '));
+  afirma(t.includes('Solo 40 cm de encimera entre el fregadero y la placa (pared A)'), t.join(' | '));
   afirma(t.includes('El alto de la campana no está encima de la placa (pared A)'), t.join(' | '));
 });
 prueba('lavavajillas: lejos del fregadero, en otra pared o pegado al rincón', () => {
@@ -49,12 +55,15 @@ prueba('columna en medio de la encimera, paso estrecho entre paredes enfrentadas
   const C = Object.assign(paredNueva([A, B]), { letra: 'C', largo: 3000, elementos: [], bajos: [mod('bajo', 600)], altos: [] });
   const t = textos(cocina([A, B, C], { islas: [{ id: 'i', tipo: 'isla', pared: 'A', separacion: 1400 }] }));
   afirma(t.includes('Columna H/MO en medio de la encimera (pared A)'), t.join(' | '));
-  afirma(t.includes('Entre los muebles de A y C quedan unos 80 cm de paso'), t.join(' | '));
-  afirma(t.includes('Entre la isla y los muebles de la pared A quedan 80 cm de paso'), t.join(' | '));
+  afirma(t.includes('Entre las encimeras de A y C quedan unos 76 cm de paso'), t.join(' | '));
+  afirma(t.includes('Entre la isla y la encimera de la pared A quedan 78 cm de paso'), t.join(' | '));
 });
 prueba('solo en cocinas; altura de encimera según la estatura', () => {
   igual(consejosDiseno(fichaNueva('puerta', null, 't')), []);
   igual(alturaEncimera(160), 86); igual(alturaEncimera(175), 95); igual(alturaEncimera(200), 100); igual(alturaEncimera(''), null);
+  igual(zocaloPara(89), { zocalo: 15, serie: 15, queda: 89, aMedida: false });
+  igual(zocaloPara(84), { zocalo: 10, serie: 10, queda: 84, aMedida: false });
+  igual(zocaloPara(95), { zocalo: 21, serie: 15, queda: 89, aMedida: true });
 });
 prueba('app: tarjeta de consejos en la ficha de cocina y guía de medidas con su calculadora', async () => {
   const a = await abrir(); try {
@@ -74,8 +83,11 @@ prueba('app: tarjeta de consejos en la ficha de cocina y guía de medidas con su
     afirma((await a.page.innerText('.tarjeta-consejos > b')).startsWith('Consejos de diseño ('));
     await a.page.click('[data-acc="ver-guia"]'); await a.page.waitForSelector('[data-pantalla="guia"]');
     await a.page.fill('[data-acc="estatura"]', '175');
-    afirma((await a.page.innerText('[data-res="encimera"]')).startsWith('Encimera a unos 95 cm del suelo.'));
-    afirma((await a.page.innerText('main')).includes('Paso entre muebles enfrentados'));
+    afirma((await a.page.innerText('[data-res="encimera"]')).startsWith('Encimera a unos 95 cm. Haría falta un zócalo de 21 cm'), await a.page.innerText('[data-res="encimera"]'));
+    await a.page.fill('[data-acc="estatura"]', '165');
+    afirma((await a.page.innerText('[data-res="encimera"]')).includes('cocina tipo (89 cm)'), await a.page.innerText('[data-res="encimera"]'));
+    afirma((await a.page.innerText('[data-apartado="1"]')).includes('15 cm + 70 cm + 4 cm'));
+    afirma((await a.page.innerText('main')).includes('Entre encimeras enfrentadas'));
     igual(a.errores, []);
   } finally { await a.cerrar(); }
 });

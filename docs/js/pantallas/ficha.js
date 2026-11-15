@@ -16,7 +16,7 @@ import { geometriaPlanta, svgPlanta, aplicarPlano, pilarEnParedes, pilaresEnPare
 import { abrirPlano } from '../plano-editor.js';
 import { geometriaAlzado, svgAlzado } from '../alzado.js';
 import { vistaInteractiva, abrirPerspectivaGrande } from './perspectiva-ui.js';
-import { consejosDiseno } from '../consejos.js';
+import { consejosDiseno, GRUPOS as GRUPOS_CONSEJO } from '../consejos.js';
 
 const RETARDO = 300;
 const nuevoId = () => crypto.randomUUID();
@@ -371,7 +371,8 @@ export async function pintarFicha(App, id) {
       const c = consejosDiseno(ficha);
       t.textContent = 'Consejos de diseño' + (c.length ? ' (' + c.length + ')' : '');
       zonaC.replaceChildren(c.length
-        ? h('ul', { class: 'consejos' }, c.map(x => h('li', { 'data-consejo': x.campo }, h('b', {}, x.texto), h('small', {}, x.porque))))
+        ? h('div', {}, GRUPOS_CONSEJO.filter(([k]) => c.some(x => x.grupo === k)).map(([k, t]) => h('div', { class: 'grupo-consejos', 'data-grupo': k }, h('h5', {}, t),
+          h('ul', { class: 'consejos' }, c.filter(x => x.grupo === k).map(x => h('li', { 'data-consejo': x.campo }, h('b', {}, x.texto), h('small', {}, x.porque)))))))
         : h('p', { class: 'ayuda' }, 'Nada que mejorar con lo que hay puesto.'));
     };
     pintar(); refrescos.push(() => { if (zonaC.isConnected) pintar(); });
