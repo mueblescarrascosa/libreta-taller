@@ -5,23 +5,35 @@ const id = () => crypto.randomUUID();
 const hay = v => v !== null && v !== undefined;
 
 export const TIPOS_MODULO = {
-  bajos: ['bajo', 'fregadero', 'placa', 'cajonero', 'lavavajillas', 'rinconero', 'columna_hmo', 'columna_frigo', 'escobero', 'despensero', 'hueco', 'otro'],
+  bajos: ['bajo', 'fregadero', 'placa', 'cajonero', 'lavavajillas', 'lavadora', 'rinconero', 'columna_hmo', 'columna_frigo', 'escobero', 'despensero', 'hueco', 'otro'],
   altos: ['alto', 'alto_abierto', 'alto_campana', 'campana_deco', 'alto_micro', 'alto_frigo', 'hueco', 'otro'],
 };
 export const NOMBRE_MODULO = {
-  bajo: 'Bajo', fregadero: 'Fregadero', placa: 'Placa', cajonero: 'Cajonero', lavavajillas: 'Lavavajillas', rinconero: 'Rinconero',
+  bajo: 'Bajo', fregadero: 'Fregadero', placa: 'Placa', cajonero: 'Cajonero', lavavajillas: 'Lavavajillas', lavadora: 'Lavadora', rinconero: 'Rinconero',
   columna_hmo: 'Columna H/MO', columna_frigo: 'Columna frigo', escobero: 'Escobero', despensero: 'Despensero', hueco: 'Hueco',
   alto: 'Alto', alto_abierto: 'Alto abierto', alto_campana: 'Alto campana', campana_deco: 'Campana piramidal', alto_micro: 'Alto micro', alto_frigo: 'Alto sobre frigo', otro: 'Otro',
 };
 const COLUMNAS = ['columna_hmo', 'columna_frigo', 'escobero', 'despensero'];
 export const esColumna = m => COLUMNAS.includes(m.tipo);
+// Lavavajillas, lavadora y frigorífico: integrable (con la puerta del mueble) o de libre instalación (sin puerta).
+// Lo que diga el mueble; si no se ha contestado, lo de Electrodomésticos; si tampoco, null (se cuenta como integrable).
+const CLAVE_INSTALACION = { lavavajillas: 'lavavajillas', lavadora: 'lavadora', columna_frigo: 'frigo' };
+export const tieneInstalacion = m => !!(m && CLAVE_INSTALACION[m.tipo]);
+export function instalacionDe(m, d) {
+  const k = m && CLAVE_INSTALACION[m.tipo];
+  if (!k) return null;
+  if (m.instalacion) return m.instalacion;
+  const e = ((d && d.electro) || []).find(x => x.clave === k);
+  return e && e.tipo ? e.tipo : null;
+}
+export const esLibre = (m, d) => ['libre', 'americano'].includes(instalacionDe(m, d));
 // Nombre corto para los botones (en el resumen y la planta sigue el completo).
 export const CORTO_MODULO = { alto_abierto: 'Abierto', campana_deco: 'Campana pir.', columna_hmo: 'Col. H/MO', columna_frigo: 'Col. frigo', escobero: 'Escobero', despensero: 'Despensero', lavavajillas: 'Lavavaj.', alto_campana: 'Alto campana', alto_micro: 'Alto micro', alto_frigo: 'Alto s/frigo' };
 
 // Anchos habituales en España (mm) por tipo de mueble; los demás usan la lista general de Ajustes. Siempre se puede escribir otro.
 const ANCHOS_TIPO = {
   fregadero: [500, 600, 800, 900, 1000, 1200], placa: [600, 800, 900, 1000, 1200], cajonero: [400, 450, 500, 600, 800, 900, 1000, 1200],
-  lavavajillas: [450, 600], columna_hmo: [600], columna_frigo: [600, 700, 920], escobero: [300, 400, 450, 500, 600], despensero: [300, 400, 450, 500, 600],
+  lavavajillas: [450, 600], lavadora: [600], columna_hmo: [600], columna_frigo: [600, 700, 920], escobero: [300, 400, 450, 500, 600], despensero: [300, 400, 450, 500, 600],
   alto_campana: [600, 900], campana_deco: [600, 900, 1200], alto_micro: [500, 600], alto_frigo: [600, 700, 920],
 };
 // Rinconero: en L o chaflán, de 93 a 103 por lado; recto, de 90, 100 o 120 de largo y 60 de fondo.

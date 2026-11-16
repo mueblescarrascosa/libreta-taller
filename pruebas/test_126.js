@@ -97,6 +97,40 @@ prueba('frentes de fabricación propia: puertas y cajones en tableros de 2800×2
   v.datos.paredes = [Object.assign(paredNueva([]), { letra: 'A', largo: 2800, elementos: [], cuerpos: [{ id: '1', ancho: 1000, interior: 'barra', interior2: 'cajonera', puertas: 'corredera' }, { id: '2', ancho: 800, interior: 'estantes' }, { id: '3', ancho: 1000, interior: 'doble_barra' }] })];
   const lv = textoMaterial(v, 'cm').find(x => /^Tableros de casco/.test(x));
   afirma(/3 tableros de 280×207/.test(lv), lv);
+  // Armario de correderas: casco y puertas con las medidas del hueco.
+  const c = fichaNueva('armario', 'corredera', 't');
+  Object.assign(c.datos, { ancho_medio: 2400, alto_izq: 2500, alto_der: 2505, fondo: 650, rodapie_alto: 80, hojas: 3, cuerpos: [{ id: 'a', ancho: 800, interior: 'barra' }, { id: 'b', ancho: 800, interior: 'estantes' }, { id: 'c', ancho: 800, interior: 'cajonera' }] });
+  const lc = textoMaterial(c, 'cm').find(x => /^Tableros de casco/.test(x));
+  afirma(/5 tableros de 280×207/.test(lc), lc);
+  igual(textoMaterial(fichaNueva('armario', 'abatible', 't'), 'cm').filter(x => /Tableros/.test(x)), [], 'sin medidas, nada');
+});
+
+prueba('cascos de cocina y tableros de varias fichas juntas (aprovechan mejor que por separado)', async () => {
+  const { paredNueva } = await import('../docs/js/modelo.js'), { moduloNuevo } = await import('../docs/js/modulos.js'), { textoMaterial, tablerosFichas } = await import('../docs/js/material.js');
+  const mod = (tipo, ancho) => Object.assign(moduloNuevo(tipo), { ancho });
+  const coc = () => { const f = fichaNueva('cocina', null, 't'); f.datos.paredes = [Object.assign(paredNueva([]), { letra: 'A', largo: 3600, elementos: [], bajos: [mod('columna_hmo', 600), mod('bajo', 600), mod('lavavajillas', 600), mod('fregadero', 800), mod('cajonero', 600)], altos: [mod('alto', 600), mod('alto', 600), mod('alto', 800)] })]; return f; };
+  afirma(textoMaterial(coc(), 'cm').some(x => /^Cascos: 37 piezas, 10,93 m² → 3 tableros de 280×207/.test(x)), textoMaterial(coc(), 'cm').join(' | '));
+  const t = tablerosFichas([coc(), coc(), coc()]), c = t.find(x => x.clase === 'cascos');
+  igual([c.junto.tableros, c.sumaSeparado, c.separado.length], [7, 9, 3], 'tres cocinas: juntas 7 tableros, por separado 9');
+  igual(t.map(x => x.clase), ['cascos', 'frentes']);
+});
+
+prueba('lavavajillas, lavadora y frigo: integrable con puerta o libre sin puerta (ni frente ni presupuesto)', async () => {
+  const { paredNueva } = await import('../docs/js/modelo.js'), { moduloNuevo, instalacionDe } = await import('../docs/js/modulos.js'), { materialCocina } = await import('../docs/js/material.js');
+  const { articulo } = await import('../docs/js/presupuesto.js'), { frenteModulo, varianteDe } = await import('../docs/js/frentes.js');
+  const mod = (tipo, ancho) => Object.assign(moduloNuevo(tipo), { ancho });
+  const f = fichaNueva('cocina', null, 't'), A = Object.assign(paredNueva([]), { letra: 'A', largo: 3600, elementos: [], bajos: [mod('columna_frigo', 600), mod('lavavajillas', 600), mod('lavadora', 600), mod('bajo', 600)], altos: [] });
+  f.datos.paredes = [A];
+  const [fr, lv, la] = A.bajos;
+  igual([instalacionDe(lv, f.datos), materialCocina(f.datos).frentes.length, articulo(lv, f.datos).mo], [null, 6, 'LAVAVAJILLAS INTEGRABLE'], 'sin contestar: integrable');
+  f.datos.electro = [{ id: 'e', clave: 'lavavajillas', tipo: 'libre' }];
+  igual(instalacionDe(lv, f.datos), 'libre', 'lo de electrodomésticos vale si el mueble no dice nada');
+  [fr, lv, la].forEach(m => { m.instalacion = 'libre'; });
+  igual(materialCocina(f.datos).frentes.length, 1, 'libres: solo queda el frente del bajo');
+  afirma(/Hueco para lavavajillas libre/.test(articulo(lv, f.datos).revisar) && /Hueco para frigorífico libre/.test(articulo(fr, f.datos).revisar) && /Hueco para lavadora libre/.test(articulo(la, f.datos).revisar), 'huecos sin mueble');
+  igual(frenteModulo('lavadora', 600, 100, 800, { variante: varianteDe(la, f.datos) }).map(q => q.k), ['acero', 'electro', 'cristal'], 'se dibuja la lavadora, sin puerta');
+  lv.instalacion = 'integrable';
+  igual(articulo(lv, f.datos).mo, 'LAVAVAJILLAS INTEGRABLE', 'lo del mueble manda sobre electrodomésticos');
 });
 
 const con = fn => async () => { const a = await abrir({}); try { await entrar(a); await fn(a); igual(a.errores, [], 'errores de página'); } finally { await a.cerrar(); } };
@@ -125,6 +159,16 @@ prueba('ajustes en pestañas e índice de la guía', con(async a => {
     return { placa: pl ? pl.querySelectorAll('circle').length : -1, senos: fr ? fr.querySelectorAll('polygon').length - 1 : -1, grifo: fr ? fr.querySelectorAll('circle').length : -1, otros: svg.querySelectorAll('[data-simbolo]').length };
   });
   igual(planta, { placa: 4, senos: 2, grifo: 3, otros: 2 }, 'símbolos en la planta');
+  // Resumen de todo el trabajo: tableros juntos o por ficha (trabajo de ejemplo: puertas y una cocina).
+  await a.page.evaluate(() => { location.hash = '#/'; }); await a.page.waitForSelector('[data-acc="crear-ejemplo"]');
+  await a.page.click('[data-acc="crear-ejemplo"]'); await a.page.waitForSelector('[data-pantalla="trabajo"]');
+  await a.page.click('[data-acc="resumen-trabajo"]'); await a.page.waitForSelector('[data-acc="tableros-trabajo"]');
+  const junto = await a.page.innerText('[data-acc="tableros-trabajo"]');
+  await a.page.click('[data-acc="tableros-modo"][data-v="ficha"]'); await a.page.waitForSelector('[data-acc="tableros-modo"][data-v="ficha"].on');
+  const ficha = await a.page.innerText('[data-acc="tableros-trabajo"]');
+  afirma(/Cascos de cocina: \d+ tableros? de 280×207/.test(junto) && /Cocina: \d+ tableros?/.test(ficha), junto + ' || ' + ficha);
+  await a.page.goBack(); await a.page.goBack(); await a.page.goBack();
+  await a.page.evaluate(() => { location.hash = '#/guia'; }); await a.page.waitForSelector('[data-apartado="1"]');
   const tipo = await a.page.innerText('[data-apartado="1"]');
   afirma(/Gola en C \(entre cajones\)\s+7,3 cm/.test(tipo) && /Gola vertical \(columnas\)\s+4,7 cm/.test(tipo), 'gola en C y vertical: ' + tipo);
 }));

@@ -11,6 +11,7 @@ import { recuentoPuertas, textoTrabajo, ordenFichas } from '../trabajos.js';
 import { geometriaPlanta, svgPlanta } from '../plano-vista.js';
 import { generarPdf, aclararDibujos } from '../pdf.js';
 import { geometriaAlzado, svgAlzado } from '../alzado.js';
+import { tablerosFichas } from '../material.js';
 
 const v = (mm, u) => (mm === null || mm === undefined ? '' : verMedida(mm, u));
 const siNo = x => (x === true ? 'Sí' : x === false ? 'No' : '');
@@ -248,8 +249,8 @@ export async function pintarResumenTrabajo(App, id) {
   // Qué fichas van (todas al principio): lo marcado es lo que se ve, se imprime y se envía.
   const sel = new Set(fichas.map(f => f.id)), elegidas = () => fichas.filter(f => sel.has(f.id));
   // A dónde abre cada puerta en el recuento: se recuerda en este móvil.
-  let abre = true;
-  try { abre = localStorage.getItem('med-recuento-abre') !== 'no'; } catch (e) { /* sin almacenamiento */ }
+  let abre = true, juntos = true;
+  try { abre = localStorage.getItem('med-recuento-abre') !== 'no'; juntos = localStorage.getItem('med-tableros-junto') !== 'no'; } catch (e) { /* sin almacenamiento */ }
   const main = App.marco('resumen', 'Resumen del trabajo', '#/trabajo/' + id,
     acciones({ doc, titulo: tituloLargo(trabajo.nombre ? trabajo : Object.assign({}, trabajo, { nombre: 'Trabajo' }), 'Medidas'), aviso, texto: () => textoTrabajo({ trabajo, fichas: elegidas(), ajustes: AJ, abre }), editar: () => App.ir('#/trabajo/' + id) }));
   async function pintarDoc() {
@@ -261,6 +262,19 @@ export async function pintarResumenTrabajo(App, id) {
     } }, abre ? '✓ A dónde abren' : 'A dónde abren');
     if (r.total) partes.push(h('section', { class: 'recuento' }, h('p', { class: 'tit' }, h('b', {}, r.titulo), r.paso + r.entrada > 0 ? botonAbre() : null), ...r.lineas.map(t => h('p', {}, t))));
     for (const f of lista) partes.push(h('div', { class: 'ficha-resumen' }, ...(await nodosFicha(App, f, trabajo, AJ, ver))));
+    // Tableros de todo el trabajo: juntos (las piezas de todas las fichas en los mismos tableros) o por ficha.
+    const tb = lista.length > 1 ? tablerosFichas(lista) : [];
+    if (tb.length) {
+      const fila = (t, x) => t.tableros + (t.tableros === 1 ? ' tablero' : ' tableros') + ' de 280×207 (' + String(t.m2).replace('.', ',') + ' m² de piezas, aprovecha el ' + t.aprovechamiento + ' %)';
+      const chip = (v, txt) => h('button', { type: 'button', 'data-acc': 'tableros-modo', 'data-v': v, class: (juntos === (v === 'junto') ? 'on ' : '') + 'no-imprimir', onclick: async () => {
+        juntos = v === 'junto'; try { localStorage.setItem('med-tableros-junto', juntos ? 'si' : 'no'); } catch (e) { /* sin almacenamiento */ } await pintarDoc(); } }, txt);
+      partes.splice(partes.length, 0, h('section', { class: 'tableros-trabajo', 'data-acc': 'tableros-trabajo' },
+        h('p', { class: 'tit' }, h('b', {}, 'Tableros de todo el trabajo'), ' ', h('span', { class: 'chips' }, chip('junto', 'Todo junto'), chip('ficha', 'Por ficha'))),
+        ...tb.map(x => juntos
+          ? h('p', { 'data-clase': x.clase }, h('b', {}, x.nombre + ': '), fila(x.junto), x.sumaSeparado > x.junto.tableros ? h('span', { class: 'ahorro' }, ' · por separado serían ' + x.sumaSeparado + ': ahorras ' + (x.sumaSeparado - x.junto.tableros)) : null)
+          : h('div', { 'data-clase': x.clase }, h('p', {}, h('b', {}, x.nombre)), ...x.separado.map(s => h('p', { class: 'sub' }, tituloFicha(s.ficha) + ': ' + fila(s.t))))),
+        h('small', { class: 'ayuda' }, 'Orientativo: piezas colocadas en el tablero con 4 mm de corte y 1 cm de recorte al borde. Todo junto aprovecha los tableros entre fichas.')));
+    }
     if (!lista.length) partes.push(h('p', { class: 'vacio' }, fichas.length ? 'No has marcado ninguna ficha.' : 'Este trabajo aún no tiene fichas.'));
     partes.push(h('footer', {}, COPYRIGHT));
     doc.replaceChildren(...partes);

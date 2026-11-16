@@ -134,6 +134,7 @@ export function bloquesResumen({ ficha, trabajo, ajustes, sinInstalaciones = fal
     if ((d.cuerpos || []).length) l.push('Cuerpos: ' + d.cuerpos.map(c => textoCuerpo(c, ajustes)).join(', '));
     (d.enchufes || []).forEach(e => l.push(lineaElemento(Object.assign({ tipo: 'enchufe' }, e), u)));
     bloques[bloques.length - 1].push(...l);
+    if (ficha.subtipo !== 'vestidor') { const mat = textoMaterial(ficha, u, ajustes); if (mat.length) bloques.push(['*Material (orientativo)*', ...mat]); }
   }
   const libres = (d.libres || []).filter(m => hay(m.nombre) || hay(m.mm)).map(m => (m.nombre || 'Medida') + ': ' + (hay(m.mm) ? v(m.mm) + ' ' + u : '—'));
   if (libres.length) bloques.push(['*Otras medidas*', ...libres]);

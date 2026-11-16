@@ -2,7 +2,7 @@
 // catálogo de allí (tipo · modelo · medida). Si se ha elegido una variante o una altura en la libreta, manda esa;
 // si no, la habitual. Lo que no tiene artículo claro va a «Revisar». La app de presupuestos lo comprueba otra vez
 // contra su catálogo y crea un presupuesto NUEVO en borrador (libreta.js de cocinas).
-import { situarMuebles, situarCuerpos, piezasInterior } from './modulos.js';
+import { situarMuebles, situarCuerpos, piezasInterior, esLibre, instalacionDe } from './modulos.js';
 import { textoMaterial, materialCocina } from './material.js';
 import { ALTURAS } from './alzado.js';
 
@@ -55,14 +55,15 @@ export function articulo(m, d) {
   switch (m.tipo) {
     case 'bajo': case 'fregadero': return r('BAJO', v === 'PUERTAS' || !v ? puertas(cm) : v);
     case 'cajonero': case 'placa': return r('BAJO', v === 'PUERTAS' ? puertas(cm) : v);
-    case 'lavavajillas': return r('BAJO', 'LAVAVAJILLAS INTEGRABLE');
+    case 'lavavajillas': return esLibre(m, d) ? { revisar: 'Hueco para lavavajillas libre de ' + med + ' (sin mueble)' } : r('BAJO', 'LAVAVAJILLAS INTEGRABLE');
+    case 'lavadora': return esLibre(m, d) ? { revisar: 'Hueco para lavadora libre de ' + med + ' (sin mueble)' } : { revisar: 'Lavadora integrable de ' + med + ': panel y bastidor, elegir a mano' };
     case 'rinconero':
       if (m.forma === 'recto') return r('BAJO', 'RINCÓN CIEGO');
       if (m.forma === 'chaflan') return { revisar: 'Rinconero en chaflán de ' + med + ': no hay bajo en chaflán en el catálogo' };
       return r('BAJO', 'RINCÓN EN L');
     case 'columna_hmo': return r(alto, v);
     case 'columna_frigo':
-      if ((d.electro || []).some(e => e.clave === 'frigo' && (e.tipo === 'libre' || e.tipo === 'americano'))) return { revisar: 'Hueco para frigorífico libre de ' + med + ' (sin mueble)' };
+      if (esLibre(m, d)) return { revisar: 'Hueco para frigorífico ' + (instalacionDe(m, d) === 'americano' ? 'americano' : 'libre') + ' de ' + med + ' (sin mueble)' };
       return r(alto, 'FRIGORÍFICO INTEGRADO');
     case 'escobero': case 'despensero': {
       const una = v === '1/4+3/4' ? '1/4+3/4 1 PUERTA' : v === 'VITRINA' ? 'VITRINA' : '1 PUERTA', dos = v === '1/4+3/4' ? '1/4+3/4 2 PUERTAS' : v === 'VITRINA' ? 'VITRINA' : '2 PUERTA';

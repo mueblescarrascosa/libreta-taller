@@ -45,7 +45,8 @@ export function techoFrigo(d) {
   if (!f) return ALTURAS.frigo;
   return Math.min(ALTURAS.columna, (f.tipo === 'integrable' ? ALTURAS.zocalo : 0) + f.alto + 20);
 }
-export const frigoLibre = d => { const f = (d.electro || []).find(e => e.clave === 'frigo' && (e.tipo === 'libre' || e.tipo === 'americano')); return f ? f.tipo : null; };
+// Frigorífico libre o americano (sin mueble): lo que diga la columna; si no, lo de Electrodomésticos.
+export const frigoLibre = (d, m) => { if (m && m.instalacion) return m.instalacion === 'integrable' ? null : m.instalacion; const f = (d.electro || []).find(e => e.clave === 'frigo' && (e.tipo === 'libre' || e.tipo === 'americano')); return f ? f.tipo : null; };
 
 export function geometriaAlzado(d, pared, ajustes = null) {
   const L = pared.largo;
@@ -80,9 +81,9 @@ export function geometriaAlzado(d, pared, ajustes = null) {
     if (esColumna(m)) {
       const h = m.tipo === 'columna_frigo' && frigosConAlto.has(desde) ? Math.min(techoFrigo(d), col) : col;
       pieza('columna', desde, 0, hasta - desde, h, texto, m.tipo);
-      return frente(m.tipo === 'columna_frigo' && frigoLibre(d) ? frenteFrigoLibre(hasta - desde, frigoLibre(d) === 'americano') : frenteModulo(m.tipo, hasta - desde, 0, h, { columna: true, variante: varianteDe(m) }), desde);
+      return frente(m.tipo === 'columna_frigo' && frigoLibre(d, m) ? frenteFrigoLibre(hasta - desde, frigoLibre(d, m) === 'americano') : frenteModulo(m.tipo, hasta - desde, 0, h, { columna: true, variante: varianteDe(m) }), desde);
     }
-    bajo(desde, hasta - desde, texto, m.tipo, varianteDe(m));
+    bajo(desde, hasta - desde, texto, m.tipo, varianteDe(m, d));
   });
   sit.altos.forEach(({ m, desde, hasta }) => {
     if (m.tipo === 'hueco' || m.tipo === 'campana_deco') return;

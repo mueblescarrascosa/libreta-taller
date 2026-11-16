@@ -2,6 +2,7 @@
 // Todo en mm: x de 0 al ancho del mueble (de izquierda a derecha, mirándolo) y z desde el suelo.
 // Cada trozo: { k, x0, x1, z0, z1 } con k = hoja (puerta o cajón), tirador, electro (horno, micro), cristal, campana, zocalo, tablero.
 // Medidas orientativas: lo medido manda.
+import { esLibre } from './modulos.js';
 export const FRENTE = { zocalo: 100, holgura: 3, dos_puertas: 700, hmo_desde: 660, hmo_alto: 1000, horno: 600, cajones: 4 };
 
 const TIRADOR = 120, GRUESO_T = 14;
@@ -58,8 +59,14 @@ export function frenteModulo(tipo, ancho, z0, z1, { columna = false, variante = 
   switch (tipo) {
     case 'cajonero': cajones(r, 0, ancho, base, z1, FRENTE.cajones); break;
     case 'placa': cajones(r, 0, ancho, base, z1, [2, 2, 1]); break;
-    case 'lavavajillas': {
+    case 'lavavajillas': case 'lavadora': {
       const g = FRENTE.holgura;
+      if (variante === 'LIBRE') {
+        // De libre instalación: el aparato, sin puerta del mueble (la lavadora, con su ojo de buey).
+        r.push({ k: 'acero', x0: 10, x1: ancho - 10, z0: base + 5, z1: z1 - 5 }, { k: 'electro', x0: 10, x1: ancho - 10, z0: z1 - 75, z1: z1 - 5 });
+        if (tipo === 'lavadora') r.push({ k: 'cristal', x0: ancho / 2 - 150, x1: ancho / 2 + 150, z0: base + 140, z1: base + 440 });
+        break;
+      }
       r.push({ k: 'hoja', x0: g, x1: ancho - g, z0: base + g, z1: z1 - g });
       r.push({ k: 'tirador', x0: ancho / 2 - TIRADOR * 0.75, x1: ancho / 2 + TIRADOR * 0.75, z0: z1 - g - 40 - GRUESO_T, z1: z1 - g - 40 });
       break;
@@ -182,4 +189,6 @@ export function varianteAlto(m, d) {
   const c = ((d && d.electro) || []).find(e => e.clave === 'campana');
   return c && c.tipo === 'integrada' ? 'CAMPANA INTEGRABLE' : 'CAMPANA EXTRAÍBLE';
 }
-export const varianteDe = m => (m ? m.variante || (m.tipo === 'placa' && m.horno ? 'SOPORTE HORNO Y 1 GAVETERO' : null) : null);
+// Lavavajillas o lavadora de libre instalación: 'LIBRE' (se dibuja el aparato y no hay puerta).
+export const varianteDe = (m, d) => (m && (m.tipo === 'lavavajillas' || m.tipo === 'lavadora') && esLibre(m, d) ? 'LIBRE' : varianteBase(m));
+const varianteBase = m => (m ? m.variante || (m.tipo === 'placa' && m.horno ? 'SOPORTE HORNO Y 1 GAVETERO' : null) : null);

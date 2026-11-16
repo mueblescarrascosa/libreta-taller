@@ -1,6 +1,6 @@
 // Material para pedir, sacado de lo medido: encimera (piezas, uniones en las esquinas y huecos), lineales en metros
 // y herrajes (bisagras, guías, tiradores, patas, barras…). Orientativo: lo medido y lo pedido mandan.
-import { situarMuebles, situarCuerpos, esColumna, piezasInterior, paredesVecinas } from './modulos.js';
+import { situarMuebles, situarCuerpos, esColumna, piezasInterior, paredesVecinas, esLibre } from './modulos.js';
 import { frenteModulo, puertasCuerpo, varianteDe } from './frentes.js';
 import { ALTURAS } from './alzado.js';
 import { verMedida } from './unidades.js';
@@ -106,6 +106,33 @@ function filas(piezas, W, H, k) {
     return { tableros: tableros.length, area: area, partidas: partidas };
   }
 
+// Cascos de los muebles de cocina (tablero de 16): bajos con 2 costados, suelo, 2 travesaños y un estante si son de
+// puertas; columnas con costados, techo, suelo y estantes; altos con costados, techo, suelo y estante. El lavavajillas,
+// los huecos y la campana piramidal no llevan casco.
+export const CASCO = { grueso: 16, fondo_bajo: 560, fondo_alto: 330, travesano: 100 };
+export function piezasCascoCocina(d) {
+  const piezas = [], C = CASCO, g2 = 2 * C.grueso, pz = (an, al, cant = 1) => { if (an > 0 && al > 0) piezas.push({ an: Math.round(an), al: Math.round(al), cant }); };
+  const bajoAlto = ALTURAS.encimera - ALTURAS.grueso_encimera - ALTURAS.zocalo, colAlto = ALTURAS.columna - ALTURAS.zocalo, altoAlto = ALTURAS.altos_hasta - ALTURAS.altos_desde;
+  (d.paredes || []).filter(p => hay(p.largo)).forEach(p => {
+    const sit = situarMuebles(p, d);
+    sit.bajos.forEach(({ m, desde, hasta }) => {
+      const w = hasta - desde;
+      if (['hueco', 'otro', 'lavavajillas', 'lavadora'].includes(m.tipo) || (m.tipo === 'columna_frigo' && esLibre(m, d))) return;
+      if (esColumna(m)) { pz(C.fondo_bajo, colAlto, 2); pz(w - g2, C.fondo_bajo, 2); pz(w - g2 - 2, C.fondo_bajo - 20, m.tipo === 'columna_hmo' ? 1 : 2); return; }
+      pz(C.fondo_bajo, bajoAlto, 2); pz(w - g2, C.fondo_bajo); pz(w - g2, C.travesano, 2);
+      if (m.tipo === 'bajo' || m.tipo === 'fregadero') pz(w - g2 - 2, C.fondo_bajo - 20);
+    });
+    sit.altos.forEach(({ m, desde, hasta }) => {
+      const w = hasta - desde;
+      if (['hueco', 'otro', 'campana_deco'].includes(m.tipo)) return;
+      const h = m.tipo === 'alto_frigo' ? 400 : altoAlto;
+      pz(C.fondo_alto, h, 2); pz(w - g2, C.fondo_alto, 2);
+      if (h > 500 && (m.tipo === 'alto' || m.tipo === 'alto_abierto')) pz(w - g2 - 2, C.fondo_alto - 20);
+    });
+  });
+  return piezas;
+}
+
 export function materialCocina(d) {
   const paredes = (d.paredes || []).filter(p => hay(p.largo));
   const porPared = new Map(paredes.map(p => [p, tramosPared(p, d)]));
@@ -143,7 +170,7 @@ export function materialCocina(d) {
         if (q.k === 'tirador') h.tiradores++;
         if (q.k !== 'hoja') return;
         frentes.push({ an: Math.round(q.x1 - q.x0), al: Math.round(q.z1 - q.z0), cant: 1 });
-        if (tipo === 'lavavajillas') { h.lavavajillas++; return; }
+        if (tipo === 'lavavajillas' || tipo === 'lavadora') { h.lavavajillas++; return; }
         const t = f[i + 1], cajon = t && t.k === 'tirador' && t.x1 - t.x0 > t.z1 - t.z0;
         if (cajon) h.cajones++;
         else { h.puertas++; const alto = q.z1 - q.z0; h.bisagras += alto <= 900 ? 2 : alto <= 1600 ? 3 : 4; }
@@ -153,12 +180,14 @@ export function materialCocina(d) {
       if (b.m.tipo === 'hueco') return;
       const w = b.hasta - b.desde;
       h.patas += 4;
-      if (esColumna(b.m)) contar(b.m.tipo, w, 0, ALTURAS.columna, { columna: true, variante: varianteDe(b.m) });
-      else contar(b.m.tipo, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera, { variante: varianteDe(b.m) });
+      if (b.m.tipo === 'columna_frigo' && esLibre(b.m, d)) return;   // frigorífico libre: sin mueble ni puertas
+      if (esColumna(b.m)) contar(b.m.tipo, w, 0, ALTURAS.columna, { columna: true, variante: varianteDe(b.m, d) });
+      else contar(b.m.tipo, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera, { variante: varianteDe(b.m, d) });
     });
     sit.altos.forEach(a => { if (a.m.tipo !== 'hueco') contar(a.m.tipo, a.hasta - a.desde, ALTURAS.altos_desde, ALTURAS.altos_hasta); });
   });
-  return { piezas, uniones, huecos, lineales: { zocalo, cornisa: arriba, led: bajoAltos }, herrajes: h, frentes, tablerosFrentes: empaquetar(frentes) };
+  const cascos = piezasCascoCocina(d);
+  return { piezas, uniones, huecos, lineales: { zocalo, cornisa: arriba, led: bajoAltos }, herrajes: h, frentes, tablerosFrentes: empaquetar(frentes), cascos, tablerosCascos: empaquetar(cascos) };
 }
 
 // Vestidor: barras (metros y soportes), estantes, cajones y patas de los cuerpos.
@@ -190,7 +219,53 @@ export function materialVestidor(d) {
     });
   });
   r.tableros = empaquetar(piezas);
+  r.piezas = piezas;
   return r;
+}
+
+// Armario empotrado (corredera o abatible): casco y puertas en tableros de 2800×2070, con las medidas del hueco.
+// Costados (uno más que cuerpos), techo y suelo de cada cuerpo, estantes y zapateros, rodapié y hojas.
+export function materialArmario(d, subtipo) {
+  const v = x => (hay(x) && x > 0 ? x : null);
+  const A = v(d.ancho_medio) || v(d.ancho_arriba) || v(d.ancho_abajo), H = [v(d.alto_izq), v(d.alto_der)].filter(Boolean).reduce((m, x) => Math.min(m, x), Infinity);
+  const F = v(d.fondo) || 600, rod = v(d.rodapie_alto) || 0;
+  if (!A || !isFinite(H)) return null;
+  const cuerpos = (d.cuerpos || []).length ? d.cuerpos : [{ ancho: A }], sinAncho = cuerpos.filter(c => !v(c.ancho)).length;
+  const resto = Math.max(0, A - cuerpos.reduce((s, c) => s + (v(c.ancho) || 0), 0));
+  const piezas = [], pz = (an, al, cant = 1) => { if (an > 0 && al > 0) piezas.push({ an: Math.round(an), al: Math.round(al), cant }); };
+  pz(F, H, cuerpos.length + 1);
+  cuerpos.forEach(c => {
+    const w = v(c.ancho) || (sinAncho ? resto / sinAncho : 0);
+    pz(w, F, 2);
+    piezasInterior(c, H - rod).forEach(q => { if (q.tipo === 'estante' || q.tipo === 'zapato') pz(w - 40, F - 20); });
+  });
+  if (rod) pz(A, rod);
+  const altoHoja = H - rod - 10;
+  if (subtipo === 'corredera') { const n = v(d.hojas) || 2; pz(A / n + 30, altoHoja, n); }
+  if (subtipo === 'abatible') { const n = v(d.puertas) || Math.max(1, Math.ceil(A / 500)); pz(A / n, altoHoja, n); }
+  return Object.assign(empaquetar(piezas), { piezas });
+}
+
+// Piezas de tablero de una ficha por clase: cascos y frentes de cocina; casco y puertas de armarios y vestidores.
+export const CLASES_TABLERO = [['cascos', 'Cascos de cocina'], ['frentes', 'Frentes de cocina (si son de fabricación propia)'], ['armarios', 'Armarios y vestidores (casco y puertas)']];
+export function piezasTableroFicha(ficha) {
+  const d = ficha.datos || {}, r = { cascos: [], frentes: [], armarios: [] };
+  if (ficha.tipo === 'cocina') { r.cascos = piezasCascoCocina(d); r.frentes = materialCocina(d).frentes; }
+  else if (ficha.subtipo === 'vestidor') r.armarios = materialVestidor(d).piezas;
+  else if (ficha.tipo === 'armario') { const a = materialArmario(d, ficha.subtipo); r.armarios = a ? a.piezas : []; }
+  return r;
+}
+// Varias fichas: cada clase con todas sus piezas juntas en los mismos tableros (se aprovechan mejor) y lo que saldría
+// contando cada ficha por separado.
+export function tablerosFichas(fichas) {
+  const porFicha = fichas.map(f => ({ ficha: f, piezas: piezasTableroFicha(f) }));
+  return CLASES_TABLERO.map(([k, nombre]) => {
+    const todas = [].concat(...porFicha.map(x => x.piezas[k]));
+    if (!todas.length) return null;
+    const junto = empaquetar(todas);
+    const separado = porFicha.filter(x => x.piezas[k].length).map(x => ({ ficha: x.ficha, t: empaquetar(x.piezas[k]) }));
+    return { clase: k, nombre, junto, separado, sumaSeparado: separado.reduce((s, x) => s + x.t.tableros, 0) };
+  }).filter(Boolean);
 }
 
 // Líneas de texto del material (para la ficha, el resumen, el PDF y WhatsApp). lineales: los que tiene la cocina (acabados).
@@ -205,6 +280,8 @@ export function textoMaterial(ficha, unidad = 'cm', ajustes = null) {
       if (r.uniones.length) l.push('- Uniones en esquina: ' + r.uniones.join(', '));
       r.huecos.forEach(q => l.push('- Hueco de ' + (q.que === 'placa' ? 'placa' : 'fregadero') + ' (mueble de ' + v(q.ancho) + ', pared ' + q.pared + ')'));
     }
+    if (r.cascos.length) { const t = r.tablerosCascos;
+      l.push('Cascos: ' + r.cascos.reduce((s, q) => s + q.cant, 0) + ' piezas, ' + String(t.m2).replace('.', ',') + ' m² → ' + t.tableros + (t.tableros === 1 ? ' tablero' : ' tableros') + ' de 280×207 (aprovecha el ' + t.aprovechamiento + ' %)'); }
     // Frentes de fabricación propia: puertas y cajones colocados en tableros de 2800×2070.
     if (r.frentes.length) { const t = r.tablerosFrentes;
       l.push('Frentes (si son de fabricación propia): ' + r.frentes.length + ' piezas, ' + String(t.m2).replace('.', ',') + ' m² → ' + t.tableros + (t.tableros === 1 ? ' tablero' : ' tableros') + ' de 280×207 (aprovecha el ' + t.aprovechamiento + ' %)'); }
@@ -216,9 +293,13 @@ export function textoMaterial(ficha, unidad = 'cm', ajustes = null) {
     if (h.puertas) t.push(h.puertas + (h.puertas > 1 ? ' puertas (' : ' puerta (') + h.bisagras + ' bisagras)');
     if (h.cajones) t.push(h.cajones + (h.cajones > 1 ? ' cajones (guías)' : ' cajón (guías)'));
     if (h.tiradores) t.push(h.tiradores + ' tiradores');
-    if (h.lavavajillas) t.push(h.lavavajillas + ' panel de lavavajillas');
+    if (h.lavavajillas) t.push(h.lavavajillas + (h.lavavajillas > 1 ? ' paneles' : ' panel') + ' de lavavajillas o lavadora integrable');
     if (h.patas) t.push(h.patas + ' patas');
     if (t.length) l.push('Herrajes: ' + t.join(', '));
+  }
+  if (ficha.tipo === 'armario' && ficha.subtipo !== 'vestidor') {
+    const tb = materialArmario(d, ficha.subtipo);
+    if (tb && tb.tableros) l.push('Tableros de casco y puertas (orientativo): ' + tb.tableros + (tb.tableros === 1 ? ' tablero' : ' tableros') + ' de 280×207 (' + String(tb.m2).replace('.', ',') + ' m² de piezas, aprovecha el ' + tb.aprovechamiento + ' %)');
   }
   if (ficha.subtipo === 'vestidor') {
     const r = materialVestidor(d), t = [];

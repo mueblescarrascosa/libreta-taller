@@ -6,7 +6,7 @@ import { nombrarPuerta, CORTO_ELEMENTO, HUMOS_DIAMETROS, HUMOS_RECTANGULARES, is
 import { duplicarFicha } from '../trabajos.js';
 import { campoMedida, campoEntero } from '../campos.js';
 import { verMedida } from '../unidades.js';
-import { ANCHOS_ELECTRO, ALTOS_ELECTRO, TIPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, medidasModulo, anchosDe, FORMAS_RINCONERO, LADOS_RINCONERO, paredesVecinas, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, FORMAS_RINCON_CUERPO, LADOS_RINCON_CUERPO, INTERIOR_RINCON, textoRincon, textoCuadre, lineaNueva, nombreLineal, nombreInterior, interioresDe, elegirInterior, textoInteriores, acabadosNuevos, MATERIALES_ENCIMERA, ELECTRO, datosElectro, electroNuevo } from '../modulos.js';
+import { ANCHOS_ELECTRO, ALTOS_ELECTRO, TIPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, medidasModulo, anchosDe, FORMAS_RINCONERO, LADOS_RINCONERO, paredesVecinas, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, FORMAS_RINCON_CUERPO, LADOS_RINCON_CUERPO, INTERIOR_RINCON, textoRincon, textoCuadre, lineaNueva, nombreLineal, nombreInterior, interioresDe, elegirInterior, textoInteriores, acabadosNuevos, MATERIALES_ENCIMERA, ELECTRO, datosElectro, electroNuevo, tieneInstalacion, instalacionDe } from '../modulos.js';
 import { seccionAdjuntos } from './adjuntos.js';
 import { textoMaterial } from '../material.js';
 import { variantesDe, varianteHabitual, alturasDe, alturaHabitual, NOMBRE_VARIANTE, articulo, paquetePresupuesto, CLAVE_PASO } from '../presupuesto.js';
@@ -537,6 +537,13 @@ export async function pintarFicha(App, id) {
         n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Sigue en'),
           segmentado({ acc: 'gira-rinconero', opciones, valor: m.gira === 'izq' ? 'izq' : 'der', alCambiar: x => { m.gira = x; cambio(); refrescarAvisos(); } })));
       } else n.push(med('ancho', 'Ancho', anchosDe(m, AJ.modulo_anchos)));
+      // Lavavajillas, lavadora y frigo: integrable (con puerta) o libre (sin puerta, no cuenta en frentes ni presupuesto).
+      if (tieneInstalacion(m)) {
+        const ops = [['integrable', 'Integrable (con puerta)'], ['libre', 'Libre (sin puerta)']].concat(m.tipo === 'columna_frigo' ? [['americano', 'Americano']] : []), actual = instalacionDe(m, d);
+        n.push(h('div', { class: 'campo instalacion' + (actual ? '' : ' sin-contestar'), 'data-acc': 'instalacion-campo' }, h('label', { class: 'et' }, '¿Integrable o de libre instalación?'),
+          segmentado({ acc: 'instalacion', opciones: ops, valor: actual, permitirVacio: true, alCambiar: x => { m.instalacion = x; cambio(); repintar(); } }),
+          h('small', { class: 'ayuda' }, !actual ? 'Sin contestar: se cuenta como integrable.' : actual === 'integrable' ? 'Lleva la puerta del mueble: cuenta en los frentes y en el presupuesto.' : 'Sin puerta: no cuenta en los frentes ni en el presupuesto (queda el hueco).')));
+      }
       if (m.tipo === 'placa') n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Horno debajo'),
         segmentado({ acc: 'placa-horno', opciones: SI_NO, valor: m.horno ?? null, permitirVacio: true, alCambiar: x => { m.horno = x; cambio(); repintar(); } })));
       // Para el presupuesto: modelo y altura del catálogo (si no se elige, va el habitual, que sale marcado).
@@ -644,7 +651,14 @@ export async function pintarFicha(App, id) {
     return t.join(' · ');
   };
   // Material para pedir (encimera, lineales, herrajes), sacado de lo medido; se rehace con cada cambio.
-  const resumenMaterial = () => { const l = textoMaterial(ficha, unidad, AJ); return l.length ? l[0].replace(/:.*/, '') + (l.length > 1 ? ' y más' : '') : ''; };
+  // En el título de «Material», cuántos tableros hacen falta (sin tener que abrirla).
+  const resumenMaterial = () => {
+    const l = textoMaterial(ficha, unidad, AJ);
+    if (!l.length) return '';
+    const tb = l.map(t => { const m = /^(Cascos|Frentes|Tableros de casco y puertas).*?(\d+) (tableros?) de 280×207/.exec(t); return m ? m[2] + ' ' + m[3] + (m[1] === 'Frentes' ? ' de frentes' : m[1] === 'Cascos' ? ' de cascos' : ' de casco y puertas') : null; }).filter(Boolean);
+    const otros = l.filter(t => !/^(Cascos|Frentes|Tableros de casco)/.test(t) && !t.startsWith('- '));
+    return [otros.length ? otros[0].replace(/:.*/, '') : '', ...tb].filter(Boolean).join(' · ');
+  };
   function material() {
     const caja = h('div', { class: 'tarjeta material', 'data-acc': 'material' });
     const pintar = () => { const l = textoMaterial(ficha, unidad, AJ);
@@ -768,6 +782,7 @@ export async function pintarFicha(App, id) {
       // En el vestidor los enchufes van en sus paredes; la lista aparte solo se ve si ya tenía alguno.
       if (ficha.subtipo !== 'vestidor' || (d.enchufes || []).length) r.push(...enchufes());
       if (ficha.subtipo === 'vestidor') r.push(...paredes(TIPOS_ELEMENTO.vestidor), plegable('acabados', 'Acabados', acabados(true), resumenAcabados), plegable('material', 'Material', material(), resumenMaterial));
+      else r.push(plegable('material', 'Material', material(), resumenMaterial));   // tableros de casco y puertas
       return r;
     }
     return [];

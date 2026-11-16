@@ -152,9 +152,9 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null, colores = nu
     }
     const w = ancho(m.r);
     if (m.columna) { const top = conAlto ? Math.min(techoFrigo(d), techo) : col;
-      const fl = m.tipo === 'columna_frigo' && frigoLibre(d);
+      const fl = m.tipo === 'columna_frigo' && frigoLibre(d, m.dato);
       return mueble(m.r, 0, top, 'columna', t, null, detallesDe(fl ? frenteFrigoLibre(w, fl === 'americano') : frenteModulo(m.tipo, w, 0, top, { columna: true, variante: varianteDe(m.dato) }), w, false, true)); }
-    mueble(m.r, 0, bajoEncimera, 'bajo', t, null, [{ t0: 0, t1: 1, z0: 0, z1: ALTURAS.zocalo, color: 'zocalo' }].concat(detallesDe(frenteModulo(m.chaflan ? 'bajo' : m.tipo, w, ALTURAS.zocalo, bajoEncimera, { variante: varianteDe(m.dato) }), w)), fiDe(m));
+    mueble(m.r, 0, bajoEncimera, 'bajo', t, null, [{ t0: 0, t1: 1, z0: 0, z1: ALTURAS.zocalo, color: 'zocalo' }].concat(detallesDe(frenteModulo(m.chaflan ? 'bajo' : m.tipo, w, ALTURAS.zocalo, bajoEncimera, { variante: varianteDe(m.dato, d) }), w)), fiDe(m));
     // Encimera del chaflán: la misma pieza, con 2 cm de vuelo en la diagonal.
     if (m.chaflan) {
       const [a, b] = [m.r[1], m.r[2]], dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1, c = m.r.reduce((s, p) => ({ x: s.x + p.x / 5, y: s.y + p.y / 5 }), { x: 0, y: 0 });
