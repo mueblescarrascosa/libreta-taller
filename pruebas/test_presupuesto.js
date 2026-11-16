@@ -46,6 +46,10 @@ prueba('paquete: cliente, grupos en G2 con el casco, vestidor por paredes y lo q
   afirma(p.grupos[0].lineas.some(l => l.med === '45.5' && l.mo === '1 PUERTA'), JSON.stringify(p.grupos[0].lineas));
   afirma(p.grupos[2].lineas.some(t => /horno/.test(t)), p.grupos[2].lineas.join(' | '));
   afirma(p.notas.includes('Frentes: Alpha') && p.notas.includes('Cascos: Antracita'), p.notas);
+  // El plano para el 3D va entero, pero sin fotos pegadas.
+  f.datos.boceto = 'data:image/png;base64,AAAA';
+  const p3 = paquetePresupuesto(f, null, { margen: 12, cocina_tipo: { zocalo: 150 } }).plano3d;
+  igual([p3.datos.paredes[0].largo, p3.datos.paredes[0].bajos.length, 'boceto' in p3.datos, p3.ajustes.margen, p3.ajustes.cocina_tipo.zocalo], [3000, 3, false, 12, 150]);
   const v = fichaNueva('armario', 'vestidor', 't');
   v.datos.paredes = [pared('A', 3000, { cuerpos: [{ id: '1', ancho: 1000, interior: 'barra', interior2: 'cajonera', puertas: 'corredera' }] })];
   const pv = paquetePresupuesto(v, null, null);

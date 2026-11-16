@@ -2,7 +2,7 @@ import { prueba, afirma, igual, fin } from './mini.js';
 import { abrir, entrar, crearTrabajo, nubeNueva } from './arnes.js';
 
 const con = (op, fn) => async () => { const a = await abrir(op); try { await entrar(a); await fn(a); igual(a.errores, [], 'errores de página'); } finally { await a.cerrar(); } };
-const irAjustes = async a => { await a.page.evaluate(() => { location.hash = '#/ajustes'; }); await a.page.waitForSelector('[data-pantalla="ajustes"]'); };
+const irAjustes = async a => { await a.page.evaluate(() => { location.hash = '#/ajustes/todo'; }); await a.page.waitForSelector('[data-pantalla="ajustes"]'); };
 const lista = (a, k) => a.page.$$eval('[data-lista="' + k + '"] [data-item]', x => x.map(i => i.dataset.item));
 const anadir = async (a, k, v) => { await a.page.fill('[data-lista="' + k + '"] [data-acc="nuevo"]', v); await a.page.click('[data-lista="' + k + '"] [data-acc="anadir"]'); };
 const irInicio = async a => { await a.page.evaluate(() => { location.hash = '#/'; }); await a.page.waitForSelector('[data-pantalla="inicio"]'); };

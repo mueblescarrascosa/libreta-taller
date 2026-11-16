@@ -488,3 +488,9 @@ button.enlace { background: none; border: 0; padding: 0; min-height: 0; color: v
 /* 1.25.1: hueco libre del lavavajillas en la calculadora */
 .opcion-encimera .lava-ok { color: #15803d; font-weight: 600; }
 .opcion-encimera .lava-mal, p.lava-mal { color: #b45309; font-weight: 600; }
+
+/* 1.26: pestañas de Ajustes e índice de la guía */
+.pestanas{margin:4px 0 10px}
+.guia-indice ol{margin:6px 0 0;padding-left:22px;columns:2;column-gap:18px}.guia-indice li{margin:3px 0;break-inside:avoid}
+.guia-indice .enlace{background:none;border:0;padding:2px 0;color:inherit;text-decoration:underline;text-align:left;cursor:pointer;font:inherit;min-height:0}
+@media (max-width:520px){.guia-indice ol{columns:1}}

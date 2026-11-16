@@ -72,7 +72,16 @@ export function electroPara(estatura, op, al, gola = false) {
 
 const tabla = (cab, filas) => h('table', { class: 'tabla-guia' }, h('thead', {}, h('tr', {}, cab.map(t => h('th', {}, t)))),
   h('tbody', {}, filas.map(f => h('tr', {}, f.map(t => h('td', {}, t))))));
-const apartado = (n, titulo, ...hijos) => h('section', { class: 'tarjeta guia-apartado', 'data-apartado': n }, h('h2', {}, n + '. ' + titulo), ...hijos);
+// data-apartado: el identificador fijo; el número que se ve va seguido (1, 2, 3…) y lo pone numerarGuia.
+const apartado = (n, titulo, ...hijos) => h('section', { class: 'tarjeta guia-apartado', 'data-apartado': n, 'data-titulo': titulo }, h('h2', {}, titulo), ...hijos);
+function numerarGuia(main) {
+  const secs = [...main.querySelectorAll('.guia-apartado')];
+  secs.forEach((s, i) => { s.querySelector('h2').textContent = (i + 1) + '. ' + s.dataset.titulo; });
+  const indice = h('nav', { class: 'tarjeta guia-indice', 'data-acc': 'indice-guia', 'aria-label': 'Índice de la guía' }, h('b', {}, 'En esta guía'),
+    h('ol', {}, secs.map(s => h('li', {}, h('button', { type: 'button', class: 'enlace', 'data-acc': 'ir-apartado', 'data-v': s.dataset.apartado,
+      onclick: () => s.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, s.dataset.titulo)))));
+  secs[0].before(indice);
+}
 const lista = items => h('ul', { class: 'guia-lista' }, items.map(([b, t]) => h('li', {}, h('b', {}, b), ' ', t)));
 const nota = t => h('small', { class: 'ayuda' }, t);
 const suma = o => cm(o.zocalo) + ' + ' + cm(o.mueble) + ' + ' + cm(o.grueso);
@@ -233,4 +242,5 @@ export function pintarGuia(App, fichaId) {
       ['Altos hasta el techo:', 'lo que sobre por encima de los altos, altillos o una tapeta para que no se acumule polvo.'],
     ])),
   );
+  numerarGuia(main);
 }

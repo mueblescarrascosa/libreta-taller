@@ -366,9 +366,9 @@ export async function pintarFicha(App, id) {
     zona,
     h('button', { type: 'button', class: 'ancho', 'data-acc': 'anadir-pared', onclick: () => { d.paredes.push(paredNueva(d.paredes)); cambio(); repintar(); } }, '+ Añadir pared')];
   }
-  // Consejos de diseño (solo cocinas): lo que funcionaría mal al usarla, con su porqué; se rehacen con cada cambio.
+  // Consejos de diseño (cocinas, armarios y vestidores): lo que funcionaría mal al usarlo, con su porqué; se rehacen con cada cambio.
   function tarjetaConsejos() {
-    if (ficha.tipo !== 'cocina' && ficha.subtipo !== 'vestidor') return null;
+    if (ficha.tipo !== 'cocina' && ficha.tipo !== 'armario') return null;
     const t = h('b', {}), zonaC = h('div', { class: 'zona-consejos' });
     const pintar = () => {
       const c = consejosDiseno(ficha);

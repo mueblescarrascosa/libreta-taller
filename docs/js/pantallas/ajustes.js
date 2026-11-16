@@ -67,11 +67,15 @@ function numeroAjuste(App, clave, etiqueta) {
   return h('div', { class: 'campo' }, h('label', { class: 'et' }, etiqueta), i);
 }
 
-export async function pintarAjustes(App) {
+const PESTANAS = [['general', 'General'], ['puertas', 'Puertas'], ['cocina', 'Cocina y armarios'], ['todo', 'Ver todo']];
+export async function pintarAjustes(App, pestana) {
   const main = App.marco('ajustes', 'Ajustes', '#/'), A = App.ajustes(), msgCopia = h('small', { class: 'ayuda', 'data-acc': 'msg-copia' });
+  const p = PESTANAS.some(x => x[0] === pestana) ? pestana : 'general', ver = k => p === 'todo' || p === k;
+  main.append(h('nav', { class: 'chips pestanas', 'data-acc': 'pestanas-ajustes', 'aria-label': 'Apartados de los ajustes' }, PESTANAS.map(([k, t]) =>
+    h('button', { type: 'button', 'data-acc': 'pestana', 'data-v': k, class: k === p ? 'on' : '', 'aria-current': k === p ? 'page' : 'false', onclick: () => App.ir('#/ajustes/' + k) }, t))));
   const margen = h('input', { 'data-acc': 'margen', inputmode: 'numeric', value: A.margen });
   margen.addEventListener('input', () => { const v = Number(margen.value); if (Number.isInteger(v) && v > 0) App.cambiarAjustes({ margen: v }); });
-  main.append(
+  const general = [
     h('small', { class: 'ayuda' }, 'Estos ajustes se comparten entre todos tus dispositivos.'),
     h('div', { class: 'tarjeta' },
       h('label', { class: 'et' }, 'Unidad predeterminada'),
@@ -80,7 +84,8 @@ export async function pintarAjustes(App) {
       h('label', { class: 'et' }, 'Paredes de cocina y vestidor'),
       segmentado({ acc: 'paredes-m', opciones: [[true, 'En metros'], [false, 'En la unidad del trabajo']], valor: A.paredes_m, alCambiar: v => App.cambiarParedesM(v) }),
       h('label', { class: 'et' }, 'Margen de aviso (mm)'), margen,
-      h('small', {}, 'Diferencia a partir de la cual se avisa: anchos de un hueco, cierre de la planta, diagonales.')),
+      h('small', {}, 'Diferencia a partir de la cual se avisa: anchos de un hueco, cierre de la planta, diagonales.'))];
+  const puertas = () => [
     h('h2', {}, 'Puertas'),
     listaEditable(App, 'puerta_anchos', 'Anchos rápidos', true),
     listaEditable(App, 'puerta_altos', 'Altos rápidos', true),
@@ -97,7 +102,8 @@ export async function pintarAjustes(App) {
       numeroAjuste(App, 'holgura_ancho', 'De ancho, el premarco pide (mm de más)'),
       numeroAjuste(App, 'holgura_alto', 'De alto, el premarco pide (mm de más)'),
       numeroAjuste(App, 'rebaje_max', 'Se puede rebajar el premarco como mucho (mm)'),
-      h('small', {}, 'Con un premarco que entra justo en una puerta de «,5» se pide esa antes que rebajar.')),
+      h('small', {}, 'Con un premarco que entra justo en una puerta de «,5» se pide esa antes que rebajar.'))];
+  const cocina = () => [
     h('h2', {}, 'Cocina y armarios'),
     listaEditable(App, 'modulo_anchos', 'Anchos rápidos de módulos y cuerpos', true),
     listaEditable(App, 'lineales', 'Lineales', false),
@@ -106,7 +112,8 @@ export async function pintarAjustes(App) {
     listaEditable(App, 'encimera_gruesos', 'Gruesos de encimera', true),
     h('h2', {}, 'Tomas y enchufes'),
     listaEditable(App, 'usos_toma', 'Tomas: de qué son', false),
-    listaEditable(App, 'usos_enchufe', 'Enchufes: de qué son', false),
+    listaEditable(App, 'usos_enchufe', 'Enchufes: de qué son', false)];
+  const resto = [
     h('h2', {}, 'Copia de seguridad'),
     h('div', { class: 'tarjeta' },
       h('small', { class: 'ayuda' }, 'Un archivo con todos tus trabajos, fichas, notas, papelera y ajustes (cada ficha con su resumen en texto). Las fotos no van dentro: siguen en la nube. Guárdalo en el ordenador o en tu correo de vez en cuando.'),
@@ -128,6 +135,7 @@ export async function pintarAjustes(App) {
         const n = await App.sincro.pendientes();
         if (n && !confirm('Hay ' + n + ' cambios sin subir. Se quedan en este dispositivo y subirán cuando vuelvas a entrar. ¿Salir?')) return;
         App.salirDeCuenta();
-      } }, 'Salir de la cuenta')),
+      } }, 'Salir de la cuenta'))];
+  main.append(...(ver('general') ? general : []), ...(ver('puertas') ? puertas() : []), ...(ver('cocina') ? cocina() : []), ...(ver('general') ? resto : []),
     h('small', { class: 'version' }, 'Versión ' + VERSION + ' · ' + COPYRIGHT + ' · ' + CREDITO));
 }

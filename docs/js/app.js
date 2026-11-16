@@ -68,7 +68,7 @@ const App = {
     if (!el) return;
     const n = await App.sincro.pendientes(), r = (await App.sincro.rechazadas()).length, err = App.sincro.ultimoError();
     // Un icono pequeño de nube (y el número si hay algo por subir); el texto completo, para lectores y al pasar el ratón.
-    const texto = err === 'sesion' ? 'Entra de nuevo' : r ? r + ' sin poder subir' : n ? n + ' por subir' : 'Todo guardado en la nube';
+    const texto = err === 'sesion' ? 'Entra de nuevo' : r ? r + ' sin poder subir' : n ? n + ' por subir: guardado en este dispositivo, sube solo al tener conexión' : 'Todo guardado en la nube';
     const cual = err === 'sesion' || r ? 'nube_mal' : n ? 'nube_subir' : 'nube', cifra = r || n;
     el.innerHTML = svgIcono(cual);
     if (cifra && err !== 'sesion') el.append(h('span', { class: 'cifra', 'aria-hidden': 'true' }, String(cifra)));
@@ -158,7 +158,7 @@ async function ruta() {
   if (seccion === 'trabajo') return pintarTrabajo(App, id);
   if (seccion === 'sueltas') return pintarTrabajo(App, null);
   if (seccion === 'ficha') return pintarFicha(App, id);
-  if (seccion === 'ajustes') return pintarAjustes(App);
+  if (seccion === 'ajustes') return pintarAjustes(App, id);
   if (seccion === 'resumen') return pintarResumen(App, id);
   if (seccion === 'resumen-trabajo') return pintarResumenTrabajo(App, id);
   if (seccion === 'papelera') return pintarPapelera(App);

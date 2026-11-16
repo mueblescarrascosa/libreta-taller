@@ -5,7 +5,7 @@ import { abrir, entrar, crearTrabajo, hasta } from './arnes.js';
 const con = (op, fn) => async () => { const a = await abrir(op); try { await fn(a); igual(a.errores, [], 'errores de página'); } finally { await a.cerrar(); } };
 const dentro = (op, fn) => con(op, async a => { await entrar(a); await fn(a); });
 const irInicio = async a => { await a.page.evaluate(() => { location.hash = '#/'; }); await a.page.waitForSelector('[data-pantalla="inicio"]'); };
-const irAjustes = async a => { await a.page.click('[data-acc="ajustes"]'); await a.page.waitForSelector('[data-pantalla="ajustes"]'); };
+const irAjustes = async a => { await a.page.click('[data-acc="ajustes"]'); await a.page.waitForSelector('[data-pantalla="ajustes"]'); await a.page.click('[data-acc="pestana"][data-v="todo"]'); await a.page.waitForSelector('[data-acc="pestana"][data-v="todo"].on'); };
 const texto = a => a.page.evaluate(() => document.body.innerText);
 const on = (a, sel) => a.page.evaluate(s => document.querySelector(s).classList.contains('on'), sel);
 

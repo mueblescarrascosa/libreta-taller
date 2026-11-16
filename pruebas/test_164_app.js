@@ -39,7 +39,7 @@ prueba('la toma de agua antigua («agua») lleva su caja como las demás', async
 prueba('ajustes: descargar copia de seguridad con todos los trabajos', async () => {
   const a = await abrir(); try {
     await entrar(a); await crearTrabajo(a, 'Casa Pepe');
-    await a.page.evaluate(() => { location.hash = '#/ajustes'; }); await a.page.waitForSelector('[data-pantalla="ajustes"]');
+    await a.page.evaluate(() => { location.hash = '#/ajustes/todo'; }); await a.page.waitForSelector('[data-pantalla="ajustes"]');
     await a.page.evaluate(() => { navigator.canShare = () => false; });
     const [d] = await Promise.all([a.page.waitForEvent('download'), a.page.click('[data-acc="copia-seguridad"]')]);
     afirma(/^libreta-taller-copia-\d{4}-\d{2}-\d{2}\.json$/.test(d.suggestedFilename()), d.suggestedFilename());

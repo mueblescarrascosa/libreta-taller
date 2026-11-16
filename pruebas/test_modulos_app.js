@@ -91,7 +91,7 @@ prueba('módulo abierto: cambiar el tipo, medidas habituales del tipo, cerrar to
   igual(f.datos.paredes[0].bajos.map(m => [m.tipo, m.ancho, m.forma || null]), [['lavavajillas', 600, null], ['rinconero', null, 'recto']]);
 }));
 prueba('las listas de módulos, lineales e interiores se ajustan en Ajustes', con({}, async a => {
-  await a.page.evaluate(() => { location.hash = '#/ajustes'; }); await a.page.waitForSelector('[data-pantalla="ajustes"]');
+  await a.page.evaluate(() => { location.hash = '#/ajustes/todo'; }); await a.page.waitForSelector('[data-pantalla="ajustes"]');
   for (const k of ['modulo_anchos', 'lineales', 'interiores']) afirma(await a.page.$('[data-lista="' + k + '"]'), 'falta ' + k);
   await a.page.fill('[data-lista="modulo_anchos"] [data-acc="nuevo"]', '35'); await a.page.click('[data-lista="modulo_anchos"] [data-acc="anadir"]');
   await a.page.evaluate(() => { location.hash = '#/'; }); await a.page.waitForSelector('[data-pantalla="inicio"]');

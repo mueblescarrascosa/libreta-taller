@@ -30,7 +30,7 @@ prueba('el icono de la calculadora está arriba en todas las pantallas y la calc
   await a.page.click('header [data-acc="abrir-calculadora"]');
   igual(await a.page.innerText('[data-acc="calc-expr"]'), '477', 'no recuerda la cuenta');
   await a.page.click('[data-acc="calc-cerrar"]');
-  await a.page.evaluate(() => { location.hash = '#/ajustes'; }); await a.page.waitForSelector('[data-pantalla="ajustes"]');
+  await a.page.evaluate(() => { location.hash = '#/ajustes/todo'; }); await a.page.waitForSelector('[data-pantalla="ajustes"]');
   afirma(await a.page.$('header [data-acc="abrir-calculadora"]'), 'no está en ajustes');
 }));
 prueba('el estado de la nube es un icono pequeño, con el texto para el lector', con(async a => {

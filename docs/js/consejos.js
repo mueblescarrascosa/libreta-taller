@@ -30,7 +30,7 @@ export const MEDIDAS = {
   libre_electro: 850, libre_electro_max: 920,  // hueco libre bajo la encimera para lavavajillas y lavadora: mínimo 85; más de 92, sobra
 };
 // Grupos de consejos, en el orden en que salen (y el de la guía).
-export const GRUPOS = [['placa', 'Placa y campana'], ['agua', 'Fregadero y lavavajillas'], ['frio', 'Frigorífico'], ['encimera', 'Encimera y columnas'], ['paso', 'Pasos y pasillos']];
+export const GRUPOS = [['placa', 'Placa y campana'], ['agua', 'Fregadero y lavavajillas'], ['frio', 'Frigorífico'], ['encimera', 'Encimera y columnas'], ['paso', 'Pasos y pasillos'], ['armario', 'Armario y vestidor']];
 
 const BASE = ['bajo', 'columna', 'hueco'];
 const ENCIMERA = ['bajo', 'cajonero', 'lavavajillas', 'rinconero', 'otro'];   // bajos que dejan encimera para trabajar
@@ -78,14 +78,36 @@ function consejosVestidor(d) {
   });
   (d.paredes || []).forEach(p => (p.cuerpos || []).forEach((c, i) => {
     const barra = c.interior === 'barra' || c.interior === 'doble_barra' || c.interior2 === 'barra';
-    if (barra && hay(c.ancho) && c.ancho > V.barra_max) l.push({ grupo: 'encimera', campo: 'pared.' + p.id, texto: 'Cuerpo ' + (i + 1) + ' de la pared ' + p.letra + ': barra de ' + cm(c.ancho) + ' sin apoyo',
+    if (barra && hay(c.ancho) && c.ancho > V.barra_max) l.push({ grupo: 'armario', campo: 'pared.' + p.id, texto: 'Cuerpo ' + (i + 1) + ' de la pared ' + p.letra + ': barra de ' + cm(c.ancho) + ' sin apoyo',
       porque: 'Una barra de más de ' + cm(V.barra_max) + ' se comba con el peso: pon un soporte central o divide el cuerpo.' });
   }));
   return l;
 }
 
+// Armario empotrado (corredera, abatible…): fondo para colgar, barras largas y puertas u hojas demasiado anchas.
+export const ARMARIO = { fondo_colgar: 550, guias_corredera: 90, hoja_max: 600, corredera_max: 1000, barra_max: 1000 };
+function consejosArmario(d, sub) {
+  const l = [], A = ARMARIO, cuerpos = d.cuerpos || [], ancho = [d.ancho_medio, d.ancho_arriba, d.ancho_abajo].find(v => hay(v) && v > 0);
+  const esBarra = c => c.interior === 'barra' || c.interior === 'doble_barra' || c.interior2 === 'barra';
+  if (hay(d.fondo) && d.fondo > 0 && (!cuerpos.length || cuerpos.some(esBarra))) {
+    const util = d.fondo - (sub === 'corredera' ? A.guias_corredera : 0);
+    if (util < A.fondo_colgar) l.push({ grupo: 'armario', campo: 'fondo', texto: 'Con ' + cm(d.fondo) + ' de fondo' + (sub === 'corredera' ? ' y puertas correderas' : '') + ' la percha no cabe de frente',
+      porque: 'Una percha necesita unos ' + cm(A.fondo_colgar) + (sub === 'corredera' ? ', y las guías de las correderas comen 8–9 cm' : '') + '. Con menos: barra extraíble de fondo, perchero abatible o ropa doblada.' });
+  }
+  cuerpos.forEach((c, i) => {
+    if (esBarra(c) && hay(c.ancho) && c.ancho > A.barra_max) l.push({ grupo: 'armario', campo: 'cuerpo.' + c.id, texto: 'Cuerpo ' + (i + 1) + ': barra de ' + cm(c.ancho) + ' sin apoyo',
+      porque: 'Una barra de más de ' + cm(A.barra_max) + ' se comba con el peso: pon un soporte central o divide el cuerpo.' });
+  });
+  if (ancho && sub === 'abatible' && d.puertas > 0 && ancho / d.puertas > A.hoja_max) l.push({ grupo: 'armario', campo: 'puertas', texto: 'Puertas de unos ' + cm(Math.round(ancho / d.puertas)) + ' de ancho',
+    porque: 'Una puerta abatible de más de ' + cm(A.hoja_max) + ' pesa, descuelga las bisagras y necesita mucho sitio para abrir: mejor una puerta más.' });
+  if (ancho && sub === 'corredera' && d.hojas > 0 && ancho / d.hojas > A.corredera_max) l.push({ grupo: 'armario', campo: 'hojas', texto: 'Hojas correderas de unos ' + cm(Math.round(ancho / d.hojas)),
+    porque: 'Las hojas de más de ' + cm(A.corredera_max) + ' pesan y se descuadran: mejor una hoja más (lo normal, de 60 a 100 cm).' });
+  return l;
+}
+
 export function consejosDiseno(ficha) {
   if (ficha && ficha.subtipo === 'vestidor') return consejosVestidor(ficha.datos || {});
+  if (ficha && ficha.tipo === 'armario') return consejosArmario(ficha.datos || {}, ficha.subtipo);
   if (!ficha || ficha.tipo !== 'cocina') return [];
   const d = ficha.datos, l = [], M = MEDIDAS, ap = aparatos(d);
   const anchoPlaca = ap.placa || M.placa;

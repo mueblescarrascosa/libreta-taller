@@ -77,6 +77,18 @@ export function articulo(m, d) {
   }
 }
 
+// El plano de la ficha para la vista 3D de presupuestos: los datos tal cual, sin fotos ni dibujos pegados
+// (textos de más de 4000 caracteres o en data:) para que quepa en el paquete y en el presupuesto guardado.
+export function planoPara3d(d) {
+  const limpio = v => {
+    if (typeof v === 'string') return v.startsWith('data:') || v.length > 4000 ? undefined : v;
+    if (Array.isArray(v)) return v.map(limpio).filter(x => x !== undefined);
+    if (v && typeof v === 'object') { const o = {}; Object.keys(v).forEach(k => { const x = limpio(v[k]); if (x !== undefined) o[k] = x; }); return o; }
+    return v;
+  };
+  return limpio(d);
+}
+
 // El paquete que recoge la app de presupuestos.
 export function paquetePresupuesto(ficha, trabajo, ajustes) {
   const d = ficha.datos, t = trabajo || {}, td = t.datos || {}, revisar = [], notas = [];
@@ -117,5 +129,7 @@ export function paquetePresupuesto(ficha, trabajo, ajustes) {
   const n = bajos.length + altos.length + tramos.reduce((s, x) => s + x.cuerpos.length, 0);
   return { v: 1, creado: new Date().toISOString(), titulo: (ficha.tipo === 'cocina' ? 'la cocina' : 'el vestidor') + ' «' + nombre + '»' + (t.nombre ? ' de ' + t.nombre : ''),
     resumen: n + (n === 1 ? ' mueble' : ' muebles') + (revisar.length ? ' · ' + revisar.length + ' por revisar' : ''),
-    cliente: t.cliente || '', direccion: t.direccion || '', telefono: td.telefono || '', notas: notas.join('\n'), grupos };
+    cliente: t.cliente || '', direccion: t.direccion || '', telefono: td.telefono || '', notas: notas.join('\n'), grupos,
+    // Para dibujar la cocina en 3D en el presupuesto con los colores elegidos (la perspectiva de la libreta).
+    plano3d: { datos: planoPara3d(d), ajustes: { margen: (ajustes && ajustes.margen) || 10, unidad: (ajustes && ajustes.unidad) || 'mm', cocina_tipo: (ajustes && ajustes.cocina_tipo) || null } } };
 }

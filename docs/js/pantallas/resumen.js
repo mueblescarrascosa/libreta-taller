@@ -98,7 +98,7 @@ async function botonesPartes(App, fichas, ver, alCambiar) {
   const hay = { planta: conParedes, frente: conParedes, perspectiva: conParedes, instalaciones: conParedes, fotos: conFotos };
   const lista = PARTES.filter(([k]) => hay[k]);
   if (!lista.length) return null;
-  return h('div', { class: 'elegir-fichas elegir-partes' }, h('small', { class: 'et' }, 'Dibujos que van:'),
+  return h('div', { class: 'elegir-fichas elegir-partes' }, h('small', { class: 'et' }, 'Dibujos que van (toca para quitar o poner; ✓ = va):'),
     h('div', { class: 'chips' }, lista.map(([k, t]) => h('button', { type: 'button', 'data-acc': 'parte-resumen', 'data-v': k, class: ver[k] ? 'on' : '',
       onclick: async () => { ver[k] = !ver[k]; guardarPartes(ver); await alCambiar(); } }, (ver[k] ? '✓ ' : '') + t))));
 }
@@ -272,7 +272,7 @@ export async function pintarResumenTrabajo(App, id) {
     const tipos = [...new Set(fichas.map(f => f.tipo))];
     const chip = (acc, v, texto, on, alTocar, tipo) => h('button', { type: 'button', 'data-acc': acc, 'data-v': v, 'data-tipo': tipo || '', class: on ? 'on' : '', onclick: async () => { alTocar(); pintarSel(); await pintarPartes(); await pintarDoc(); } }, texto);
     zonaSel.replaceChildren(
-      h('small', { class: 'et' }, 'Qué va en el resumen:'),
+      h('small', { class: 'et' }, 'Qué va en el resumen (toca para quitar o poner; ✓ = va):'),
       h('div', { class: 'chips' },
         chip('elegir-todo', 'todo', 'Todo', sel.size === fichas.length, () => fichas.forEach(f => sel.add(f.id))),
         ...(tipos.length > 1 ? tipos.map(t => chip('elegir-tipo', t, 'Solo ' + NOMBRE_TIPO[t].toLowerCase(), fichas.every(f => sel.has(f.id) === (f.tipo === t)), () => { sel.clear(); fichas.filter(f => f.tipo === t).forEach(f => sel.add(f.id)); }, t)) : [])),

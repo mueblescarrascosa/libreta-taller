@@ -209,7 +209,7 @@ prueba('lista de fichas: lápiz y WhatsApp en cada fila, sin entrar', con({}, as
   await a.page.click('[data-acc="fila-editar"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
 }));
 prueba('ajustes: no sale «null» en las listas', con({}, async a => {
-  await a.page.evaluate(() => { location.hash = '#/ajustes'; }); await a.page.waitForSelector('[data-pantalla="ajustes"]');
+  await a.page.evaluate(() => { location.hash = '#/ajustes/todo'; }); await a.page.waitForSelector('[data-pantalla="ajustes"]');
   afirma(!/\bnull\b/.test(await a.page.innerText('main')), 'sale null');
 }));
 prueba('elemento junto a un pilar de esquina: pregunta si se midió desde la esquina o desde el pilar', con({}, async a => {
