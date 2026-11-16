@@ -2,7 +2,7 @@
 // Dibujo sencillo de cajas de colores (como los alzados), hecho a mano: funciona sin conexión y sale en el PDF.
 // Todo va en mm: x e y como en la planta (y hacia abajo), z hacia arriba desde el suelo.
 import { geometriaPlanta } from './plano-vista.js';
-import { ALTURAS, frigoLibre, techoFrigo } from './alzado.js';
+import { ALTURAS, frigoLibre, techoFrigo, campanasPared, CAMPANA } from './alzado.js';
 import { piezasInterior, textoInteriores } from './modulos.js';
 import { frenteModulo, frenteCuerpo, puertasCuerpo, frenteFrigoLibre, varianteDe } from './frentes.js';
 
@@ -14,6 +14,7 @@ const COLOR = {
   suelo: ['#ece6da', '#d6cfc0'], pared: ['#faf8f3', '#6b7280'], azulejo: ['#ccfbf1', '#5eead4'], ventana: ['#bae6fd', '#0369a1'], puerta: ['#e5e7eb', '#374151'],
   bajo: ['#f5ede4', '#92400e'], cuerpo: ['#f5ede4', '#92400e'], barra: ['#57534e', '#44403c'], estante: ['#c08a4a', '#92400e'], zapato: ['#a8a29e', '#78716c'],
   cajon: ['#fde68a', '#92400e'], hoja: ['#fbf6f0', '#92400e'], hoja_alto: ['#e8f0fe', '#1d4ed8'], hoja_columna: ['#fbf6f0', '#92400e'], tirador: ['#57534e', '#44403c'], electro: ['#3f3f46', '#18181b'],
+  placa: ['#1f2328', '#0b0d10'], fuego: ['#2f343b', '#8b929b'], seno: ['#9aa5b1', '#64748b'], grifo: ['#cbd5e1', '#475569'],
   cristal: ['#52525b', '#a1a1aa'], acero: ['#e2e8f0', '#64748b'], campana: ['#a1a1aa', '#52525b'], zocalo: ['#d6c3ae', '#92400e'], tablero: ['#e2cdb5', '#92400e'], pantalonero: ['#fef3c7', '#78350f'], encimera: ['#9ca3af', '#4b5563'], columna: ['#e7d8c9', '#92400e'], alto: ['#dbeafe', '#1d4ed8'], pilar: ['#d1d5db', '#6b7280'], isla: ['#fef3c7', '#b45309'],
 };
 
@@ -182,6 +183,64 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null, colores = nu
   });
   recortarSolapes(mods.filter(m => m.r && !m.alto && (m.columna || m.tipo === 'cuerpo')).map(m => ({ fijo: true, r: m.r })).concat(losas));
   losas.forEach(l => { if (l.r) mueble(l.r, bajoEncimera, encimera, 'encimera', '', 'encimera'); });
+  // Sobre la encimera: la placa (cristal negro con sus fuegos) y el fregadero (seno de acero y grifo).
+  const encima = (r, s0, s1, t0, t1) => {
+    const L = Math.hypot(r[1].x - r[0].x, r[1].y - r[0].y) || 1, D = Math.hypot(r[3].x - r[0].x, r[3].y - r[0].y) || 1;
+    const u = { x: (r[1].x - r[0].x) / L, y: (r[1].y - r[0].y) / L }, v = { x: (r[3].x - r[0].x) / D, y: (r[3].y - r[0].y) / D };
+    const en = (a, b) => ({ x: r[0].x + u.x * a + v.x * b, y: r[0].y + u.y * a + v.y * b });
+    return { L, D, en, rect: [en(s0, t0), en(s1, t0), en(s1, t1), en(s0, t1)] };
+  };
+  // Campana piramidal: base, pirámide (cuatro caras inclinadas) y chimenea hasta el techo, sobre la placa sin alto encima.
+  (d.paredes || []).forEach(pa => campanasPared(pa, d).forEach(cp => {
+    const m = mods.find(x => x.dato && x.dato.id === cp.placa.id && x.r && !x.alto);
+    if (!m || pilares.some(pi => !separadas(m.r, pi))) return;
+    const { L } = encima(m.r, 0, 0, 0, 0), s0 = (L - cp.ancho) / 2, s1 = s0 + cp.ancho, F = CAMPANA.fondo, z = encimera + CAMPANA.sobre, zp = z + CAMPANA.base, zc = zp + CAMPANA.piramide;
+    caja(encima(m.r, s0, s1, 0, F).rect, z, zp, 'campana', '', 'campana');
+    const cs0 = (L - CAMPANA.chimenea) / 2, cs1 = cs0 + CAMPANA.chimenea, cf = CAMPANA.fondo_chimenea;
+    const abajo = encima(m.r, s0, s1, 0, F).rect, arribaP = encima(m.r, cs0, cs1, 0, cf).rect, q = (p, zz) => [p.x, p.y, zz];
+    const centro = m.r.reduce((a, p) => ({ x: a.x + p.x / 4, y: a.y + p.y / 4 }), { x: 0, y: 0 }), caras = [];
+    for (let i = 0; i < 4; i++) {
+      const j = (i + 1) % 4, a = abajo[i], b = abajo[j], c = arribaP[j], e = arribaP[i];
+      const mx = (a.x + b.x) / 2 - centro.x, my = (a.y + b.y) / 2 - centro.y, l = Math.hypot(mx, my) || 1;
+      caras.push(cara([q(a, zp), q(b, zp), q(c, zc), q(e, zc)], 'campana', [mx / l, my / l, 0.6]));
+    }
+    caras.push(cara(arribaP.map(p => q(p, zc)), 'campana', [0, 0, 1]));
+    cajas.push({ caras, huella: abajo, z0: zp, z1: zc, color: 'campana', centro: [(abajo[0].x + abajo[2].x) / 2, (abajo[0].y + abajo[2].y) / 2, (zp + zc) / 2], texto: null });
+    if (techo > zc) caja(arribaP, zc, techo, 'campana', '', 'campana');
+  }));
+  const placaDe = (d.electro || []).find(e => e.clave === 'placa');
+  // Si el mueble está cajeado en un pilar, no se dibuja (no se sabe dónde iría).
+  mods.filter(m => m.r && !m.alto && !m.columna && !m.chaflan && (m.tipo === 'placa' || m.tipo === 'fregadero') && !pilares.some(pi => !separadas(m.r, pi))).forEach(m => {
+    const { L, D } = encima(m.r, 0, 0, 0, 0);
+    if (L < 300) return;
+    if (m.tipo === 'placa') {
+      const w = Math.min(L - 60, placaDe && hay(placaDe.ancho) ? placaDe.ancho : L >= 860 ? 770 : 590), f = Math.min(510, D - 40), s0 = (L - w) / 2, t0 = Math.max(20, (D + 20 - f) / 2);
+      const z = encimera + 5, P0 = encima(m.r, s0, s0 + w, t0, t0 + f);
+      caja(P0.rect, encimera, z, 'placa', '', 'placa');
+      // Fuegos: cuatro (cinco en placas de 75 o más), como aros sobre el cristal.
+      const g = cajas[cajas.length - 1], rr = Math.min(w, f) * 0.15;
+      const fuegos = w >= 700 ? [[0.2, 0.3], [0.2, 0.72], [0.5, 0.5], [0.8, 0.3], [0.8, 0.72]] : [[0.27, 0.3], [0.73, 0.3], [0.27, 0.72], [0.73, 0.72]];
+      fuegos.forEach(([a, b], i) => {
+        const c = P0.en(s0 + w * a, t0 + f * b), rad = rr * (i % 2 ? 0.85 : 1.05);
+        const pts = Array.from({ length: 16 }, (_, k) => { const ang = k / 16 * 2 * Math.PI, du = Math.cos(ang) * rad, dv = Math.sin(ang) * rad;
+          const q = P0.en(0, 0), uu = { x: P0.en(1, 0).x - q.x, y: P0.en(1, 0).y - q.y }, vv = { x: P0.en(0, 1).x - q.x, y: P0.en(0, 1).y - q.y };
+          return [c.x + uu.x * du + vv.x * dv, c.y + uu.y * du + vv.y * dv, z + 0.5]; });
+        g.caras.push(cara(pts, 'fuego', [0, 0, 1]));
+      });
+    } else {
+      // Fregadero: el borde de acero casi a ras, el seno más oscuro y el grifo detrás.
+      const w = Math.min(L - 100, L >= 1000 ? 860 : L >= 760 ? 760 : 500), f = Math.min(450, D - 80), s0 = (L - w) / 2, t0 = Math.max(70, D + 20 - f - 50);
+      const z = encimera + 2, F = encima(m.r, s0, s0 + w, t0, t0 + f);
+      caja(F.rect, encimera, z, 'seno', '', 'seno');
+      const g = cajas[cajas.length - 1], dos = w >= 760, mg = 35, seno = (a0, a1) => [F.en(a0, t0 + mg), F.en(a1, t0 + mg), F.en(a1, t0 + f - mg), F.en(a0, t0 + f - mg)].map(q => [q.x, q.y, z + 0.5]);
+      if (dos) { const mitad = s0 + w * 0.58; g.caras.push(cara(seno(s0 + mg, mitad - mg / 2), 'acero', [0, 0, 1]), cara(seno(mitad + mg / 2, s0 + w - mg), 'acero', [0, 0, 1])); }
+      else g.caras.push(cara(seno(s0 + mg, s0 + w - mg), 'acero', [0, 0, 1]));
+      // Grifo: un tubo detrás del seno y el caño hacia delante.
+      const cx = s0 + (dos ? w * 0.58 : w / 2), tb = Math.max(15, t0 - 45);
+      caja(encima(m.r, cx - 22, cx + 22, tb - 22, tb + 22).rect, encimera, encimera + 300, 'grifo', '', 'grifo');
+      caja(encima(m.r, cx - 14, cx + 14, tb - 14, tb + 200).rect, encimera + 270, encimera + 300, 'grifo', '', 'grifo');
+    }
+  });
   // Islas y penínsulas con sus frentes: la isla, hacia su pared (donde se trabaja); la península, por un lado largo.
   // Se reparten en muebles de 90 cm como mucho.
   (geo.islas || []).forEach(x => {

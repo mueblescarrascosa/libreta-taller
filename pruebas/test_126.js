@@ -17,6 +17,32 @@ prueba('armario: fondo para colgar, barra larga y puertas u hojas demasiado anch
   igual(consejosDiseno(b)[0].grupo, 'armario');
 });
 
+prueba('campana piramidal sobre la placa sin alto encima y alto abierto sin puerta', async () => {
+  const { paredNueva } = await import('../docs/js/modelo.js');
+  const { moduloNuevo, TIPOS_MODULO } = await import('../docs/js/modulos.js');
+  const { campanasPared, geometriaAlzado } = await import('../docs/js/alzado.js');
+  const { frenteModulo } = await import('../docs/js/frentes.js');
+  const { articulo } = await import('../docs/js/presupuesto.js');
+  const mod = (tipo, ancho) => Object.assign(moduloNuevo(tipo), { ancho });
+  const f = fichaNueva('cocina', null, 't'), A = Object.assign(paredNueva([]), { letra: 'A', largo: 3000, elementos: [],
+    bajos: [mod('bajo', 600), mod('placa', 800), mod('fregadero', 800)], altos: [mod('alto_abierto', 600), mod('hueco', 800), mod('alto', 800)] });
+  f.datos.paredes = [A];
+  const c = campanasPared(A, f.datos);
+  igual(c.map(x => [x.desde, x.hasta, x.ancho]), [[600, 1400, 800]], 'campana del ancho de la placa, centrada');
+  const g = geometriaAlzado(f.datos, A);
+  afirma(g.piezas.some(p => p.tipo === 'campana' && p.trap), 'la pirámide en el alzado');
+  A.altos[1] = mod('alto', 800);
+  igual(campanasPared(A, f.datos), [], 'con un alto encima, no');
+  A.altos[1] = mod('hueco', 800); f.datos.electro = [{ id: 'e', clave: 'campana', tipo: 'extraible', ancho: 600 }];
+  igual(campanasPared(A, f.datos), [], 'extraíble: va en el alto de campana');
+  f.datos.electro[0].tipo = 'decorativa';
+  igual(campanasPared(A, f.datos)[0].ancho, 600, 'decorativa con su ancho');
+  afirma(TIPOS_MODULO.altos.includes('alto_abierto'), 'alto abierto en la lista');
+  const fr = frenteModulo('alto_abierto', 600, 1450, 2350);
+  afirma(fr.length === 2 && fr.every(q => q.k === 'tablero'), 'sin puertas, dos baldas: ' + JSON.stringify(fr));
+  igual(articulo(mod('alto_abierto', 600), f.datos).mo, '2 ESTANTES DECORATIVO');
+});
+
 const con = fn => async () => { const a = await abrir({}); try { await entrar(a); await fn(a); igual(a.errores, [], 'errores de página'); } finally { await a.cerrar(); } };
 prueba('ajustes en pestañas e índice de la guía', con(async a => {
   await a.page.click('[data-acc="ajustes"]'); await a.page.waitForSelector('[data-pantalla="ajustes"]');

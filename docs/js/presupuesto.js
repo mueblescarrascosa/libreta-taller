@@ -31,7 +31,7 @@ export function variantesDe(m) {
   }
 }
 export const NOMBRE_VARIANTE = v => ({ PUERTAS: 'Puertas', '1/4+3/4': '1/4 + 3/4' }[v] || v.charAt(0) + v.slice(1).toLowerCase());
-export const alturasDe = m => (['alto', 'alto_campana'].includes(m.tipo) ? ALTURAS_ALTO : ['columna_hmo', 'columna_frigo', 'escobero', 'despensero'].includes(m.tipo) ? ALTURAS_COLUMNA : []);
+export const alturasDe = m => (['alto', 'alto_abierto', 'alto_campana'].includes(m.tipo) ? ALTURAS_ALTO : ['columna_hmo', 'columna_frigo', 'escobero', 'despensero'].includes(m.tipo) ? ALTURAS_COLUMNA : []);
 
 // La variante que va si no se ha elegido.
 export function varianteHabitual(m, d) {
@@ -70,6 +70,7 @@ export function articulo(m, d) {
     }
     case 'alto': return r(alto, v === 'PUERTAS' || !v ? puertas(cm) : v);
     case 'alto_campana': return r(alto, v);
+    case 'alto_abierto': return r(alto, '2 ESTANTES DECORATIVO');
     case 'alto_micro': return r('ALTO MO 130', '1 PUERTA');
     case 'alto_frigo': return r('ALTO S-FRIGO 50-60', cm > 60 ? '2 PUERTAS' : '1 PUERTA');
     case 'hueco': return null;

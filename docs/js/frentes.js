@@ -108,6 +108,12 @@ export function frenteModulo(tipo, ancho, z0, z1, { columna = false, variante = 
     }
     case 'alto': case 'alto_frigo':
       puertas(r, 0, ancho, base, z1, 'abajo'); break;
+    case 'alto_abierto': {
+      // Sin puerta: se ven las dos baldas.
+      const h = z1 - z0;
+      [1 / 3, 2 / 3].forEach(f => r.push({ k: 'tablero', x0: 0, x1: ancho, z0: z0 + h * f - 10, z1: z0 + h * f + 10 }));
+      break;
+    }
     default: // bajo, fregadero, rinconero…
       puertas(r, 0, ancho, base, z1, 'arriba');
   }

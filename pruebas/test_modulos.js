@@ -8,7 +8,7 @@ const cerca = (a, b) => Math.abs(a - b) <= 0.5;
 
 prueba('tipos de módulo por fila y anchos rápidos', () => {
   igual(TIPOS_MODULO.bajos, ['bajo', 'fregadero', 'placa', 'cajonero', 'lavavajillas', 'rinconero', 'columna_hmo', 'columna_frigo', 'escobero', 'despensero', 'hueco', 'otro']);
-  igual(TIPOS_MODULO.altos, ['alto', 'alto_campana', 'alto_micro', 'alto_frigo', 'hueco', 'otro']);
+  igual(TIPOS_MODULO.altos, ['alto', 'alto_abierto', 'alto_campana', 'alto_micro', 'alto_frigo', 'hueco', 'otro']);
   igual(AJUSTES_FABRICA.modulo_anchos, [300, 400, 450, 500, 600, 800, 900, 1000, 1200]);
   igual(nombreLineal({ tipo: 'led' }, AJUSTES_FABRICA), 'Tira LED'); igual(nombreLineal({ tipo: 'otro', nombre: 'Copete' }, AJUSTES_FABRICA), 'Copete');
   igual(nombreInterior('doble_barra', AJUSTES_FABRICA), 'Doble barra'); igual(nombreInterior('desconocido', AJUSTES_FABRICA), 'desconocido');

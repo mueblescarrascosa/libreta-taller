@@ -6,17 +6,17 @@ const hay = v => v !== null && v !== undefined;
 
 export const TIPOS_MODULO = {
   bajos: ['bajo', 'fregadero', 'placa', 'cajonero', 'lavavajillas', 'rinconero', 'columna_hmo', 'columna_frigo', 'escobero', 'despensero', 'hueco', 'otro'],
-  altos: ['alto', 'alto_campana', 'alto_micro', 'alto_frigo', 'hueco', 'otro'],
+  altos: ['alto', 'alto_abierto', 'alto_campana', 'alto_micro', 'alto_frigo', 'hueco', 'otro'],
 };
 export const NOMBRE_MODULO = {
   bajo: 'Bajo', fregadero: 'Fregadero', placa: 'Placa', cajonero: 'Cajonero', lavavajillas: 'Lavavajillas', rinconero: 'Rinconero',
   columna_hmo: 'Columna H/MO', columna_frigo: 'Columna frigo', escobero: 'Escobero', despensero: 'Despensero', hueco: 'Hueco',
-  alto: 'Alto', alto_campana: 'Alto campana', alto_micro: 'Alto micro', alto_frigo: 'Alto sobre frigo', otro: 'Otro',
+  alto: 'Alto', alto_abierto: 'Alto abierto', alto_campana: 'Alto campana', alto_micro: 'Alto micro', alto_frigo: 'Alto sobre frigo', otro: 'Otro',
 };
 const COLUMNAS = ['columna_hmo', 'columna_frigo', 'escobero', 'despensero'];
 export const esColumna = m => COLUMNAS.includes(m.tipo);
 // Nombre corto para los botones (en el resumen y la planta sigue el completo).
-export const CORTO_MODULO = { columna_hmo: 'Col. H/MO', columna_frigo: 'Col. frigo', escobero: 'Escobero', despensero: 'Despensero', lavavajillas: 'Lavavaj.', alto_campana: 'Alto campana', alto_micro: 'Alto micro', alto_frigo: 'Alto s/frigo' };
+export const CORTO_MODULO = { alto_abierto: 'Abierto', columna_hmo: 'Col. H/MO', columna_frigo: 'Col. frigo', escobero: 'Escobero', despensero: 'Despensero', lavavajillas: 'Lavavaj.', alto_campana: 'Alto campana', alto_micro: 'Alto micro', alto_frigo: 'Alto s/frigo' };
 
 // Anchos habituales en España (mm) por tipo de mueble; los demás usan la lista general de Ajustes. Siempre se puede escribir otro.
 const ANCHOS_TIPO = {

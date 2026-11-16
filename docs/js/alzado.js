@@ -24,6 +24,17 @@ const PUNTOS = ['humos', 'desague', 'toma', 'agua', 'gas', 'enchufe', 'otro'];
 // El frigorífico, si es de libre instalación: 'libre' o 'americano' (de los electrodomésticos de la cocina); si no, null.
 // Dónde acaba el frigo por arriba (y empieza el alto de encima): con su alto en Electrodomésticos, el integrable
 // va sobre el zócalo y lleva 2 cm de holgura; si no, el de la cocina tipo.
+// Campana decorativa (piramidal) sobre cada placa que no tiene un alto encima: si en los electrodomésticos la campana es
+// decorativa o no se ha dicho el tipo (las extraíbles e integradas van en el «Alto campana»). Ancho: el de la campana o el
+// de la placa (de 60 a 90). Medidas en mm: 65 cm sobre la encimera, base de 7, pirámide de 33 y chimenea de 26 hasta el techo.
+export const CAMPANA = { sobre: 650, base: 70, piramide: 330, chimenea: 260, fondo: 500, fondo_chimenea: 240 };
+export function campanasPared(pared, d, sit = situarMuebles(pared, d)) {
+  const c = (d.electro || []).find(e => e.clave === 'campana');
+  if (c && c.tipo && c.tipo !== 'decorativa') return [];
+  return sit.bajos.filter(({ m, desde, hasta }) => m.tipo === 'placa' && !sit.altos.some(a => a.m.tipo !== 'hueco' && a.desde < hasta - 50 && a.hasta > desde + 50))
+    .map(({ m, desde, hasta }) => { const w = c && hay(c.ancho) ? c.ancho : Math.min(900, Math.max(600, hasta - desde)), x = (desde + hasta - w) / 2; return { placa: m, desde: x, hasta: x + w, ancho: w }; });
+}
+
 export function techoFrigo(d) {
   const f = ((d && d.electro) || []).find(e => e.clave === 'frigo' && hay(e.alto) && e.alto > 0);
   if (!f) return ALTURAS.frigo;
@@ -73,6 +84,12 @@ export function geometriaAlzado(d, pared, ajustes = null) {
     const y0 = m.tipo === 'alto_frigo' ? techoFrigo(d) : ALTURAS.altos_desde;
     pieza('alto', desde, y0, hasta - desde, arriba - y0, nombreModulo(m) + ' ' + medidasModulo(m), m.tipo);
     frente(frenteModulo(m.tipo, hasta - desde, y0, arriba), desde, true);
+  });
+  campanasPared(pared, d, sit).forEach(c => {
+    const z = ALTURAS.encimera + CAMPANA.sobre, zp = z + CAMPANA.base, zc = zp + CAMPANA.piramide;
+    pieza('f_campana', c.desde, z, c.ancho, CAMPANA.base, '', 'campana');
+    g.piezas.push({ clase: 'f_campana', tipo: 'campana', x: c.desde, y: zp, w: c.ancho, h: CAMPANA.piramide, trap: CAMPANA.chimenea, texto: '' });
+    if (techo > zc) pieza('f_campana', (c.desde + c.hasta - CAMPANA.chimenea) / 2, zc, CAMPANA.chimenea, techo - zc, '', 'campana');
   });
 
   // Cuerpos del vestidor, de izquierda a derecha, con su interior dibujado (barras, estantes, cajones…);
@@ -173,7 +190,8 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
   const orden = ['azulejo', 'pilar', 'ventana', 'puerta', 'zocalo', 'bajo', 'encimera', 'columna', 'cuerpo', 'int_estante', 'int_zapato', 'int_cajon', 'int_pantalonero', 'int_barra', 'hueco', 'alto', 'f_zocalo', 'f_tablero', 'f_hoja', 'f_hoja_alto', 'f_acero', 'f_electro', 'f_cristal', 'f_campana', 'f_tirador'];
   const rotulos = [];
   orden.forEach(clase => g.piezas.filter(p => p.clase === clase).forEach(p => {
-    caja(p, ESTILO[clase]);
+    if (p.trap) svg.append(el('polygon', Object.assign({ points: [[p.x, p.y], [p.x + p.w, p.y], [p.x + (p.w + p.trap) / 2, p.y + p.h], [p.x + (p.w - p.trap) / 2, p.y + p.h]].map(([x, y]) => x + ',' + Y(y)).join(' '), 'data-pieza': p.clase }, ESTILO[clase])));
+    else caja(p, ESTILO[clase]);
     if (clase === 'ventana') svg.append(el('path', { d: `M${p.x} ${Y(p.y)} L${p.x + p.w} ${Y(p.y + p.h)} M${p.x} ${Y(p.y + p.h)} L${p.x + p.w} ${Y(p.y)}`, stroke: '#7dd3fc', 'stroke-width': s * 0.25, fill: 'none' }));
     if (p.texto) rotulos.push([p, clase]);
   }));
