@@ -58,6 +58,17 @@ prueba('ajustes en pestañas e índice de la guía', con(async a => {
   const g = await a.page.evaluate(() => ({ titulos: [...document.querySelectorAll('.guia-apartado h2')].map(x => x.textContent), indice: document.querySelectorAll('[data-acc="ir-apartado"]').length }));
   afirma(g.titulos[0] === '1. Reglas de prioridad' && g.titulos.every((t, i) => t.startsWith((i + 1) + '. ')), 'números seguidos: ' + g.titulos.join(' | '));
   igual(g.indice, g.titulos.length, 'un enlace por apartado');
+  // Planta: símbolo de la placa con sus fuegos y del fregadero (dos senos en uno de 80).
+  const planta = await a.page.evaluate(async () => {
+    const { fichaNueva, paredNueva } = await import('./js/modelo.js'), { moduloNuevo } = await import('./js/modulos.js'), { geometriaPlanta, svgPlanta } = await import('./js/plano-vista.js');
+    const mod = (tipo, ancho) => Object.assign(moduloNuevo(tipo), { ancho });
+    const f = fichaNueva('cocina', null, 't');
+    f.datos.paredes = [Object.assign(paredNueva([]), { letra: 'A', largo: 3000, elementos: [], bajos: [mod('placa', 600), mod('bajo', 600), mod('fregadero', 800)], altos: [] })];
+    const svg = svgPlanta(geometriaPlanta(f.datos));
+    const pl = svg.querySelector('[data-simbolo="placa"]'), fr = svg.querySelector('[data-simbolo="fregadero"]');
+    return { placa: pl ? pl.querySelectorAll('circle').length : -1, senos: fr ? fr.querySelectorAll('polygon').length - 1 : -1, grifo: fr ? fr.querySelectorAll('circle').length : -1, otros: svg.querySelectorAll('[data-simbolo]').length };
+  });
+  igual(planta, { placa: 4, senos: 2, grifo: 3, otros: 2 }, 'símbolos en la planta');
   const tipo = await a.page.innerText('[data-apartado="1"]');
   afirma(/Gola en C \(entre cajones\)\s+7,3 cm/.test(tipo) && /Gola vertical \(columnas\)\s+4,7 cm/.test(tipo), 'gola en C y vertical: ' + tipo);
 }));

@@ -294,10 +294,37 @@ export function svgPlanta(geo) {
   // Bajos (marrón) y, encima, los altos (azul, más estrechos y transparentes). El rótulo de los bajos va hacia dentro
   // y el de los altos pegado a la pared, para que no se pisen.
   const hayAltos = geo.modulos.some(m => m.alto);
+  // Punto del mueble: u de la pared hacia el otro lado (0-1), v de la pared hacia delante (0-1).
+  const simbolo = m => {
+    const [a, b, , d2] = m.rect, en = (u, v) => ({ x: a.x + (b.x - a.x) * u + (d2.x - a.x) * v, y: a.y + (b.y - a.y) * u + (d2.y - a.y) * v });
+    const W = Math.hypot(b.x - a.x, b.y - a.y), D = Math.hypot(d2.x - a.x, d2.y - a.y), poli = (u0, u1, v0, v1) => [en(u0, v0), en(u1, v0), en(u1, v1), en(u0, v1)].map(p => p.x + ',' + p.y).join(' ');
+    const g = el('g', { 'data-simbolo': m.tipo, 'pointer-events': 'none' });
+    if (m.tipo === 'placa') {
+      g.append(el('polygon', { points: poli(0.1, 0.9, 0.12, 0.88), fill: '#374151', 'fill-opacity': 0.85, stroke: '#111827', 'stroke-width': s * 0.3 }));
+      const r = Math.min(W * 0.8, D * 0.76) * 0.17;
+      (W >= D * 1.25 ? [[0.25, 0.32], [0.25, 0.68], [0.5, 0.5], [0.75, 0.32], [0.75, 0.68]] : [[0.3, 0.32], [0.7, 0.32], [0.3, 0.68], [0.7, 0.68]]).forEach(([u, v], i) => {
+        const c = en(u, v);
+        g.append(el('circle', { cx: c.x, cy: c.y, r: r * (i % 2 ? 0.8 : 1), fill: 'none', stroke: '#d1d5db', 'stroke-width': s * 0.35 }));
+      });
+    } else {
+      const dos = (m.ancho || 0) >= 760;
+      g.append(el('polygon', { points: poli(0.08, 0.92, 0.18, 0.86), fill: '#e2e8f0', stroke: '#64748b', 'stroke-width': s * 0.35 }));
+      (dos ? [[0.13, 0.56], [0.6, 0.87]] : [[0.14, 0.86]]).forEach(([u0, u1]) => {
+        g.append(el('polygon', { points: poli(u0, u1, 0.25, 0.8), fill: '#cbd5e1', stroke: '#64748b', 'stroke-width': s * 0.3 }));
+        const c = en((u0 + u1) / 2, 0.53);
+        g.append(el('circle', { cx: c.x, cy: c.y, r: s * 0.9, fill: '#64748b' }));
+      });
+      const gr = en(dos ? 0.58 : 0.5, 0.1);
+      g.append(el('circle', { cx: gr.x, cy: gr.y, r: s * 1.1, fill: '#94a3b8', stroke: '#475569', 'stroke-width': s * 0.25 }));
+    }
+    svg.append(g);
+  };
   [...geo.modulos.filter(m => !m.alto), ...geo.modulos.filter(m => m.alto)].forEach(m => {
     svg.append(el('polygon', Object.assign({ points: m.rect.map(p => p.x + ',' + p.y).join(' '), 'data-modulo': m.tipo, 'stroke-width': s * 0.5 },
       m.alto ? { fill: '#bfdbfe', 'fill-opacity': 0.7, stroke: '#1d4ed8', 'stroke-dasharray': s * 1.2 + ' ' + s * 0.8, 'data-alto': '' }
         : { fill: m.columna ? '#e7d8c9' : '#f5ede4', stroke: '#92400e' })));
+    // Símbolos de la placa (con sus fuegos) y del fregadero (seno, desagüe y grifo), como en los planos de cocina.
+    if (!m.alto && !m.chaflan && m.rect.length === 4 && (m.tipo === 'placa' || m.tipo === 'fregadero')) simbolo(m);
     if (m.sinTexto) return;
     const [a, b, c2, d2] = m.rect, t = (m.tipo === 'rinconero' ? 'Rinc.' : m.nombre) + (m.medidas || m.medidas === '' ? (m.medidas ? ' ' + m.medidas : '') : ' ' + verMedida(m.ancho, 'cm'));
     // El rótulo, dentro de su mueble y sin pisar otros: los altos en su caja; los bajos, si hay altos, en la parte que queda libre.
