@@ -59,6 +59,27 @@ prueba('campana piramidal sobre la placa sin alto encima y alto abierto sin puer
     ['CAMPANA INTEGRABLE', 'CAMPANA EXTRAÍBLE', 'CAMPANA INTEGRABLE']);
 });
 
+prueba('encimera al presupuesto: tableros de 4,10, colocación, agujeros, juntas y copete; piedra a mano', async () => {
+  const { paredNueva } = await import('../docs/js/modelo.js');
+  const { moduloNuevo } = await import('../docs/js/modulos.js');
+  const { encimeraPresupuesto, tablerosEncimera, paquetePresupuesto } = await import('../docs/js/presupuesto.js');
+  igual([tablerosEncimera([{ largo: 1500 }, { largo: 1500 }, { largo: 1500 }]), tablerosEncimera([{ largo: 2500 }, { largo: 2500 }]), tablerosEncimera([{ largo: 5000 }])], [2, 2, 2]);
+  const mod = (tipo, ancho) => Object.assign(moduloNuevo(tipo), { ancho });
+  const f = fichaNueva('cocina', null, 't'), A = Object.assign(paredNueva([]), { letra: 'A', largo: 3000, elementos: [], bajos: [mod('bajo', 600), mod('placa', 800), mod('fregadero', 800), mod('bajo', 800)], altos: [] });
+  const B = Object.assign(paredNueva([A]), { letra: 'B', largo: 2000, elementos: [], bajos: [mod('bajo', 600), mod('cajonero', 600)], altos: [] });
+  f.datos.paredes = [A, B];
+  igual(encimeraPresupuesto(f.datos), null, 'sin material: nada');
+  f.datos.acabados.encimera = { material: 'Hidrófuga Egger', modelo: '', color: 'F-812', grueso: 40 };
+  const e = encimeraPresupuesto(f.datos);
+  igual(e.extras.map(x => [x.cat, x.item, x.und]), [['ENCIMERA', 'HIDROFUGA EGGER', 1], ['TRABAJOS ENCIMERA', 'COLOCACIÓN ENCIMERA', 1], ['TRABAJOS ENCIMERA', 'AGUJERO PLACA/FREGADERO', 2],
+    ['TRABAJOS ENCIMERA', 'JUNTA DE UNIÓN', 1], ['COPETE', 'A JUEGO CON ENCIMERA EGGER', 4]]);
+  const p = paquetePresupuesto(f, null, null);
+  afirma(p.grupos.some(g => g.tipo === 'extras' && g.nombre === 'Encimera') && !(p.grupos.find(g => g.tipo === 'revisar') || { lineas: [] }).lineas.some(l => /^Encimera/.test(l)), 'la encimera va con sus líneas y no a revisar');
+  f.datos.acabados.encimera.material = 'Silestone'; f.datos.acabados.encimera.color = 'Calacatta Gold';
+  const s = encimeraPresupuesto(f.datos);
+  afirma(!s.extras.length && s.libres.length === 1 && /Silestone Calacatta Gold/.test(s.libres[0].texto) && s.libres[0].precio === 0, JSON.stringify(s));
+});
+
 const con = fn => async () => { const a = await abrir({}); try { await entrar(a); await fn(a); igual(a.errores, [], 'errores de página'); } finally { await a.cerrar(); } };
 prueba('ajustes en pestañas e índice de la guía', con(async a => {
   await a.page.click('[data-acc="ajustes"]'); await a.page.waitForSelector('[data-pantalla="ajustes"]');

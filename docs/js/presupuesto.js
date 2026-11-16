@@ -3,7 +3,7 @@
 // si no, la habitual. Lo que no tiene artículo claro va a «Revisar». La app de presupuestos lo comprueba otra vez
 // contra su catálogo y crea un presupuesto NUEVO en borrador (libreta.js de cocinas).
 import { situarMuebles, situarCuerpos, piezasInterior } from './modulos.js';
-import { textoMaterial } from './material.js';
+import { textoMaterial, materialCocina } from './material.js';
 import { ALTURAS } from './alzado.js';
 
 const hay = v => v !== null && v !== undefined;
@@ -91,6 +91,38 @@ export function planoPara3d(d) {
   return limpio(d);
 }
 
+// Encimera para el presupuesto. Laminados: tableros de 4,10 m (los trozos repartidos para aprovechar), colocación,
+// agujeros de placa y fregadero, juntas de unión en las esquinas y copete a juego por metros contra la pared.
+// Piedra y madera: una línea a 0 € para poner el precio del marmolista.
+export const ENCIMERA_PRESUPUESTO = { 'Hidrófuga Egger': 'HIDROFUGA EGGER', 'Egger Perfsense': 'HIDROFUGA EGGER PERFSENSE', 'Egger Porsinc': 'HIDROFUGA EGGER PORSINC',
+  'Hidrófuga 19 mm': 'HIDROFUGA 19mm', Topform: 'TOPFORM ENCIMERA' };
+export const TABLERO_ENCIMERA = 4100;
+export function tablerosEncimera(piezas, largo = TABLERO_ENCIMERA) {
+  const trozos = [];
+  piezas.forEach(p => { let r = p.largo; while (r > largo) { trozos.push(largo); r -= largo; } if (r > 0) trozos.push(r); });
+  const tableros = [];
+  trozos.sort((a, b) => b - a).forEach(t => { const i = tableros.findIndex(x => x + t <= largo); if (i >= 0) tableros[i] += t; else tableros.push(t); });
+  return tableros.length;
+}
+export function encimeraPresupuesto(d) {
+  const enc = (d.acabados || {}).encimera || {}, mat = enc.material;
+  if (!mat) return null;
+  const r = materialCocina(d);
+  if (!r.piezas.length) return null;
+  const total = r.piezas.reduce((s, q) => s + q.largo, 0), mts = Math.round(total / 100) / 10;
+  const desc = [mat, enc.modelo, enc.color].filter(Boolean).join(' '), texto = r.piezas.length + (r.piezas.length > 1 ? ' piezas, ' : ' pieza, ') + String(mts).replace('.', ',') + ' m';
+  const item = ENCIMERA_PRESUPUESTO[mat], revisar = [];
+  r.piezas.filter(q => q.fondo > 650).forEach(q => revisar.push('Encimera de ' + q.pared + ': ' + Math.round(q.fondo / 10) + ' cm de fondo, necesita tablero ancho'));
+  if (!item) return { extras: [], libres: [{ texto: 'Encimera ' + desc + ' · ' + texto + ' (precio del marmolista)', und: 1, precio: 0 }], revisar };
+  const extras = [{ cat: 'ENCIMERA', item, und: tablerosEncimera(r.piezas), texto: desc + ' · ' + texto }];
+  extras.push({ cat: 'TRABAJOS ENCIMERA', item: 'COLOCACIÓN ENCIMERA', und: 1, otro: ['ENCIMERA', '+ COLOCACIÓN ENCIMERA'] });
+  if (r.huecos.length) extras.push({ cat: 'TRABAJOS ENCIMERA', item: 'AGUJERO PLACA/FREGADERO', und: r.huecos.length, otro: ['ENCIMERA', '+ AGUJERO PLACA/FREGADERO'] });
+  if (r.uniones.length) extras.push({ cat: 'TRABAJOS ENCIMERA', item: 'JUNTA DE UNIÓN', und: r.uniones.length, otro: ['ENCIMERA', 'JUNTA DE UNION'] });
+  const contraPared = r.piezas.filter(q => !/^(isla|pen)/.test(q.pared)).reduce((s, q) => s + q.largo, 0);
+  if (contraPared) extras.push({ cat: 'COPETE', item: 'A JUEGO CON ENCIMERA EGGER', und: Math.ceil(contraPared / 1000) });
+  return { extras, libres: [], revisar };
+}
+
 // El paquete que recoge la app de presupuestos.
 export function paquetePresupuesto(ficha, trabajo, ajustes) {
   const d = ficha.datos, t = trabajo || {}, td = t.datos || {}, revisar = [], notas = [];
@@ -114,7 +146,10 @@ export function paquetePresupuesto(ficha, trabajo, ajustes) {
   });
   // Electrodomésticos, encimera y lineales: para elegir modelo o ponerles precio.
   (d.electro || []).forEach(e => revisar.push('Electrodoméstico: ' + [e.clave === 'otro' ? e.nombre || 'otro' : e.clave, e.tipo, e.modelo].filter(Boolean).join(' ') + ' (elegir modelo)'));
-  textoMaterial(ficha, 'cm', ajustes).filter(l => /^(Encimera|- Pared|- Isla|- Pen|- Uniones|- Hueco|Zócalo|Cornisa|Tira LED)/.test(l)).forEach(l => revisar.push(l.replace(/^- /, 'Encimera · ')));
+  // Con el material de la encimera elegido, la encimera va con sus líneas (abajo); si no, su detalle a «Revisar».
+  const enc = ficha.tipo === 'cocina' ? encimeraPresupuesto(d) : null;
+  textoMaterial(ficha, 'cm', ajustes).filter(l => (enc ? /^(Zócalo|Cornisa|Tira LED)/ : /^(Encimera|- Pared|- Isla|- Pen|- Uniones|- Hueco|Zócalo|Cornisa|Tira LED)/).test(l)).forEach(l => revisar.push(l.replace(/^- /, 'Encimera · ')));
+  if (enc) revisar.push(...enc.revisar);
   const ac = d.acabados || {};
   if (ac.modelo || ac.color) notas.push('Frentes: ' + [ac.modelo, ac.color].filter(Boolean).join(' '));
   if (ac.bitono) notas.push('Bitono · altos: ' + [ac.modelo_altos, ac.color_altos].filter(Boolean).join(' ') + ' · bajos: ' + [ac.modelo_bajos, ac.color_bajos].filter(Boolean).join(' '));
@@ -126,6 +161,8 @@ export function paquetePresupuesto(ficha, trabajo, ajustes) {
   if (bajos.length) grupos.push({ tipo: 'muebles', nombre: 'Bajos y columnas', cal: CALIDAD, casco, lineas: bajos });
   if (altos.length) grupos.push({ tipo: 'muebles', nombre: 'Altos', cal: CALIDAD, casco, lineas: altos });
   if (tramos.length) grupos.push({ tipo: 'armario', nombre: 'Vestidor', tramos });
+  if (enc && enc.extras.length) grupos.push({ tipo: 'extras', nombre: 'Encimera', lineas: enc.extras });
+  if (enc && enc.libres.length) grupos.push({ tipo: 'libre', nombre: 'Encimera (precio a mano)', lineas: enc.libres });
   if (revisar.length) grupos.push({ tipo: 'revisar', lineas: revisar });
   const nombre = ficha.nombre || (ficha.tipo === 'cocina' ? 'Cocina' : 'Vestidor');
   const n = bajos.length + altos.length + tramos.reduce((s, x) => s + x.cuerpos.length, 0);

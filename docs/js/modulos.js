@@ -266,7 +266,8 @@ function avisoPantalonero(l, campo, que, c, unidad) {
 
 export const acabadosNuevos = () => ({ bitono: null, modelo: '', color: '', modelo_altos: '', color_altos: '', modelo_bajos: '', color_bajos: '', casco: '', encimera: { material: '', modelo: '', color: '', grueso: null }, lineales: [] });
 // Materiales de encimera (fijos).
-export const MATERIALES_ENCIMERA = ['Madera', 'Porcelánico', 'Silestone', 'Granito'];
+// Los laminados son los de la tarifa de presupuestos (se pasan como tableros); piedra y madera, a precio del marmolista.
+export const MATERIALES_ENCIMERA = ['Hidrófuga Egger', 'Egger Perfsense', 'Egger Porsinc', 'Hidrófuga 19 mm', 'Topform', 'Silestone', 'Porcelánico', 'Granito', 'Madera'];
 
 // Electrodomésticos de la cocina: qué son, de qué tipo, su ancho (cm) y el modelo si se sabe.
 export const ELECTRO = [
