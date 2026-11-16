@@ -105,7 +105,7 @@ export function geometriaPlanta(d, { margen = 10, unidad = 'cm' } = {}) {
       if (sit.entran.izq) geo.modulos.push({ tipo: 'rinconero', nombre: '', ancho: sit.entran.izq, columna: false, pared: letra, dentro, sinTexto: true, rect: caja(0, sit.entran.izq, FONDO_MODULO) });
       if (sit.entran.der && hay(L)) geo.modulos.push({ tipo: 'rinconero', nombre: '', ancho: sit.entran.der, columna: false, pared: letra, dentro, sinTexto: true, rect: caja(L - sit.entran.der, L, FONDO_MODULO) });
       for (const b of sit.bajos) geo.modulos.push({ tipo: b.m.tipo, nombre: nombreModulo(b.m), medidas: medidasModulo(b.m), ancho: b.m.ancho, columna: esColumna(b.m), pared: letra, dentro, dato: b.m, rect: caja(b.desde, b.hasta, FONDO_MODULO) });
-      for (const a of sit.altos) geo.modulos.push({ tipo: a.m.tipo, nombre: nombreModulo(a.m), medidas: medidasModulo(a.m), ancho: a.m.ancho, alto: true, columna: false, pared: letra, dentro, rect: caja(a.desde, a.hasta, FONDO_ALTO) });
+      for (const a of sit.altos) geo.modulos.push({ tipo: a.m.tipo, nombre: nombreModulo(a.m), medidas: medidasModulo(a.m), ancho: a.m.ancho, alto: true, columna: false, pared: letra, dentro, dato: a.m, rect: caja(a.desde, a.hasta, FONDO_ALTO) });
       // Cuerpos del vestidor, igual que los bajos, y lo que entra del cuerpo de rincón de la pared de al lado.
       const sc = situarCuerpos(pared, d), fc = FONDO_MODULO;
       if (sc.entran.izq) geo.modulos.push({ tipo: 'cuerpo', nombre: '', ancho: sc.entran.izq, columna: false, pared: letra, dentro, sinTexto: true, dato: sc.entran.cIzq, rect: caja(0, sc.entran.izq, fc) });

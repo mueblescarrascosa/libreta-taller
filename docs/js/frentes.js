@@ -93,12 +93,19 @@ export function frenteModulo(tipo, ancho, z0, z1, { columna = false, variante = 
       break;
     }
     case 'alto_campana': {
-      // La campana integrada: una franja abajo; encima, la puerta.
-      const c = Math.min(120, (z1 - z0) / 3);
-      r.push({ k: 'campana', x0: 10, x1: ancho - 10, z0, z1: z0 + c });
-      puertas(r, 0, ancho, z0 + c, z1, 'abajo');
+      if (variante === 'CAMPANA INTEGRABLE') {
+        // Integrable: la puerta llega hasta abajo; de la campana solo se ve una ranura debajo.
+        r.push({ k: 'campana', x0: 15, x1: ancho - 15, z0, z1: z0 + 22 });
+        puertas(r, 0, ancho, z0 + 22, z1, 'abajo');
+      } else {
+        // Extraíble: visera de acero abajo, con su tirador, y la puerta encima.
+        const c = Math.min(110, (z1 - z0) / 3);
+        r.push({ k: 'acero', x0: 8, x1: ancho - 8, z0, z1: z0 + c }, { k: 'tirador', x0: ancho * 0.35, x1: ancho * 0.65, z0: z0 + 16, z1: z0 + 28 });
+        puertas(r, 0, ancho, z0 + c, z1, 'abajo');
+      }
       break;
     }
+    case 'campana_deco': break;   // sin mueble: la pirámide la dibujan el alzado y la perspectiva
     case 'alto_micro': {
       const c = Math.min(380, (z1 - z0) * 0.6);
       r.push({ k: 'electro', x0: 25, x1: ancho - 25, z0: z0 + 5, z1: z0 + c - 5 });
@@ -168,4 +175,11 @@ export function frenteFrigoLibre(ancho, americano) {
 }
 
 // Variante con la que se dibuja un mueble: la elegida o, en la placa con horno debajo, el soporte de horno.
+// Variante de un alto de campana: la elegida o, si no, la que pide la campana de los electrodomésticos.
+export function varianteAlto(m, d) {
+  if (!m || m.tipo !== 'alto_campana') return null;
+  if (m.variante) return m.variante;
+  const c = ((d && d.electro) || []).find(e => e.clave === 'campana');
+  return c && c.tipo === 'integrada' ? 'CAMPANA INTEGRABLE' : 'CAMPANA EXTRAÍBLE';
+}
 export const varianteDe = m => (m ? m.variante || (m.tipo === 'placa' && m.horno ? 'SOPORTE HORNO Y 1 GAVETERO' : null) : null);

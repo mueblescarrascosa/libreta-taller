@@ -4,7 +4,7 @@
 import { geometriaPlanta } from './plano-vista.js';
 import { ALTURAS, frigoLibre, techoFrigo, campanasPared, CAMPANA } from './alzado.js';
 import { piezasInterior, textoInteriores } from './modulos.js';
-import { frenteModulo, frenteCuerpo, puertasCuerpo, frenteFrigoLibre, varianteDe } from './frentes.js';
+import { frenteModulo, frenteCuerpo, puertasCuerpo, frenteFrigoLibre, varianteDe, varianteAlto } from './frentes.js';
 
 export const OJOS = 1750;
 const FOV = 90 * Math.PI / 180, CERCA = 60;
@@ -135,8 +135,9 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null, colores = nu
   const detallesDe = (lista, w, alto = false, columna = false) => lista.map(q => ({ t0: q.x0 / w, t1: q.x1 / w, z0: q.z0, z1: q.z1, color: q.k === 'hoja' && alto ? 'hoja_alto' : q.k === 'hoja' && columna ? 'hoja_columna' : q.k }));
   mods.filter(m => m.r).forEach(m => {
     const t = m.sinTexto ? '' : [m.nombre, m.medidas].filter(Boolean).join(' ');
-    if (m.alto) { const y0 = m.tipo === 'alto_frigo' ? techoFrigo(d) : ALTURAS.altos_desde, w = ancho(m.r);
-      return mueble(m.r, y0, arriba, 'alto', t, null, detallesDe(frenteModulo(m.tipo, w, y0, arriba), w, true)); }
+    if (m.alto) { if (m.tipo === 'campana_deco') return;   // sin mueble: la campana va aparte
+      const y0 = m.tipo === 'alto_frigo' ? techoFrigo(d) : ALTURAS.altos_desde, w = ancho(m.r);
+      return mueble(m.r, y0, arriba, 'alto', t, null, detallesDe(frenteModulo(m.tipo, w, y0, arriba, { variante: varianteAlto(m.dato, d) }), w, true)); }
     // La columna del frigo con un alto encima llega hasta el frigo; el alto va encima.
     const conAlto = m.tipo === 'columna_frigo' && geo.modulos.some(a => a.alto && a.tipo === 'alto_frigo' && a.pared === m.pared && Math.hypot(a.rect[0].x - m.rect[0].x, a.rect[0].y - m.rect[0].y) < 1e-6 + 0.01 * Math.hypot(m.rect[1].x - m.rect[0].x, m.rect[1].y - m.rect[0].y));
     if (m.tipo === 'cuerpo') {
@@ -192,7 +193,7 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null, colores = nu
   };
   // Campana piramidal: base, pirámide (cuatro caras inclinadas) y chimenea hasta el techo, sobre la placa sin alto encima.
   (d.paredes || []).forEach(pa => campanasPared(pa, d).forEach(cp => {
-    const m = mods.find(x => x.dato && x.dato.id === cp.placa.id && x.r && !x.alto);
+    const de = cp.placa || cp.alto, m = mods.find(x => x.dato && x.dato.id === de.id && x.r && !!x.alto === !cp.placa);
     if (!m || pilares.some(pi => !separadas(m.r, pi))) return;
     const { L } = encima(m.r, 0, 0, 0, 0), s0 = (L - cp.ancho) / 2, s1 = s0 + cp.ancho, F = CAMPANA.fondo, z = encimera + CAMPANA.sobre, zp = z + CAMPANA.base, zc = zp + CAMPANA.piramide;
     caja(encima(m.r, s0, s1, 0, F).rect, z, zp, 'campana', '', 'campana');

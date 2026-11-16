@@ -71,6 +71,7 @@ export function articulo(m, d) {
     case 'alto': return r(alto, v === 'PUERTAS' || !v ? puertas(cm) : v);
     case 'alto_campana': return r(alto, v);
     case 'alto_abierto': return r(alto, '2 ESTANTES DECORATIVO');
+    case 'campana_deco': return null;   // no lleva mueble (la campana va en electrodomésticos)
     case 'alto_micro': return r('ALTO MO 130', '1 PUERTA');
     case 'alto_frigo': return r('ALTO S-FRIGO 50-60', cm > 60 ? '2 PUERTAS' : '1 PUERTA');
     case 'hueco': return null;

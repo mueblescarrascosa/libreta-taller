@@ -41,6 +41,22 @@ prueba('campana piramidal sobre la placa sin alto encima y alto abierto sin puer
   const fr = frenteModulo('alto_abierto', 600, 1450, 2350);
   afirma(fr.length === 2 && fr.every(q => q.k === 'tablero'), 'sin puertas, dos baldas: ' + JSON.stringify(fr));
   igual(articulo(mod('alto_abierto', 600), f.datos).mo, '2 ESTANTES DECORATIVO');
+  // El alto «Campana piramidal»: la campana donde se ponga, sin mueble y sin presupuesto de mueble.
+  f.datos.electro = [{ id: 'e', clave: 'campana', tipo: 'extraible', ancho: 600 }];
+  A.altos = [mod('alto', 600), mod('campana_deco', 900), mod('alto', 600)];
+  igual(campanasPared(A, f.datos).map(x => [x.desde, x.hasta]), [[750, 1350]], 'en el hueco de 90, la campana de 60 de electrodomésticos, centrada');
+  f.datos.electro = []; A.altos[1] = mod('campana_deco', 800);
+  igual(campanasPared(A, f.datos).map(x => [x.desde, x.hasta, x.ancho]), [[700, 1300, 600]], 'hueco de 80 sin ancho de campana: una de 60');
+  A.altos[1] = mod('campana_deco', 900); f.datos.electro = [{ id: 'e', clave: 'campana', tipo: 'extraible', ancho: 600 }];
+  const g2 = geometriaAlzado(f.datos, A);
+  afirma(g2.piezas.some(p => p.tipo === 'campana' && p.trap) && !g2.piezas.some(p => p.clase === 'alto' && p.tipo === 'campana_deco'), 'pirámide sí, mueble no');
+  igual(articulo(mod('campana_deco', 900), f.datos), null);
+  // Alto campana: extraíble (visera de acero con tirador) e integrable (solo la ranura) se dibujan distinto.
+  const ex = frenteModulo('alto_campana', 600, 1450, 2350, { variante: 'CAMPANA EXTRAÍBLE' }).map(q => q.k), it = frenteModulo('alto_campana', 600, 1450, 2350, { variante: 'CAMPANA INTEGRABLE' }).map(q => q.k);
+  afirma(ex.includes('acero') && !ex.includes('campana') && it.includes('campana') && !it.includes('acero'), JSON.stringify({ ex, it }));
+  const { varianteAlto } = await import('../docs/js/frentes.js');
+  igual([varianteAlto({ tipo: 'alto_campana' }, { electro: [{ clave: 'campana', tipo: 'integrada' }] }), varianteAlto({ tipo: 'alto_campana' }, {}), varianteAlto({ tipo: 'alto_campana', variante: 'CAMPANA INTEGRABLE' }, {})],
+    ['CAMPANA INTEGRABLE', 'CAMPANA EXTRAÍBLE', 'CAMPANA INTEGRABLE']);
 });
 
 const con = fn => async () => { const a = await abrir({}); try { await entrar(a); await fn(a); igual(a.errores, [], 'errores de página'); } finally { await a.cerrar(); } };
