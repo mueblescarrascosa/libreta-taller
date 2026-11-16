@@ -64,7 +64,8 @@ function tramosPared(p, d) {
 
   // Cuántos tableros hacen falta para unas piezas (mm), colocándolas por filas (como se corta en la seccionadora):
   // tablero de 2800×2070 por defecto, 4 mm de corte entre piezas y 10 mm de recorte en cada borde; las piezas se pueden
-  // girar. Una pieza más grande que el tablero se parte en trozos iguales (y se avisa). Se prueba cortando las filas a lo
+  // girar. Una pieza más grande que el tablero se parte en trozos iguales (y se avisa). OJO: la misma cuenta está en
+  // presupuestos (cocinas/armarios.js, ARM.empaquetar); si se cambia una, cambiar la otra (prueba test_tableros_iguales.js). Se prueba cortando las filas a lo
   // largo y a lo ancho del tablero, y vale la que gasta menos. Es una estimación buena para pedir material: el despiece
   // real de la seccionadora puede aprovechar algo más.
 export function empaquetar(piezas, op) {
@@ -106,12 +107,15 @@ function filas(piezas, W, H, k) {
     return { tableros: tableros.length, area: area, partidas: partidas };
   }
 
+// Apunta piezas de tablero (mm) en una lista: pz(ancho, alto, cuántas); las de medida 0 no cuentan.
+const apuntar = piezas => (an, al, cant = 1) => { if (an > 0 && al > 0) piezas.push({ an: Math.round(an), al: Math.round(al), cant }); };
+
 // Cascos de los muebles de cocina (tablero de 16): bajos con 2 costados, suelo, 2 travesaños y un estante si son de
 // puertas; columnas con costados, techo, suelo y estantes; altos con costados, techo, suelo y estante. El lavavajillas,
 // los huecos y la campana piramidal no llevan casco.
 export const CASCO = { grueso: 16, fondo_bajo: 560, fondo_alto: 330, travesano: 100 };
 export function piezasCascoCocina(d) {
-  const piezas = [], C = CASCO, g2 = 2 * C.grueso, pz = (an, al, cant = 1) => { if (an > 0 && al > 0) piezas.push({ an: Math.round(an), al: Math.round(al), cant }); };
+  const piezas = [], C = CASCO, g2 = 2 * C.grueso, pz = apuntar(piezas);
   const bajoAlto = ALTURAS.encimera - ALTURAS.grueso_encimera - ALTURAS.zocalo, colAlto = ALTURAS.columna - ALTURAS.zocalo, altoAlto = ALTURAS.altos_hasta - ALTURAS.altos_desde;
   (d.paredes || []).filter(p => hay(p.largo)).forEach(p => {
     const sit = situarMuebles(p, d);
@@ -195,7 +199,7 @@ export function materialVestidor(d) {
   const r = { barras: 0, barras_mm: 0, estantes: 0, cajones: 0, zapateros: 0, pantaloneros: 0, patas: 0, puertas: 0, bisagras: 0, correderas: 0, tiradores: 0 };
   // Piezas de tablero (mm) del casco y de las puertas: costados (uno más que cuerpos en cada pared), techo y suelo,
   // estantes y zapateros, zócalo y hojas. Fondo de 60 cm y alto de las columnas.
-  const piezas = [], F = 600, A = ALTURAS.columna, pz = (an, al, cant = 1) => { if (an > 0 && al > 0) piezas.push({ an: Math.round(an), al: Math.round(al), cant }); };
+  const piezas = [], F = 600, A = ALTURAS.columna, pz = apuntar(piezas);
   (d.paredes || []).forEach(p => {
     const sc = situarCuerpos(p, d);
     if (sc.cuerpos.length) pz(F, A, sc.cuerpos.length + 1);
@@ -232,7 +236,7 @@ export function materialArmario(d, subtipo) {
   if (!A || !isFinite(H)) return null;
   const cuerpos = (d.cuerpos || []).length ? d.cuerpos : [{ ancho: A }], sinAncho = cuerpos.filter(c => !v(c.ancho)).length;
   const resto = Math.max(0, A - cuerpos.reduce((s, c) => s + (v(c.ancho) || 0), 0));
-  const piezas = [], pz = (an, al, cant = 1) => { if (an > 0 && al > 0) piezas.push({ an: Math.round(an), al: Math.round(al), cant }); };
+  const piezas = [], pz = apuntar(piezas);
   pz(F, H, cuerpos.length + 1);
   cuerpos.forEach(c => {
     const w = v(c.ancho) || (sinAncho ? resto / sinAncho : 0);
