@@ -32,6 +32,8 @@ prueba('ajustes en pestañas e índice de la guía', con(async a => {
   const g = await a.page.evaluate(() => ({ titulos: [...document.querySelectorAll('.guia-apartado h2')].map(x => x.textContent), indice: document.querySelectorAll('[data-acc="ir-apartado"]').length }));
   afirma(g.titulos[0] === '1. Reglas de prioridad' && g.titulos.every((t, i) => t.startsWith((i + 1) + '. ')), 'números seguidos: ' + g.titulos.join(' | '));
   igual(g.indice, g.titulos.length, 'un enlace por apartado');
+  const tipo = await a.page.innerText('[data-apartado="1"]');
+  afirma(/Gola en C \(entre cajones\)\s+7,3 cm/.test(tipo) && /Gola vertical \(columnas\)\s+4,7 cm/.test(tipo), 'gola en C y vertical: ' + tipo);
 }));
 
 await fin();

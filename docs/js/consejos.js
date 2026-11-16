@@ -27,6 +27,9 @@ export const MEDIDAS = {
   encimera_libre: 900,                         // encimera de trabajo mínima en total
   gola: 56,                                    // perfil de gola bajo la encimera (lo que quita de hueco a los electrodomésticos)
   gola_mano: 30,                               // hueco para la mano con gola (2,5–3,5 cm): lo que se descuenta a la puerta
+  // Perfiles más vendidos (catálogos de varias marcas): en C, entre cajones, unos 73 × 26 mm; vertical, para columnas, 46–48 de ancho.
+  gola_c: 73,                                  // gola en C entre dos frentes (cajonera o puerta + cajón)
+  gola_vertical: 47,                           // gola vertical en el lado que abre de una columna
   libre_electro: 850, libre_electro_max: 920,  // hueco libre bajo la encimera para lavavajillas y lavadora: mínimo 85; más de 92, sobra
 };
 // Grupos de consejos, en el orden en que salen (y el de la guía).
