@@ -56,7 +56,8 @@ export function articulo(m, d) {
     case 'bajo': case 'fregadero': return r('BAJO', v === 'PUERTAS' || !v ? puertas(cm) : v);
     case 'cajonero': case 'placa': return r('BAJO', v === 'PUERTAS' ? puertas(cm) : v);
     case 'lavavajillas': return esLibre(m, d) ? { revisar: 'Hueco para lavavajillas libre de ' + med + ' (sin mueble)' } : r('BAJO', 'LAVAVAJILLAS INTEGRABLE');
-    case 'lavadora': return esLibre(m, d) ? { revisar: 'Hueco para lavadora libre de ' + med + ' (sin mueble)' } : { revisar: 'Lavadora integrable de ' + med + ': panel y bastidor, elegir a mano' };
+    // La lavadora integrable lleva su puerta (frente) como el panel del lavavajillas integrable: el mismo artículo.
+    case 'lavadora': return esLibre(m, d) ? { revisar: 'Hueco para lavadora libre de ' + med + ' (sin mueble)' } : Object.assign(r('BAJO', 'LAVAVAJILLAS INTEGRABLE'), { texto: 'BAJO · LAVAVAJILLAS INTEGRABLE · ' + med + ' (puerta de la lavadora)' });
     case 'rinconero':
       if (m.forma === 'recto') return r('BAJO', 'RINCÓN CIEGO');
       if (m.forma === 'chaflan') return { revisar: 'Rinconero en chaflán de ' + med + ': no hay bajo en chaflán en el catálogo' };

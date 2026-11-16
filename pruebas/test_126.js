@@ -131,6 +131,8 @@ prueba('lavavajillas, lavadora y frigo: integrable con puerta o libre sin puerta
   igual(frenteModulo('lavadora', 600, 100, 800, { variante: varianteDe(la, f.datos) }).map(q => q.k), ['acero', 'electro', 'cristal'], 'se dibuja la lavadora, sin puerta');
   lv.instalacion = 'integrable';
   igual(articulo(lv, f.datos).mo, 'LAVAVAJILLAS INTEGRABLE', 'lo del mueble manda sobre electrodomésticos');
+  la.instalacion = 'integrable';
+  igual([articulo(la, f.datos).m, articulo(la, f.datos).mo], ['BAJO', 'LAVAVAJILLAS INTEGRABLE'], 'lavadora integrable: su puerta, como el panel del lavavajillas');
 });
 
 prueba('campana: tipo y tamaño en el mueble que hace de hueco, y lo que queda a cada lado', async () => {
