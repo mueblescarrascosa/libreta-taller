@@ -57,12 +57,14 @@ export async function crearEjemplo(App) {
   c.creado_at = new Date(Date.now() + 1000).toISOString();
   Object.assign(c.datos, { alto_techo: 2600 });
   c.datos.paredes = [
-    Object.assign(c.datos.paredes[0], { largo: 3600, elementos: [e('ventana', { distancia: 1500, ancho: 1200, altura: 1100, alto: 1100 }), e('desague', { distancia: 1800, altura: 450 }), e('enchufe', { para: 'general', distancia: 1100, altura: 1100 })],
-      bajos: [m('columna_frigo', 600), m('bajo', 600), m('fregadero', 800), m('lavavajillas', 600), m('rinconero', 1000, { forma: 'L', lado2: 950, gira: 'der' })],
-      altos: [m('alto_frigo', 600), m('alto', 600), m('hueco', 1200), m('alto', 600)] }),
+    // Una cocina bien resuelta: fregadero bajo la ventana con el lavavajillas al lado (lejos del rincón), la campana
+    // encima de la placa con la salida de humos en su centro y ningún alto delante de la ventana.
+    Object.assign(c.datos.paredes[0], { largo: 3600, elementos: [e('ventana', { distancia: 1500, ancho: 1200, altura: 1100, alto: 1100 }), e('desague', { distancia: 2200, altura: 450 }), e('enchufe', { para: 'general', distancia: 1100, altura: 1100 })],
+      bajos: [m('columna_frigo', 600), m('bajo', 600), m('lavavajillas', 600), m('fregadero', 800), m('rinconero', 1000, { forma: 'L', lado2: 950, gira: 'der' })],
+      altos: [m('alto_frigo', 600), m('alto', 900), m('hueco', 1200), m('alto', 900)] }),
   ];
   const B = { id: r(), letra: 'B', largo: 3200, elementos: [e('humos', { distancia: 1400, altura: 2300, humos_forma: 'redonda', diametro: 150 })],
-    bajos: [m('placa', 900, { horno: true }), m('cajonero', 600), m('columna_hmo', 600)], altos: [m('alto_campana', 900), m('alto', 600)] };
+    bajos: [m('placa', 900, { horno: true }), m('cajonero', 600), m('columna_hmo', 600)], altos: [m('hueco', 950), m('alto_campana', 900), m('alto', 600)] };
   c.datos.paredes.push(Object.assign({}, c.datos.paredes[0], { id: r() }, B));
   c.datos.notas = [{ id: r(), texto: 'Trabajo de ejemplo: cambia o borra lo que quieras.' }];
   await App.guardarFila('fichas', c);

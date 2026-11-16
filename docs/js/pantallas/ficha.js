@@ -756,13 +756,13 @@ export async function pintarFicha(App, id) {
         h('div', { class: 'dos' }, medida(d, 'alto_izq', 'Izquierda'), medida(d, 'alto_der', 'Derecha')),
         h('div', { class: 'avisos', 'data-avisos': 'altos' }),
         h('label', { class: 'et titulo-grupo' }, 'Diagonales ', h('small', { class: 'ayuda' }, '(de esquina a esquina: escuadra)')),
-        h('div', { class: 'dos' }, medida(d, 'diag_1', '↘ Diagonal 1', { aviso: null }), medida(d, 'diag_2', '↙ Diagonal 2', { aviso: null })),
+        h('div', { class: 'dos' }, medida(d, 'diag_1', 'Diagonal 1 (desde arriba izq.)', { aviso: null }), medida(d, 'diag_2', 'Diagonal 2 (desde arriba dcha.)', { aviso: null })),
         h('div', { class: 'avisos', 'data-avisos': 'diagonales' }),
         medida(d, 'fondo', 'Fondo del hueco'),
         h('div', { class: 'dos' }, medida(d, 'rodapie_alto', 'Rodapié alto'), medida(d, 'rodapie_grosor', 'Rodapié grueso')),
         ficha.subtipo === 'corredera' ? h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Hojas'),
           segmentado({ acc: 'hojas-rapido', opciones: [[2, '2'], [3, '3'], [4, '4']], valor: d.hojas, permitirVacio: true, alCambiar: v => { d.hojas = v; cambio(); const c = main.querySelector('[data-acc="hojas"]'); if (c) c.value = v ?? ''; } }),
-          campoEntero({ acc: 'hojas', valor: d.hojas, alCambiar: v => { d.hojas = v; cambio(); } })) : null,
+          campoEntero({ acc: 'hojas', valor: d.hojas, placeholder: 'Otro número', alCambiar: v => { d.hojas = v; cambio(); } })) : null,
         ficha.subtipo === 'abatible' ? campoEntero({ etiqueta: 'Número de puertas', acc: 'puertas', valor: d.puertas, alCambiar: v => { d.puertas = v; cambio(); } }) : null)];
       if (!ves || (d.cuerpos || []).length) r.push(...cuerpos());
       // En el vestidor los enchufes van en sus paredes; la lista aparte solo se ve si ya tenía alguno.

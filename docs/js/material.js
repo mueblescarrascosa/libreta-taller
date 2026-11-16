@@ -62,6 +62,50 @@ function tramosPared(p, d) {
   return tramos;
 }
 
+  // Cuántos tableros hacen falta para unas piezas (mm), colocándolas por filas (como se corta en la seccionadora):
+  // tablero de 2800×2070 por defecto, 4 mm de corte entre piezas y 10 mm de recorte en cada borde; las piezas se pueden
+  // girar. Una pieza más grande que el tablero se parte en trozos iguales (y se avisa). Se prueba cortando las filas a lo
+  // largo y a lo ancho del tablero, y vale la que gasta menos. Es una estimación buena para pedir material: el despiece
+  // real de la seccionadora puede aprovechar algo más.
+export function empaquetar(piezas, op) {
+    op = op || {};
+    var L = op.largo || 2800, A = op.ancho || 2070, r = op.recorte === undefined ? 10 : op.recorte, k = op.corte === undefined ? 4 : op.corte;
+    var a = filas(piezas, L - 2 * r, A - 2 * r, k), b = filas(piezas, A - 2 * r, L - 2 * r, k), m = b.tableros < a.tableros ? b : a;
+    m.aprovechamiento = m.tableros ? Math.round(m.area / (m.tableros * L * A) * 100) : 0;
+    m.m2 = Math.round(m.area / 1e4) / 100;
+    delete m.area;
+    return m;
+  }
+function filas(piezas, W, H, k) {
+    var mayor = Math.max(W, H), menor = Math.min(W, H), items = [], partidas = 0, area = 0;
+    (piezas || []).forEach(function (p) {
+      var a = Math.max(p.an, p.al), b = Math.min(p.an, p.al), n = Math.max(0, Math.round(p.cant || 1));
+      if (!(a > 0 && b > 0) || !n) return;
+      area += n * p.an * p.al;
+      var ta = Math.ceil(a / mayor), tb = Math.ceil(b / menor);
+      if (ta * tb > 1) { partidas += n; a = a / ta; b = b / tb; var x = Math.max(a, b); b = Math.min(a, b); a = x; }
+      for (var i = 0; i < n * ta * tb; i++) items.push([a, b]);
+    });
+    // De mayor a menor por su lado corto (el alto de la fila) y luego por el largo.
+    items.sort(function (x, y) { return y[1] - x[1] || y[0] - x[0]; });
+    var tableros = [];
+    // Orientaciones de una pieza: [a lo largo de la fila, alto]; primero tumbada.
+    var orient = function (it) { return [[it[0], it[1]], [it[1], it[0]]].filter(function (o) { return o[0] <= W && o[1] <= H; }); };
+    items.forEach(function (it) {
+      var os = orient(it), puesto = false;
+      for (var t = 0; t < tableros.length && !puesto; t++) {
+        var T = tableros[t];
+        for (var f = 0; f < T.filas.length && !puesto; f++) {
+          var F = T.filas[f];
+          for (var j = 0; j < os.length && !puesto; j++) if (os[j][1] <= F.alto && F.usado + os[j][0] <= W) { F.usado += os[j][0] + k; puesto = true; }
+        }
+        for (var j2 = 0; j2 < os.length && !puesto; j2++) if (T.alto + os[j2][1] <= H) { T.filas.push({ alto: os[j2][1], usado: os[j2][0] + k }); T.alto += os[j2][1] + k; puesto = true; }
+      }
+      if (!puesto && os.length) tableros.push({ alto: os[0][1] + k, filas: [{ alto: os[0][1], usado: os[0][0] + k }] });
+    });
+    return { tableros: tableros.length, area: area, partidas: partidas };
+  }
+
 export function materialCocina(d) {
   const paredes = (d.paredes || []).filter(p => hay(p.largo));
   const porPared = new Map(paredes.map(p => [p, tramosPared(p, d)]));
@@ -90,7 +134,7 @@ export function materialCocina(d) {
   const zocalo = zocaloFrente(d);
 
   // Herrajes, de los frentes de cada mueble.
-  const h = { puertas: 0, bisagras: 0, cajones: 0, tiradores: 0, patas: 0, lavavajillas: 0 };
+  const h = { puertas: 0, bisagras: 0, cajones: 0, tiradores: 0, patas: 0, lavavajillas: 0 }, frentes = [];
   paredes.forEach(p => {
     const sit = situarMuebles(p, d);
     const contar = (tipo, ancho, z0, z1, opc = {}) => {
@@ -98,6 +142,7 @@ export function materialCocina(d) {
       f.forEach((q, i) => {
         if (q.k === 'tirador') h.tiradores++;
         if (q.k !== 'hoja') return;
+        frentes.push({ an: Math.round(q.x1 - q.x0), al: Math.round(q.z1 - q.z0), cant: 1 });
         if (tipo === 'lavavajillas') { h.lavavajillas++; return; }
         const t = f[i + 1], cajon = t && t.k === 'tirador' && t.x1 - t.x0 > t.z1 - t.z0;
         if (cajon) h.cajones++;
@@ -113,31 +158,38 @@ export function materialCocina(d) {
     });
     sit.altos.forEach(a => { if (a.m.tipo !== 'hueco') contar(a.m.tipo, a.hasta - a.desde, ALTURAS.altos_desde, ALTURAS.altos_hasta); });
   });
-  return { piezas, uniones, huecos, lineales: { zocalo, cornisa: arriba, led: bajoAltos }, herrajes: h };
+  return { piezas, uniones, huecos, lineales: { zocalo, cornisa: arriba, led: bajoAltos }, herrajes: h, frentes, tablerosFrentes: empaquetar(frentes) };
 }
 
 // Vestidor: barras (metros y soportes), estantes, cajones y patas de los cuerpos.
 export function materialVestidor(d) {
   const r = { barras: 0, barras_mm: 0, estantes: 0, cajones: 0, zapateros: 0, pantaloneros: 0, patas: 0, puertas: 0, bisagras: 0, correderas: 0, tiradores: 0 };
+  // Piezas de tablero (mm) del casco y de las puertas: costados (uno más que cuerpos en cada pared), techo y suelo,
+  // estantes y zapateros, zócalo y hojas. Fondo de 60 cm y alto de las columnas.
+  const piezas = [], F = 600, A = ALTURAS.columna, pz = (an, al, cant = 1) => { if (an > 0 && al > 0) piezas.push({ an: Math.round(an), al: Math.round(al), cant }); };
   (d.paredes || []).forEach(p => {
     const sc = situarCuerpos(p, d);
+    if (sc.cuerpos.length) pz(F, A, sc.cuerpos.length + 1);
     sc.cuerpos.forEach(({ c, desde, hasta }) => {
       const w = hasta - desde;
+      pz(w, F, 2); pz(w, 80);
       r.patas += 4;
       puertasCuerpo(w, ALTURAS.columna, c.puertas).forEach(q => {
+        if (q.k === 'hoja') pz(q.x1 - q.x0, q.z1 - q.z0);
         if (q.k === 'tirador') r.tiradores++;
         if (q.pieza === 'puerta') { r.puertas++; r.bisagras += 4; }
         if (q.pieza === 'corredera') r.correderas++;
       });
       piezasInterior(c, ALTURAS.columna).forEach(q => {
         if (q.tipo === 'barra') { r.barras++; r.barras_mm += w - 40; }
-        if (q.tipo === 'estante') r.estantes++;
+        if (q.tipo === 'estante') { r.estantes++; pz(w - 40, F - 20); }
         if (q.tipo === 'cajon') r.cajones++;
-        if (q.tipo === 'zapato') r.zapateros++;
+        if (q.tipo === 'zapato') { r.zapateros++; pz(w - 40, F - 20); }
         if (q.tipo === 'pantalonero') r.pantaloneros++;
       });
     });
   });
+  r.tableros = empaquetar(piezas);
   return r;
 }
 
@@ -153,6 +205,9 @@ export function textoMaterial(ficha, unidad = 'cm', ajustes = null) {
       if (r.uniones.length) l.push('- Uniones en esquina: ' + r.uniones.join(', '));
       r.huecos.forEach(q => l.push('- Hueco de ' + (q.que === 'placa' ? 'placa' : 'fregadero') + ' (mueble de ' + v(q.ancho) + ', pared ' + q.pared + ')'));
     }
+    // Frentes de fabricación propia: puertas y cajones colocados en tableros de 2800×2070.
+    if (r.frentes.length) { const t = r.tablerosFrentes;
+      l.push('Frentes (si son de fabricación propia): ' + r.frentes.length + ' piezas, ' + String(t.m2).replace('.', ',') + ' m² → ' + t.tableros + (t.tableros === 1 ? ' tablero' : ' tableros') + ' de 280×207 (aprovecha el ' + t.aprovechamiento + ' %)'); }
     const lin = (d.acabados && d.acabados.lineales || []).map(x => x.tipo);
     if (r.lineales.zocalo) l.push('Zócalo: ' + m(r.lineales.zocalo));
     if (lin.includes('cornisa') && r.lineales.cornisa) l.push('Cornisa: ' + m(r.lineales.cornisa));
@@ -177,6 +232,8 @@ export function textoMaterial(ficha, unidad = 'cm', ajustes = null) {
     if (r.tiradores) t.push(r.tiradores + ' tiradores');
     if (r.patas) t.push(r.patas + ' patas');
     if (t.length) l.push('Herrajes: ' + t.join(', '));
+    const tb = r.tableros;
+    if (tb && tb.tableros) l.push('Tableros de casco y puertas (orientativo): ' + tb.tableros + (tb.tableros === 1 ? ' tablero' : ' tableros') + ' de 280×207 (' + String(tb.m2).replace('.', ',') + ' m² de piezas, aprovecha el ' + tb.aprovechamiento + ' %)');
   }
   return l;
 }

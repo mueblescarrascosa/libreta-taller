@@ -96,7 +96,7 @@ export function planoPara3d(d) {
 // Piedra y madera: una línea a 0 € para poner el precio del marmolista.
 export const ENCIMERA_PRESUPUESTO = { 'Hidrófuga Egger': 'HIDROFUGA EGGER', 'Egger Perfsense': 'HIDROFUGA EGGER PERFSENSE', 'Egger Porsinc': 'HIDROFUGA EGGER PORSINC',
   'Hidrófuga 19 mm': 'HIDROFUGA 19mm', Topform: 'TOPFORM ENCIMERA' };
-export const TABLERO_ENCIMERA = 4100;
+export const TABLERO_ENCIMERA = 4100, TIRA_ZOCALO = 4000;
 export function tablerosEncimera(piezas, largo = TABLERO_ENCIMERA) {
   const trozos = [];
   piezas.forEach(p => { let r = p.largo; while (r > largo) { trozos.push(largo); r -= largo; } if (r > 0) trozos.push(r); });
@@ -148,7 +148,10 @@ export function paquetePresupuesto(ficha, trabajo, ajustes) {
   (d.electro || []).forEach(e => revisar.push('Electrodoméstico: ' + [e.clave === 'otro' ? e.nombre || 'otro' : e.clave, e.tipo, e.modelo].filter(Boolean).join(' ') + ' (elegir modelo)'));
   // Con el material de la encimera elegido, la encimera va con sus líneas (abajo); si no, su detalle a «Revisar».
   const enc = ficha.tipo === 'cocina' ? encimeraPresupuesto(d) : null;
-  textoMaterial(ficha, 'cm', ajustes).filter(l => (enc ? /^(Zócalo|Cornisa|Tira LED)/ : /^(Encimera|- Pared|- Isla|- Pen|- Uniones|- Hueco|Zócalo|Cornisa|Tira LED)/).test(l)).forEach(l => revisar.push(l.replace(/^- /, 'Encimera · ')));
+  // Zócalo de PVC de la altura de la cocina tipo (10 o 15), en tiras de 4 m.
+  const zmm = ficha.tipo === 'cocina' ? materialCocina(d).lineales.zocalo : 0, zAlto = (ajustes && ajustes.cocina_tipo && ajustes.cocina_tipo.zocalo) || ALTURAS.zocalo;
+  const zocalo = zmm > 0 ? { cat: 'ZÓCALO', item: zAlto >= 125 ? 'ALTO 15' : 'ALTO 10', und: Math.ceil(zmm / TIRA_ZOCALO), texto: 'Zócalo de ' + Math.round(zAlto / 10) + ' cm · ' + String(Math.round(zmm / 100) / 10).replace('.', ',') + ' m' } : null;
+  textoMaterial(ficha, 'cm', ajustes).filter(l => (enc ? /^(Cornisa|Tira LED)/ : /^(Encimera|- Pared|- Isla|- Pen|- Uniones|- Hueco|Cornisa|Tira LED)/).test(l)).forEach(l => revisar.push(l.replace(/^- /, 'Encimera · ')));
   if (enc) revisar.push(...enc.revisar);
   const ac = d.acabados || {};
   if (ac.modelo || ac.color) notas.push('Frentes: ' + [ac.modelo, ac.color].filter(Boolean).join(' '));
@@ -161,7 +164,8 @@ export function paquetePresupuesto(ficha, trabajo, ajustes) {
   if (bajos.length) grupos.push({ tipo: 'muebles', nombre: 'Bajos y columnas', cal: CALIDAD, casco, lineas: bajos });
   if (altos.length) grupos.push({ tipo: 'muebles', nombre: 'Altos', cal: CALIDAD, casco, lineas: altos });
   if (tramos.length) grupos.push({ tipo: 'armario', nombre: 'Vestidor', tramos });
-  if (enc && enc.extras.length) grupos.push({ tipo: 'extras', nombre: 'Encimera', lineas: enc.extras });
+  const lineasEx = (enc ? enc.extras : []).concat(zocalo ? [zocalo] : []);
+  if (lineasEx.length) grupos.push({ tipo: 'extras', nombre: enc && enc.extras.length ? (zocalo ? 'Encimera y zócalo' : 'Encimera') : 'Zócalo', lineas: lineasEx });
   if (enc && enc.libres.length) grupos.push({ tipo: 'libre', nombre: 'Encimera (precio a mano)', lineas: enc.libres });
   if (revisar.length) grupos.push({ tipo: 'revisar', lineas: revisar });
   const nombre = ficha.nombre || (ficha.tipo === 'cocina' ? 'Cocina' : 'Vestidor');

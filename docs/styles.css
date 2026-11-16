@@ -494,3 +494,17 @@ button.enlace { background: none; border: 0; padding: 0; min-height: 0; color: v
 .guia-indice ol{margin:6px 0 0;padding-left:22px;columns:2;column-gap:18px}.guia-indice li{margin:3px 0;break-inside:avoid}
 .guia-indice .enlace{background:none;border:0;padding:2px 0;color:inherit;text-decoration:underline;text-align:left;cursor:pointer;font:inherit;min-height:0}
 @media (max-width:520px){.guia-indice ol{columns:1}}
+
+/* 1.28.1: en el móvil, el título de la pantalla en su propia línea para que se lea entero. */
+@media (max-width: 520px) {
+  header { flex-wrap: wrap; row-gap: 4px; }
+  header .titulo { order: 20; flex: 1 0 100%; white-space: normal; overflow: visible; font-size: 15px; line-height: 1.25; padding: 0 2px 2px; }
+}
+/* Las cabeceras de las tablas del resumen no se parten a mitad de palabra («Par/ed»). */
+.resumen-doc th { word-break: keep-all; overflow-wrap: normal; hyphens: none; }
+.resumen-doc .instalaciones th:first-child, .resumen-doc .instalaciones td:first-child { width: 1%; white-space: nowrap; }
+
+/* 1.28.2: al elegir armario, la pregunta, qué es cada uno y volver */
+.tipos .pregunta-tipo { grid-column: 1 / -1; margin: 2px 0 0; font-weight: 700; }
+.tipos [data-acc="subtipo"] small { display: block; font-size: 12px; color: var(--tenue); font-weight: 400; margin-top: 2px; }
+.tipos .volver-tipo { background: transparent; border-style: dashed; }

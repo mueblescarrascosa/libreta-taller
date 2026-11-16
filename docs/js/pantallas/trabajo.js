@@ -34,8 +34,13 @@ function selectorFicha(App, trabajoId) {
   };
   const inicial = () => zona.replaceChildren(...['puerta', 'cocina', 'armario', 'nota'].map(t =>
     h('button', { type: 'button', 'data-acc': 'tipo', 'data-v': t, onclick: () => t === 'armario' ? subtipos() : crear(t, null) }, NOMBRE_TIPO[t])));
-  const subtipos = () => zona.replaceChildren(...Object.keys(NOMBRE_SUBTIPO).map(s =>
-    h('button', { type: 'button', 'data-acc': 'subtipo', 'data-v': s, onclick: () => crear('armario', s) }, NOMBRE_SUBTIPO[s])));
+  // Armario: qué clase es, con lo que significa cada una, y vuelta atrás a los demás tipos.
+  const AYUDA_SUBTIPO = { vestidor: 'Paredes con cuerpos, como una cocina', corredera: 'Hueco con puertas correderas', abatible: 'Hueco con puertas que abren' };
+  const subtipos = () => zona.replaceChildren(
+    h('p', { class: 'pregunta-tipo', 'data-acc': 'pregunta-armario' }, '¿Qué armario es?'),
+    ...Object.keys(NOMBRE_SUBTIPO).map(s =>
+      h('button', { type: 'button', 'data-acc': 'subtipo', 'data-v': s, onclick: () => crear('armario', s) }, NOMBRE_SUBTIPO[s], AYUDA_SUBTIPO[s] ? h('small', {}, AYUDA_SUBTIPO[s]) : null)),
+    h('button', { type: 'button', class: 'volver-tipo', 'data-acc': 'volver-tipo', onclick: inicial }, '← Otra ficha'));
   inicial();
   return zona;
 }

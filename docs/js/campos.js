@@ -51,8 +51,8 @@ export function campoMedida({ etiqueta, acc, valor, mal, unidad, alCambiar, ref,
   return caja;
 }
 
-export function campoEntero({ etiqueta, acc, valor, alCambiar }) {
-  const input = h('input', { 'data-acc': acc, inputmode: 'numeric', autocomplete: 'off', value: valor ?? '' });
+export function campoEntero({ etiqueta, acc, valor, alCambiar, placeholder }) {
+  const input = h('input', { 'data-acc': acc, inputmode: 'numeric', autocomplete: 'off', value: valor ?? '', placeholder: placeholder || '' });
   input.addEventListener('input', () => {
     const t = input.value.trim();
     if (/^\d*$/.test(t)) alCambiar(t ? Number(t) : null);

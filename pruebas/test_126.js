@@ -74,10 +74,29 @@ prueba('encimera al presupuesto: tableros de 4,10, colocación, agujeros, juntas
   igual(e.extras.map(x => [x.cat, x.item, x.und]), [['ENCIMERA', 'HIDROFUGA EGGER', 1], ['TRABAJOS ENCIMERA', 'COLOCACIÓN ENCIMERA', 1], ['TRABAJOS ENCIMERA', 'AGUJERO PLACA/FREGADERO', 2],
     ['TRABAJOS ENCIMERA', 'JUNTA DE UNIÓN', 1], ['COPETE', 'A JUEGO CON ENCIMERA EGGER', 4]]);
   const p = paquetePresupuesto(f, null, null);
-  afirma(p.grupos.some(g => g.tipo === 'extras' && g.nombre === 'Encimera') && !(p.grupos.find(g => g.tipo === 'revisar') || { lineas: [] }).lineas.some(l => /^Encimera/.test(l)), 'la encimera va con sus líneas y no a revisar');
+  const gx = p.grupos.find(g => g.tipo === 'extras');
+  afirma(gx && gx.nombre === 'Encimera y zócalo' && !(p.grupos.find(g => g.tipo === 'revisar') || { lineas: [] }).lineas.some(l => /^(Encimera|Zócalo)/.test(l)), 'la encimera y el zócalo van con sus líneas y no a revisar');
+  const z = gx.lineas.find(l => l.cat === 'ZÓCALO');
+  igual([z.item, z.und], ['ALTO 15', 1], 'zócalo de 15 (cocina tipo 15 + 70 + 4), menos de 4 m: una tira');
+  igual(paquetePresupuesto(f, null, { cocina_tipo: { zocalo: 100 } }).grupos.find(g => g.tipo === 'extras').lineas.find(l => l.cat === 'ZÓCALO').item, 'ALTO 10');
   f.datos.acabados.encimera.material = 'Silestone'; f.datos.acabados.encimera.color = 'Calacatta Gold';
   const s = encimeraPresupuesto(f.datos);
   afirma(!s.extras.length && s.libres.length === 1 && /Silestone Calacatta Gold/.test(s.libres[0].texto) && s.libres[0].precio === 0, JSON.stringify(s));
+});
+
+prueba('frentes de fabricación propia: puertas y cajones en tableros de 2800×2070', async () => {
+  const { paredNueva } = await import('../docs/js/modelo.js'), { moduloNuevo } = await import('../docs/js/modulos.js'), { textoMaterial, empaquetar } = await import('../docs/js/material.js');
+  const mod = (tipo, ancho) => Object.assign(moduloNuevo(tipo), { ancho });
+  const f = fichaNueva('cocina', null, 't');
+  f.datos.paredes = [Object.assign(paredNueva([]), { letra: 'A', largo: 3600, elementos: [], bajos: [mod('bajo', 600), mod('cajonero', 600), mod('fregadero', 800), mod('columna_hmo', 600)], altos: [mod('alto', 600), mod('alto', 800)] })];
+  const l = textoMaterial(f, 'cm').find(x => /^Frentes/.test(x));
+  afirma(/13 piezas, 2,93 m² → 1 tablero de 280×207/.test(l), l);
+  igual([empaquetar([{ an: 1500, al: 600, cant: 4 }]).tableros, empaquetar([{ an: 3000, al: 600, cant: 2 }]).partidas], [1, 2]);
+  // Vestidor: casco y puertas.
+  const v = fichaNueva('armario', 'vestidor', 't');
+  v.datos.paredes = [Object.assign(paredNueva([]), { letra: 'A', largo: 2800, elementos: [], cuerpos: [{ id: '1', ancho: 1000, interior: 'barra', interior2: 'cajonera', puertas: 'corredera' }, { id: '2', ancho: 800, interior: 'estantes' }, { id: '3', ancho: 1000, interior: 'doble_barra' }] })];
+  const lv = textoMaterial(v, 'cm').find(x => /^Tableros de casco/.test(x));
+  afirma(/3 tableros de 280×207/.test(lv), lv);
 });
 
 const con = fn => async () => { const a = await abrir({}); try { await entrar(a); await fn(a); igual(a.errores, [], 'errores de página'); } finally { await a.cerrar(); } };
