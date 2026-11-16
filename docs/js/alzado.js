@@ -27,17 +27,29 @@ const PUNTOS = ['humos', 'desague', 'toma', 'agua', 'gas', 'enchufe', 'otro'];
 // Campana decorativa (piramidal) sobre cada placa que no tiene un alto encima: si en los electrodomésticos la campana es
 // decorativa o no se ha dicho el tipo (las extraíbles e integradas van en el «Alto campana»). Ancho: el de la campana o el
 // de la placa (de 60 a 90). Medidas en mm: 65 cm sobre la encimera, base de 7, pirámide de 33 y chimenea de 26 hasta el techo.
-export const CAMPANA = { sobre: 650, base: 70, piramide: 330, chimenea: 260, fondo: 500, fondo_chimenea: 240 };
+export const CAMPANA = { sobre: 650, base: 70, piramide: 330, chimenea: 260, fondo: 500, fondo_chimenea: 240, margen_min: 50, margen_bien: 100 };
 // También donde se haya puesto el alto «Campana piramidal» (con su ancho), sea cual sea el tipo de campana.
 export function campanasPared(pared, d, sit = situarMuebles(pared, d)) {
   const c = (d.electro || []).find(e => e.clave === 'campana');
   // En el hueco del alto «Campana piramidal», la campana centrada con su ancho (el de electrodomésticos; si no, la medida
   // estándar más grande que quepa: 60, 90 o 120). El hueco de 80 lleva una campana de 60.
-  const anchoEn = hueco => { const w = c && hay(c.ancho) ? c.ancho : [1200, 900, 600].find(x => x <= hueco) || hueco; return Math.min(w, hueco); };
-  const puestas = sit.altos.filter(a => a.m.tipo === 'campana_deco').map(a => { const w = anchoEn(a.hasta - a.desde), x = (a.desde + a.hasta - w) / 2; return { alto: a.m, desde: x, hasta: x + w, ancho: w }; });
-  if (c && c.tipo && c.tipo !== 'decorativa') return puestas;
-  return puestas.concat(sit.bajos.filter(({ m, desde, hasta }) => m.tipo === 'placa' && !sit.altos.some(a => a.m.tipo !== 'hueco' && a.desde < hasta - 50 && a.hasta > desde + 50))
-    .map(({ m, desde, hasta }) => { const w = c && hay(c.ancho) ? c.ancho : Math.min(900, Math.max(600, hasta - desde)), x = (desde + hasta - w) / 2; return { placa: m, desde: x, hasta: x + w, ancho: w }; }));
+  // En el mueble se puede elegir el tamaño de la campana (60, 90, 120) y su tipo (piramidal o recta).
+  const anchoEn = (hueco, m) => { const w = m && hay(m.campana_ancho) ? m.campana_ancho : c && hay(c.ancho) ? c.ancho : [1200, 900, 600].find(x => x <= hueco) || hueco; return Math.min(w, hueco); };
+  const puestas = sit.altos.filter(a => a.m.tipo === 'campana_deco').map(a => { const w = anchoEn(a.hasta - a.desde, a.m), x = (a.desde + a.hasta - w) / 2; return { alto: a.m, desde: x, hasta: x + w, ancho: w, hueco: a.hasta - a.desde, tipo: a.m.campana_tipo || 'piramidal' }; });
+  const sobrePlaca = c && c.tipo && c.tipo !== 'decorativa' ? [] : sit.bajos.filter(({ m, desde, hasta }) => m.tipo === 'placa' && !sit.altos.some(a => a.m.tipo !== 'hueco' && a.desde < hasta - 50 && a.hasta > desde + 50))
+    .map(({ m, desde, hasta }) => { const w = c && hay(c.ancho) ? c.ancho : Math.min(900, Math.max(600, hasta - desde)), x = (desde + hasta - w) / 2; return { placa: m, desde: x, hasta: x + w, ancho: w, tipo: 'piramidal' }; });
+  // Lo que queda a cada lado hasta el siguiente alto o columna (o la pared).
+  const L = hay(pared.largo) ? pared.largo : Infinity, ocupan = sit.altos.filter(a => a.m.tipo !== 'hueco' && a.m.tipo !== 'campana_deco').concat(sit.bajos.filter(b => esColumna(b.m)));
+  return puestas.concat(sobrePlaca).map(x => {
+    const izq = ocupan.filter(o => o.hasta <= x.desde + 1).reduce((m, o) => Math.max(m, o.hasta), 0), der = ocupan.filter(o => o.desde >= x.hasta - 1).reduce((m, o) => Math.min(m, o.desde), L);
+    return Object.assign(x, { izq: Math.round(x.desde - izq), der: isFinite(der) ? Math.round(der - x.hasta) : null, izqPared: !ocupan.some(o => o.hasta <= x.desde + 1), derPared: !ocupan.some(o => o.desde >= x.hasta - 1) });
+  });
+}
+// Texto para la ficha: «Campana de 60 en un hueco de 90: quedan 15 cm a la izquierda y 15 cm a la derecha».
+export function textoHolgurasCampana(x) {
+  const cm = mm => Math.round(mm / 10) + ' cm', lado = (v, pared, t) => (v === null ? '' : (!pared && v < CAMPANA.margen_min ? '⚠ ' : '') + cm(v) + ' a la ' + t + (pared ? ' hasta la pared' : ' hasta el mueble'));
+  return 'Campana ' + (x.tipo === 'recta' ? 'recta' : 'piramidal') + ' de ' + cm(x.ancho) + (x.hueco ? ' en un hueco de ' + cm(x.hueco) : ' encima de la placa') + ': quedan '
+    + [lado(x.izq, x.izqPared, 'izquierda'), lado(x.der, x.derPared, 'derecha')].filter(Boolean).join(' y ') + '.';
 }
 
 export function techoFrigo(d) {
@@ -94,7 +106,8 @@ export function geometriaAlzado(d, pared, ajustes = null) {
   campanasPared(pared, d, sit).forEach(c => {
     const z = ALTURAS.encimera + CAMPANA.sobre, zp = z + CAMPANA.base, zc = zp + CAMPANA.piramide;
     pieza('f_campana', c.desde, z, c.ancho, CAMPANA.base, '', 'campana');
-    g.piezas.push({ clase: 'f_campana', tipo: 'campana', x: c.desde, y: zp, w: c.ancho, h: CAMPANA.piramide, trap: CAMPANA.chimenea, texto: '' });
+    if (c.tipo === 'recta') pieza('f_campana', c.desde, zp, c.ancho, CAMPANA.piramide, '', 'campana');
+    else g.piezas.push({ clase: 'f_campana', tipo: 'campana', x: c.desde, y: zp, w: c.ancho, h: CAMPANA.piramide, trap: CAMPANA.chimenea, texto: '' });
     if (techo > zc) pieza('f_campana', (c.desde + c.hasta - CAMPANA.chimenea) / 2, zc, CAMPANA.chimenea, techo - zc, '', 'campana');
   });
 

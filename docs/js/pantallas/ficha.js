@@ -14,7 +14,7 @@ import { textoResumen, urlWhatsapp } from '../resumen.js';
 import { huella } from '../sincro.js';
 import { geometriaPlanta, svgPlanta, aplicarPlano, pilarEnParedes, pilaresEnParedes, pasarAPilar } from '../plano-vista.js';
 import { abrirPlano } from '../plano-editor.js';
-import { geometriaAlzado, svgAlzado } from '../alzado.js';
+import { geometriaAlzado, svgAlzado, campanasPared, textoHolgurasCampana } from '../alzado.js';
 import { vistaInteractiva, abrirPerspectivaGrande } from './perspectiva-ui.js';
 import { consejosDiseno, GRUPOS as GRUPOS_CONSEJO } from '../consejos.js';
 import { comoRellenar } from '../ayuda.js';
@@ -538,6 +538,18 @@ export async function pintarFicha(App, id) {
           segmentado({ acc: 'gira-rinconero', opciones, valor: m.gira === 'izq' ? 'izq' : 'der', alCambiar: x => { m.gira = x; cambio(); refrescarAvisos(); } })));
       } else n.push(med('ancho', 'Ancho', anchosDe(m, AJ.modulo_anchos)));
       // Lavavajillas, lavadora y frigo: integrable (con puerta) o libre (sin puerta, no cuenta en frentes ni presupuesto).
+      // Campana: tipo y tamaño en el mueble «Campana piramidal» (que hace de hueco) y lo que queda a cada lado; en la placa,
+      // si ya lleva una decorativa encima, lo mismo.
+      if (m.tipo === 'campana_deco' || m.tipo === 'placa') {
+        const x = campanasPared(p, d).find(c => (c.alto || c.placa) === m);
+        if (m.tipo === 'campana_deco') {
+          n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Tipo de campana'),
+            segmentado({ acc: 'campana-tipo', opciones: [['piramidal', 'Piramidal'], ['recta', 'Recta (de cajón)']], valor: m.campana_tipo || 'piramidal', alCambiar: v => { m.campana_tipo = v; cambio(); repintar(); } })));
+          n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Tamaño de la campana (el mueble es el hueco)'),
+            segmentado({ acc: 'campana-ancho', opciones: [[600, '60'], [900, '90'], [1200, '120']], valor: m.campana_ancho ?? null, permitirVacio: true, alCambiar: v => { m.campana_ancho = v; cambio(); repintar(); } })));
+        }
+        if (x) n.push(h('small', { class: 'ayuda holguras-campana', 'data-acc': 'holguras-campana' }, textoHolgurasCampana(x)));
+      }
       if (tieneInstalacion(m)) {
         const ops = [['integrable', 'Integrable (con puerta)'], ['libre', 'Libre (sin puerta)']].concat(m.tipo === 'columna_frigo' ? [['americano', 'Americano']] : []), actual = instalacionDe(m, d);
         n.push(h('div', { class: 'campo instalacion' + (actual ? '' : ' sin-contestar'), 'data-acc': 'instalacion-campo' }, h('label', { class: 'et' }, '¿Integrable o de libre instalación?'),

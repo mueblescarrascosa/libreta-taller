@@ -197,6 +197,7 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null, colores = nu
     if (!m || pilares.some(pi => !separadas(m.r, pi))) return;
     const { L } = encima(m.r, 0, 0, 0, 0), s0 = (L - cp.ancho) / 2, s1 = s0 + cp.ancho, F = CAMPANA.fondo, z = encimera + CAMPANA.sobre, zp = z + CAMPANA.base, zc = zp + CAMPANA.piramide;
     caja(encima(m.r, s0, s1, 0, F).rect, z, zp, 'campana', '', 'campana');
+    if (cp.tipo === 'recta') { caja(encima(m.r, s0, s1, 0, F).rect, zp, zc, 'campana', '', 'campana'); const cs0r = (L - CAMPANA.chimenea) / 2; if (techo > zc) caja(encima(m.r, cs0r, cs0r + CAMPANA.chimenea, 0, CAMPANA.fondo_chimenea).rect, zc, techo, 'campana', '', 'campana'); return; }
     const cs0 = (L - CAMPANA.chimenea) / 2, cs1 = cs0 + CAMPANA.chimenea, cf = CAMPANA.fondo_chimenea;
     const abajo = encima(m.r, s0, s1, 0, F).rect, arribaP = encima(m.r, cs0, cs1, 0, cf).rect, q = (p, zz) => [p.x, p.y, zz];
     const centro = m.r.reduce((a, p) => ({ x: a.x + p.x / 4, y: a.y + p.y / 4 }), { x: 0, y: 0 }), caras = [];

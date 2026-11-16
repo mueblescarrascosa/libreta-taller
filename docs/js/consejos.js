@@ -3,7 +3,7 @@
 // electrodomésticos de la ficha: el ancho del MUEBLE no es el del aparato (en un bajo de placa de 80 o 90 va
 // normalmente una placa de 60). Cada consejo: { campo, texto, porque, grupo }.
 // Todas las medidas de referencia están en MEDIDAS: la guía (pantallas/guia.js) las enseña tal cual.
-import { geometriaAlzado, ALTURAS } from './alzado.js';
+import { geometriaAlzado, ALTURAS, campanasPared, CAMPANA } from './alzado.js';
 import { paredesVecinas } from './modulos.js';
 import { verMedida } from './unidades.js';
 
@@ -232,6 +232,15 @@ export function consejosDiseno(ficha) {
     const p = (d.paredes || []).find(w => w.letra === x.pared), conMuebles = p && tieneBajos(p), paso = x.separacion - (conMuebles ? M.fondo_encimera : 0);
     if (paso < M.pasillo) poner('paso', 'islas', 'Entre la isla y ' + (conMuebles ? 'la encimera de la pared ' + p.letra : 'la pared ' + (x.pared || '')) + ' quedan ' + cm(Math.max(0, paso)) + ' de paso', porquePaso);
   });
+  // Campana decorativa: separación con los altos o columnas de al lado (mínimo 5 cm, mejor 10) para montarla, limpiarla y
+  // que el vapor y el calor no estropeen los muebles. Contra la pared no cuenta.
+  (d.paredes || []).filter(p => hay(p.largo)).forEach(p => campanasPared(p, d).forEach(x => {
+    [['izquierda', x.izq, x.izqPared], ['derecha', x.der, x.derPared]].forEach(([t, v, pared]) => {
+      if (v === null || pared || v >= CAMPANA.margen_min) return;
+      poner('placa', 'pared.' + p.id, 'La campana de la pared ' + p.letra + ' queda a ' + cm(Math.max(0, v)) + ' del mueble de la ' + t,
+        'Deja al menos ' + cm(CAMPANA.margen_min) + ' (mejor ' + cm(CAMPANA.margen_bien) + ') entre una campana decorativa y los altos: para montarla y limpiarla, y para que el vapor y el calor no estropeen los muebles.' + (x.hueco ? ' Elige una campana más pequeña o un hueco más ancho.' : ' Deja un hueco más ancho encima de la placa o pon una campana más pequeña en el mueble «Campana decorativa».'));
+    });
+  }));
   const orden = GRUPOS.map(g => g[0]);
   return l.sort((a, b) => orden.indexOf(a.grupo) - orden.indexOf(b.grupo));
 }

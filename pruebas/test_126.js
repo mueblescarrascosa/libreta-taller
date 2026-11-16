@@ -133,6 +133,23 @@ prueba('lavavajillas, lavadora y frigo: integrable con puerta o libre sin puerta
   igual(articulo(lv, f.datos).mo, 'LAVAVAJILLAS INTEGRABLE', 'lo del mueble manda sobre electrodomésticos');
 });
 
+prueba('campana: tipo y tamaño en el mueble que hace de hueco, y lo que queda a cada lado', async () => {
+  const { paredNueva } = await import('../docs/js/modelo.js'), { moduloNuevo } = await import('../docs/js/modulos.js'), { campanasPared, textoHolgurasCampana, geometriaAlzado } = await import('../docs/js/alzado.js');
+  const mod = (tipo, ancho, x) => Object.assign(moduloNuevo(tipo), { ancho }, x || {});
+  const f = fichaNueva('cocina', null, 't'), A = Object.assign(paredNueva([]), { letra: 'A', largo: 3600, elementos: [], bajos: [mod('bajo', 600), mod('placa', 900), mod('bajo', 600)],
+    altos: [mod('alto', 600), mod('campana_deco', 900, { campana_ancho: 600 }), mod('alto', 600)] });
+  f.datos.paredes = [A];
+  igual(campanasPared(A, f.datos).map(textoHolgurasCampana), ['Campana piramidal de 60 cm en un hueco de 90 cm: quedan 15 cm a la izquierda hasta el mueble y 15 cm a la derecha hasta el mueble.']);
+  A.altos[1].campana_tipo = 'recta';
+  afirma(!geometriaAlzado(f.datos, A).piezas.some(p => p.trap) && geometriaAlzado(f.datos, A).piezas.filter(p => p.tipo === 'campana').length === 3, 'recta: sin pirámide');
+  A.altos = [mod('alto', 600)];
+  igual(textoHolgurasCampana(campanasPared(A, f.datos)[0]), 'Campana piramidal de 90 cm encima de la placa: quedan ⚠ 0 cm a la izquierda hasta el mueble y 210 cm a la derecha hasta la pared.');
+  const { consejosDiseno } = await import('../docs/js/consejos.js');
+  afirma(consejosDiseno(f).some(c => c.texto === 'La campana de la pared A queda a 0 cm del mueble de la izquierda' && /al menos 5 cm/.test(c.porque)), 'avisa del margen: ' + consejosDiseno(f).map(c => c.texto).join(' | '));
+  A.altos = [mod('alto', 600), mod('campana_deco', 900, { campana_ancho: 600 })];
+  afirma(!consejosDiseno(f).some(c => /campana de la pared/.test(c.texto)), 'con 15 cm a cada lado, bien');
+});
+
 const con = fn => async () => { const a = await abrir({}); try { await entrar(a); await fn(a); igual(a.errores, [], 'errores de página'); } finally { await a.cerrar(); } };
 prueba('ajustes en pestañas e índice de la guía', con(async a => {
   await a.page.click('[data-acc="ajustes"]'); await a.page.waitForSelector('[data-pantalla="ajustes"]');
