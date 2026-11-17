@@ -210,13 +210,13 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null, colores = nu
     cajas.push({ caras, huella: abajo, z0: zp, z1: zc, color: 'campana', centro: [(abajo[0].x + abajo[2].x) / 2, (abajo[0].y + abajo[2].y) / 2, (zp + zc) / 2], texto: null });
     if (techo > zc) caja(arribaP, zc, techo, 'campana', '', 'campana');
   }));
-  const placaDe = (d.electro || []).find(e => e.clave === 'placa');
-  // Si el mueble está cajeado en un pilar, no se dibuja (no se sabe dónde iría).
-  mods.filter(m => m.r && !m.alto && !m.columna && !m.chaflan && (m.tipo === 'placa' || m.tipo === 'fregadero') && !pilares.some(pi => !separadas(m.r, pi))).forEach(m => {
+  // Placas: la de cada mueble de placa y la de debajo de cada campana sin mueble de placa (placasPared), de su ancho
+  // (60 si no se dice). Si está cajeada en un pilar, no se dibuja (no se sabe dónde iría).
+  (geo.placas || []).map(q => ({ tipo: 'placa', r: q.rect.map(P) })).concat(mods.filter(m => m.r && !m.alto && !m.columna && !m.chaflan && m.tipo === 'fregadero'))
+    .filter(m => !pilares.some(pi => !separadas(m.r, pi))).forEach(m => {
     const { L, D } = encima(m.r, 0, 0, 0, 0);
-    if (L < 300) return;
     if (m.tipo === 'placa') {
-      const w = Math.min(L - 60, placaDe && hay(placaDe.ancho) ? placaDe.ancho : L >= 860 ? 770 : 590), f = Math.min(510, D - 40), s0 = (L - w) / 2, t0 = Math.max(20, (D + 20 - f) / 2);
+      const w = L, f = Math.min(510, D - 40), s0 = 0, t0 = Math.max(20, (D + 20 - f) / 2);
       const z = encimera + 5, P0 = encima(m.r, s0, s0 + w, t0, t0 + f);
       caja(P0.rect, encimera, z, 'placa', '', 'placa');
       // Fuegos: cuatro (cinco en placas de 75 o más), como aros sobre el cristal.
@@ -230,6 +230,7 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null, colores = nu
         g.caras.push(cara(pts, 'fuego', [0, 0, 1]));
       });
     } else {
+      if (L < 300) return;
       // Fregadero: el borde de acero casi a ras, el seno más oscuro y el grifo detrás.
       const w = Math.min(L - 100, L >= 1000 ? 860 : L >= 760 ? 760 : 500), f = Math.min(450, D - 80), s0 = (L - w) / 2, t0 = Math.max(70, D + 20 - f - 50);
       const z = encimera + 2, F = encima(m.r, s0, s0 + w, t0, t0 + f);

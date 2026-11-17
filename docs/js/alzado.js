@@ -2,7 +2,7 @@
 // ventanas, puertas, pilares, azulejo y las tomas en su punto, con la altura al lado.
 // Las alturas de los muebles son orientativas (las de una cocina normal); lo medido manda.
 import { camposDeElemento, extraPilar, pilarDeVecina } from './modelo.js';
-import { situarMuebles, situarCuerpos, esColumna, nombreModulo, medidasModulo, interioresDe, textoInteriores, piezasInterior } from './modulos.js';
+import { situarMuebles, situarCuerpos, paredesVecinas, esColumna, nombreModulo, medidasModulo, interioresDe, textoInteriores, piezasInterior } from './modulos.js';
 import { verMedida } from './unidades.js';
 import { corta } from './plano-vista.js';
 import { encajarRotulo, textoRotulo, fondoRotulo } from './rotulos.js';
@@ -25,19 +25,57 @@ const PUNTOS = ['humos', 'desague', 'toma', 'agua', 'gas', 'enchufe', 'otro'];
 // Dónde acaba el frigo por arriba (y empieza el alto de encima): con su alto en Electrodomésticos, el integrable
 // va sobre el zócalo y lleva 2 cm de holgura; si no, el de la cocina tipo.
 // Campana decorativa (piramidal) sobre cada placa que no tiene un alto encima: si en los electrodomésticos la campana es
-// decorativa o no se ha dicho el tipo (las extraíbles e integradas van en el «Alto campana»). Ancho: el de la campana o el
-// de la placa (de 60 a 90). Medidas en mm: 65 cm sobre la encimera, base de 7, pirámide de 33 y chimenea de 26 hasta el techo.
+// decorativa o no se ha dicho el tipo (las extraíbles e integradas van en el «Alto campana»). Ancho: el elegido en el
+// mueble, el de Electrodomésticos o 60. Medidas en mm: 65 cm sobre la encimera, base de 7, pirámide de 33 y chimenea de 26 hasta el techo.
 export const CAMPANA = { sobre: 650, base: 70, piramide: 330, chimenea: 260, fondo: 500, fondo_chimenea: 240, margen_min: 50, margen_bien: 100 };
+// Tamaño de la placa y de la campana: el elegido en el mueble; si no, el de Electrodomésticos; si no, 60.
+export const ANCHO_PLACA = 600, ANCHO_CAMPANA = 600;
+const electroDe = (d, clave) => ((d && d.electro) || []).find(e => e.clave === clave);
+export function anchoPlaca(m, d) { const e = electroDe(d, 'placa'); return m && hay(m.placa_ancho) ? m.placa_ancho : e && hay(e.ancho) ? e.ancho : ANCHO_PLACA; }
+export function anchoCampana(m, d) { const e = electroDe(d, 'campana'); return m && hay(m.campana_ancho) ? m.campana_ancho : e && hay(e.ancho) ? e.ancho : ANCHO_CAMPANA; }
+// Placas sobre la encimera (mm desde la izquierda de la pared): la del mueble de placa, centrada en él, y debajo de cada
+// campana (alto «Campana decorativa» o «Alto campana») que no tenga un mueble de placa debajo, centrada con la campana:
+// así se ve la placa puesta encima de dos cajoneras. Solo si debajo hay bajos (no columnas ni huecos).
+export function placasPared(pared, d, sit = situarMuebles(pared, d)) {
+  const pisa = (a, b) => a.desde < b.hasta - 50 && a.hasta > b.desde + 50;
+  const deMueble = sit.bajos.filter(b => b.m.tipo === 'placa').map(({ m, desde, hasta }) => {
+    const w = Math.max(0, Math.min(anchoPlaca(m, d), hasta - desde)), x = (desde + hasta - w) / 2;
+    return { mueble: m, desde: x, hasta: x + w, ancho: w };
+  });
+  const bajoCampana = sit.altos.filter(a => (a.m.tipo === 'campana_deco' || a.m.tipo === 'alto_campana') && !deMueble.some(p => pisa(p, a))).map(({ m, desde, hasta }) => {
+    const w = anchoPlaca(m, d), cx = (desde + hasta) / 2;
+    const debajo = sit.bajos.filter(b => b.desde <= cx && b.hasta >= cx);   // en la junta de dos cajoneras, las dos
+    if (!debajo.length || debajo.some(b => b.m.tipo === 'hueco' || esColumna(b.m))) return null;
+    // Encima del fregadero no se pone (sería un error de la cocina, no una placa).
+    if (sit.bajos.some(b => b.m.tipo === 'fregadero' && b.desde < cx + w / 2 - 50 && b.hasta > cx - w / 2 + 50)) return null;
+    return { campana: m, desde: cx - w / 2, hasta: cx + w / 2, ancho: w };
+  }).filter(Boolean);
+  return deMueble.concat(bajoCampana).filter(p => p.ancho > 0);
+}
+// Centro de cada campana (decorativa, sobre la placa o «Alto campana») medido desde la punta de la pared que quede más
+// cerca, para marcar la salida de humos y colgarla: { x, dist, lado: 'izq'|'der', letra (pared de esa esquina), mueble }.
+export function centrosCampana(pared, d, sit = situarMuebles(pared, d)) {
+  const L = hay(pared.largo) ? pared.largo : null, v = paredesVecinas(d, pared);
+  const lista = campanasPared(pared, d, sit).map(c => ({ x: (c.desde + c.hasta) / 2, mueble: c.alto || c.placa }))
+    .concat(sit.altos.filter(a => a.m.tipo === 'alto_campana').map(a => ({ x: (a.desde + a.hasta) / 2, mueble: a.m })));
+  return lista.map(c => {
+    const der = L !== null && L - c.x < c.x, vec = v[der ? 'der' : 'izq'];
+    return Object.assign(c, { lado: der ? 'der' : 'izq', dist: Math.round(der ? L - c.x : c.x), letra: vec && vec.letra ? vec.letra : null });
+  });
+}
+// «Centro de la campana a 145 cm de la pared B» (o «del lado izquierdo» si no hay pared al lado).
+export function textoCentroCampana(c) {
+  return 'Centro de la campana a ' + verMedida(c.dist, 'cm') + ' cm ' + (c.letra ? 'de la pared ' + c.letra + ' (' + (c.lado === 'der' ? 'derecha' : 'izquierda') + ')' : 'del lado ' + (c.lado === 'der' ? 'derecho' : 'izquierdo'));
+}
 // También donde se haya puesto el alto «Campana piramidal» (con su ancho), sea cual sea el tipo de campana.
 export function campanasPared(pared, d, sit = situarMuebles(pared, d)) {
   const c = (d.electro || []).find(e => e.clave === 'campana');
-  // En el hueco del alto «Campana piramidal», la campana centrada con su ancho (el de electrodomésticos; si no, la medida
-  // estándar más grande que quepa: 60, 90 o 120). El hueco de 80 lleva una campana de 60.
+  // En el hueco del alto «Campana piramidal», la campana centrada con su ancho (el del mueble, el de electrodomésticos o 60).
   // En el mueble se puede elegir el tamaño de la campana (60, 90, 120) y su tipo (piramidal o recta).
-  const anchoEn = (hueco, m) => { const w = m && hay(m.campana_ancho) ? m.campana_ancho : c && hay(c.ancho) ? c.ancho : [1200, 900, 600].find(x => x <= hueco) || hueco; return Math.min(w, hueco); };
+  const anchoEn = (hueco, m) => Math.min(anchoCampana(m, d), hueco);
   const puestas = sit.altos.filter(a => a.m.tipo === 'campana_deco').map(a => { const w = anchoEn(a.hasta - a.desde, a.m), x = (a.desde + a.hasta - w) / 2; return { alto: a.m, desde: x, hasta: x + w, ancho: w, hueco: a.hasta - a.desde, tipo: a.m.campana_tipo || 'piramidal' }; });
   const sobrePlaca = c && c.tipo && c.tipo !== 'decorativa' ? [] : sit.bajos.filter(({ m, desde, hasta }) => m.tipo === 'placa' && !sit.altos.some(a => a.m.tipo !== 'hueco' && a.desde < hasta - 50 && a.hasta > desde + 50))
-    .map(({ m, desde, hasta }) => { const w = c && hay(c.ancho) ? c.ancho : Math.min(900, Math.max(600, hasta - desde)), x = (desde + hasta - w) / 2; return { placa: m, desde: x, hasta: x + w, ancho: w, tipo: 'piramidal' }; });
+    .map(({ m, desde, hasta }) => { const w = anchoCampana(m, d), x = (desde + hasta - w) / 2; return { placa: m, desde: x, hasta: x + w, ancho: w, tipo: 'piramidal' }; });
   // Lo que queda a cada lado hasta el siguiente alto o columna (o la pared).
   const L = hay(pared.largo) ? pared.largo : Infinity, ocupan = sit.altos.filter(a => a.m.tipo !== 'hueco' && a.m.tipo !== 'campana_deco').concat(sit.bajos.filter(b => esColumna(b.m)));
   return puestas.concat(sobrePlaca).map(x => {
@@ -110,6 +148,9 @@ export function geometriaAlzado(d, pared, ajustes = null) {
     else g.piezas.push({ clase: 'f_campana', tipo: 'campana', x: c.desde, y: zp, w: c.ancho, h: CAMPANA.piramide, trap: CAMPANA.chimenea, texto: '' });
     if (techo > zc) pieza('f_campana', (c.desde + c.hasta - CAMPANA.chimenea) / 2, zc, CAMPANA.chimenea, techo - zc, '', 'campana');
   });
+
+  // Centro de cada campana: raya de ejes y cota desde la punta de la pared más cercana, a media altura entre la encimera y la campana.
+  g.centrosCampana = centrosCampana(pared, d, sit).map(c => ({ x: c.x, desde: c.lado === 'der' ? L : 0, y: ALTURAS.encimera + CAMPANA.sobre / 2, texto: 'centro a ' + verMedida(c.dist, 'cm') + (c.letra ? ' de ' + c.letra : ''), dist: c.dist }));
 
   // Cuerpos del vestidor, de izquierda a derecha, con su interior dibujado (barras, estantes, cajones…);
   // en las puntas, lo que entra del cuerpo de rincón de la pared de al lado (con su interior, sin rótulo).
@@ -264,6 +305,16 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
     // Con fondo blanco: las puertas y los tiradores pasan por detrás y no tachan el nombre.
     svg.append(fondoRotulo(el, { caja }, s * tam));
     texto(q.x, caja.y + hh / 2, t, { fill: col, 'font-size': s * tam, 'data-rotulo-punto': q.tipo, stroke: 'none' });
+  });
+  // Centro de la campana: eje de puntos de la encimera a la campana y la cota desde la pared más cercana.
+  (g.centrosCampana || []).forEach(c => {
+    const col = '#7c3aed', y = Y(c.y), z0 = Y(ALTURAS.encimera), z1 = Y(ALTURAS.encimera + CAMPANA.sobre), t = s * 1.2;
+    svg.append(el('line', { x1: c.x, y1: z0, x2: c.x, y2: z1, stroke: col, 'stroke-width': s * 0.3, 'stroke-dasharray': s * 1.5 + ' ' + s * 0.8, 'data-eje-campana': '' }));
+    svg.append(el('line', { x1: c.desde, y1: y, x2: c.x, y2: y, stroke: col, 'stroke-width': s * 0.35 }));
+    [c.desde, c.x].forEach(x => svg.append(el('line', { x1: x, y1: y - t, x2: x, y2: y + t, stroke: col, 'stroke-width': s * 0.35 })));
+    const tam = 3, w = c.texto.length * s * tam * 0.58, hh = s * tam * 1.3, cx = (c.desde + c.x) / 2;
+    svg.append(fondoRotulo(el, { caja: { x: cx - w / 2, y: y - hh - s * 0.6, w, h: hh } }, s * tam));
+    texto(cx, y - hh / 2 - s * 0.6, c.texto, { fill: col, 'font-size': s * tam, 'font-weight': 700, stroke: 'none', 'data-cota-campana': '' });
   });
   // Cotas generales: largo abajo (debajo de la fila de nombres) y altura del techo a la izquierda.
   texto(g.largo / 2, g.techo + extraAbajo + pad * 0.6, g.letra + ' · ' + verMedida(g.largo, 'm') + ' m', { 'font-weight': 700, 'font-size': s * 4 });

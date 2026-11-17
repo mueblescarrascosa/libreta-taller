@@ -28,7 +28,7 @@ prueba('campana piramidal sobre la placa sin alto encima y alto abierto sin puer
     bajos: [mod('bajo', 600), mod('placa', 800), mod('fregadero', 800)], altos: [mod('alto_abierto', 600), mod('hueco', 800), mod('alto', 800)] });
   f.datos.paredes = [A];
   const c = campanasPared(A, f.datos);
-  igual(c.map(x => [x.desde, x.hasta, x.ancho]), [[600, 1400, 800]], 'campana del ancho de la placa, centrada');
+  igual(c.map(x => [x.desde, x.hasta, x.ancho]), [[700, 1300, 600]], 'campana de 60 si no se dice otra, centrada en la placa');
   const g = geometriaAlzado(f.datos, A);
   afirma(g.piezas.some(p => p.tipo === 'campana' && p.trap), 'la pirámide en el alzado');
   A.altos[1] = mod('alto', 800);
@@ -144,7 +144,7 @@ prueba('campana: tipo y tamaño en el mueble que hace de hueco, y lo que queda a
   igual(campanasPared(A, f.datos).map(textoHolgurasCampana), ['Campana piramidal de 60 cm en un hueco de 90 cm: quedan 15 cm a la izquierda hasta el mueble y 15 cm a la derecha hasta el mueble.']);
   A.altos[1].campana_tipo = 'recta';
   afirma(!geometriaAlzado(f.datos, A).piezas.some(p => p.trap) && geometriaAlzado(f.datos, A).piezas.filter(p => p.tipo === 'campana').length === 3, 'recta: sin pirámide');
-  A.altos = [mod('alto', 600)];
+  A.altos = [mod('alto', 600)]; A.bajos[1].campana_ancho = 900;
   igual(textoHolgurasCampana(campanasPared(A, f.datos)[0]), 'Campana piramidal de 90 cm encima de la placa: quedan ⚠ 0 cm a la izquierda hasta el mueble y 210 cm a la derecha hasta la pared.');
   const { consejosDiseno } = await import('../docs/js/consejos.js');
   afirma(consejosDiseno(f).some(c => c.texto === 'La campana de la pared A queda a 0 cm del mueble de la izquierda' && /al menos 5 cm/.test(c.porque)), 'avisa del margen: ' + consejosDiseno(f).map(c => c.texto).join(' | '));

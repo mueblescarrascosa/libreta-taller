@@ -3,7 +3,7 @@
 // electrodomésticos de la ficha: el ancho del MUEBLE no es el del aparato (en un bajo de placa de 80 o 90 va
 // normalmente una placa de 60). Cada consejo: { campo, texto, porque, grupo }.
 // Todas las medidas de referencia están en MEDIDAS: la guía (pantallas/guia.js) las enseña tal cual.
-import { geometriaAlzado, ALTURAS, campanasPared, CAMPANA } from './alzado.js';
+import { geometriaAlzado, ALTURAS, campanasPared, placasPared, CAMPANA } from './alzado.js';
 import { paredesVecinas } from './modulos.js';
 import { verMedida } from './unidades.js';
 
@@ -124,7 +124,10 @@ export function consejosDiseno(ficha) {
     const base = g.piezas.filter(q => BASE.includes(q.clase));
     const placas = base.filter(q => q.tipo === 'placa'), fregs = base.filter(q => q.tipo === 'fregadero');
     // Lo que el propio mueble de placa deja a cada lado del aparato (un bajo de 80 con placa de 60: 10 cm por lado).
-    const margen = pl => Math.max(0, (pl.w - anchoPlaca) / 2);
+    // El tamaño de la placa elegido en el propio mueble manda sobre el de Electrodomésticos.
+    const sobre = placasPared(p, d), deMueble = pl => sobre.find(q => q.mueble && Math.abs((q.desde + q.hasta) / 2 - (pl.x + pl.w / 2)) < 1);
+    const placaDicha = pl => { const q = deMueble(pl); return q && hay(q.mueble.placa_ancho) ? q.ancho : ap.placa; };
+    const margen = pl => Math.max(0, (pl.w - (placaDicha(pl) || anchoPlaca)) / 2);
 
     // ── Placa y campana ──
     placas.forEach(pl => {
@@ -148,12 +151,18 @@ export function consejosDiseno(ficha) {
         const encima = campanas.filter(c => solapan(c, pl));
         if (!encima.length) { poner('placa', campo, 'El alto de la campana no está encima de la placa' + en, 'La campana tiene que quedar justo encima de la placa para recoger el humo.'); return; }
         // Ancho de la campana: el del aparato si está en la ficha; si no, el de su mueble.
-        const anchoCampana = ap.campana || Math.max(...encima.map(c => c.w));
-        if (ap.placa && anchoCampana < ap.placa - TOLERA) poner('placa', campo, 'Campana de ' + cm(anchoCampana) + ' para una placa de ' + cm(ap.placa) + en, 'La campana debe ser igual o más ancha que la placa para recoger bien los humos.');
-        else if (!ap.placa && pl.w > anchoCampana + TOLERA && pl.w >= 800) poner('placa', campo, 'Mueble de placa de ' + cm(pl.w) + ' con campana de ' + cm(anchoCampana) + en,
+        const anchoCampana = ap.campana || Math.max(...encima.map(c => c.w)), dicha = placaDicha(pl);
+        if (dicha && anchoCampana < dicha - TOLERA) poner('placa', campo, 'Campana de ' + cm(anchoCampana) + ' para una placa de ' + cm(dicha) + en, 'La campana debe ser igual o más ancha que la placa para recoger bien los humos.');
+        else if (!dicha && pl.w > anchoCampana + TOLERA && pl.w >= 800) poner('placa', campo, 'Mueble de placa de ' + cm(pl.w) + ' con campana de ' + cm(anchoCampana) + en,
           'Bien si la placa es de ' + cm(M.placa) + ' (lo normal en ese mueble); si es más ancha, la campana tiene que ser igual o más ancha. Pon el ancho de la placa en Electrodomésticos y se comprueba.');
       });
     }
+
+    // Campana decorativa (en su hueco o sobre la placa) más estrecha que la placa que tiene debajo.
+    campanasPared(p, d).forEach(x => {
+      const pl = sobre.find(q => q.desde < x.hasta && q.hasta > x.desde);
+      if (pl && x.ancho < pl.ancho - TOLERA) poner('placa', campo, 'Campana de ' + cm(x.ancho) + ' para una placa de ' + cm(pl.ancho) + en, 'La campana debe ser igual o más ancha que la placa para recoger bien los humos.');
+    });
 
     // ── Fregadero ──
     placas.forEach(pl => fregs.forEach(fr => {

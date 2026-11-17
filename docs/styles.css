@@ -511,3 +511,4 @@ button.enlace { background: none; border: 0; padding: 0; min-height: 0; color: v
 /* 1.28.6: en el móvil, toda la fila del mueble se puede tocar (antes solo una franja de 22 px con el texto) */
 .modulo > button.resumen, .modulo .cab button.resumen { min-height: 40px; align-self: stretch; text-align: left; }
 .guia-indice .enlace { padding: 8px 0; }
+.textos-campana small { display: block; margin-top: 4px; }

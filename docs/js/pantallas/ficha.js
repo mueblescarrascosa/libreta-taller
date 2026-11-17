@@ -1,5 +1,5 @@
 // Una ficha: sus huecos según el tipo y, en todas, medidas libres, notas, croquis y fotos.
-import { h, segmentado, tituloFicha, vivos, icono } from '../util.js';
+import { h, segmentado, tituloFicha, vivos, icono, altoSegunTexto } from '../util.js';
 import { unidadDe } from '../unidades.js';
 import { nombrarPuerta, CORTO_ELEMENTO, HUMOS_DIAMETROS, HUMOS_RECTANGULARES, islaNueva, avisos, camposDeElemento, elementoNuevo, paredNueva, puertaNueva, normalizarFicha, resumenPuerta, limpiarDatos, tieneInformacion,
   TIPOS_ELEMENTO, NOMBRE_ELEMENTO, RAPIDAS_PUERTA, USOS, nombreElemento, tiposPuertaPara, otraHoja, anchoFijo, pilarEnPunta, esquinaDe, esquinaDescuadrada } from '../modelo.js';
@@ -14,7 +14,7 @@ import { textoResumen, urlWhatsapp } from '../resumen.js';
 import { huella } from '../sincro.js';
 import { geometriaPlanta, svgPlanta, aplicarPlano, pilarEnParedes, pilaresEnParedes, pasarAPilar } from '../plano-vista.js';
 import { abrirPlano } from '../plano-editor.js';
-import { geometriaAlzado, svgAlzado, campanasPared, textoHolgurasCampana } from '../alzado.js';
+import { geometriaAlzado, svgAlzado, campanasPared, textoHolgurasCampana, centrosCampana, textoCentroCampana, anchoPlaca, anchoCampana } from '../alzado.js';
 import { vistaInteractiva, abrirPerspectivaGrande } from './perspectiva-ui.js';
 import { consejosDiseno, GRUPOS as GRUPOS_CONSEJO } from '../consejos.js';
 import { comoRellenar } from '../ayuda.js';
@@ -521,7 +521,14 @@ export async function pintarFicha(App, id) {
     // Un módulo abierto: su tipo (se puede cambiar), su ancho con las medidas habituales y lo propio de cada tipo.
     function editorModulo(m, nombre, repintar, pintarCuadre) {
       const med = (k, etiqueta, rapidos) => campoMedida({ etiqueta, acc: k, valor: m[k], mal: m.mal && m.mal[k], unidad: 'cm', rapidos,
-        alCambiar: (v, t) => { anotarMedida(m, k, v, t); cambio(); pintarCuadre(); } });
+        alCambiar: (v, t) => { anotarMedida(m, k, v, t); cambio(); pintarCuadre(); pintarCampana(); } });
+      // Lo que queda a cada lado de la campana y dónde queda su centro: cambia al poner anchos, sin repintar el mueble.
+      const textosCampana = h('div', { class: 'textos-campana' });
+      function pintarCampana() {
+        const x = campanasPared(p, d).find(c => (c.alto || c.placa) === m), c = centrosCampana(p, d).find(q => q.mueble === m);
+        textosCampana.replaceChildren(...[x && h('small', { class: 'ayuda holguras-campana', 'data-acc': 'holguras-campana' }, textoHolgurasCampana(x)),
+          c && h('small', { class: 'ayuda centro-campana', 'data-acc': 'centro-campana' }, textoCentroCampana(c) + '.')].filter(Boolean));
+      }
       const sel = h('select', { class: 'select-tipo', 'data-acc': 'tipo-modulo', 'aria-label': 'Tipo de mueble', onchange: () => {
         const t = sel.value; m.tipo = t; if (t === 'rinconero' && !m.forma) Object.assign(m, { forma: 'L', lado2: null, gira: 'der' }); cambio(); repintar(); } },
         TIPOS_MODULO[nombre].map(t => h('option', { value: t }, NOMBRE_MODULO[t])));
@@ -540,15 +547,20 @@ export async function pintarFicha(App, id) {
       // Lavavajillas, lavadora y frigo: integrable (con puerta) o libre (sin puerta, no cuenta en frentes ni presupuesto).
       // Campana: tipo y tamaño en el mueble «Campana piramidal» (que hace de hueco) y lo que queda a cada lado; en la placa,
       // si ya lleva una decorativa encima, lo mismo.
-      if (m.tipo === 'campana_deco' || m.tipo === 'placa') {
-        const x = campanasPared(p, d).find(c => (c.alto || c.placa) === m);
+      // Placa y campana de 60 si no se elige otra (o la de Electrodomésticos). Debajo de una campana sin mueble de placa
+      // se dibuja la placa centrada (p. ej. encima de dos cajoneras), con su tamaño aquí.
+      if (m.tipo === 'campana_deco' || m.tipo === 'placa' || m.tipo === 'alto_campana') {
+        const x = campanasPared(p, d).find(c => (c.alto || c.placa) === m), cm = v => Math.round(v / 10);
+        const tamano = (acc, etiqueta, clave, opciones, porDefecto) => h('div', { class: 'campo' }, h('label', { class: 'et' }, etiqueta + ' (sin marcar: ' + cm(porDefecto) + ')'),
+          segmentado({ acc, opciones: opciones.map(v => [v, String(cm(v))]), valor: m[clave] ?? null, permitirVacio: true, alCambiar: v => { m[clave] = v; cambio(); repintar(); } }));
         if (m.tipo === 'campana_deco') {
           n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Tipo de campana'),
             segmentado({ acc: 'campana-tipo', opciones: [['piramidal', 'Piramidal'], ['recta', 'Recta (de cajón)']], valor: m.campana_tipo || 'piramidal', alCambiar: v => { m.campana_tipo = v; cambio(); repintar(); } })));
-          n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Tamaño de la campana (el mueble es el hueco)'),
-            segmentado({ acc: 'campana-ancho', opciones: [[600, '60'], [900, '90'], [1200, '120']], valor: m.campana_ancho ?? null, permitirVacio: true, alCambiar: v => { m.campana_ancho = v; cambio(); repintar(); } })));
+          n.push(tamano('campana-ancho', 'Tamaño de la campana (el mueble es el hueco)', 'campana_ancho', [600, 900, 1200], anchoCampana(null, d)));
         }
-        if (x) n.push(h('small', { class: 'ayuda holguras-campana', 'data-acc': 'holguras-campana' }, textoHolgurasCampana(x)));
+        n.push(tamano('placa-ancho', m.tipo === 'placa' ? 'Tamaño de la placa' : 'Placa debajo', 'placa_ancho', [600, 700, 800, 900], anchoPlaca(null, d)));
+        if (m.tipo === 'placa' && x) n.push(tamano('campana-ancho', 'Tamaño de la campana', 'campana_ancho', [600, 900, 1200], anchoCampana(null, d)));
+        pintarCampana(); n.push(textosCampana);
       }
       if (tieneInstalacion(m)) {
         const ops = [['integrable', 'Integrable (con puerta)'], ['libre', 'Libre (sin puerta)']].concat(m.tipo === 'columna_frigo' ? [['americano', 'Americano']] : []), actual = instalacionDe(m, d);
@@ -815,8 +827,10 @@ export async function pintarFicha(App, id) {
   function repintarNotas() {
     zonaNotas.hidden = tituloNotas.hidden = !d.notas.length;
     zonaNotas.replaceChildren(...d.notas.map(n => h('div', { class: 'campo' },
-      h('textarea', { 'data-acc': 'nota', placeholder: 'Nota', oninput: ev => { n.texto = ev.target.value; cambio(); } }, n.texto),
+      h('textarea', { 'data-acc': 'nota', placeholder: 'Nota', onfocus: ev => altoSegunTexto(ev.target), oninput: ev => { n.texto = ev.target.value; altoSegunTexto(ev.target); cambio(); } }, n.texto),
       h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-nota', onclick: () => { if (confirmarQuitar('la nota')) { d.notas.splice(d.notas.indexOf(n), 1); cambio(); repintarNotas(); } } }, 'Quitar nota'))));
+    // Cada nota, del alto de su texto y un renglón más (cuando ya está en la pantalla, que antes no se sabe el alto).
+    requestAnimationFrame(() => zonaNotas.querySelectorAll('textarea').forEach(altoSegunTexto));
   }
   const nuevaNota = () => { d.notas.push({ id: nuevoId(), texto: '' }); cambio(); repintarNotas(); const t = zonaNotas.querySelectorAll('textarea'); t[t.length - 1].focus(); };
   function notas() { repintarNotas(); return [tituloNotas, zonaNotas]; }

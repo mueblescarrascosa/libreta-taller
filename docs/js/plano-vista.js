@@ -5,6 +5,7 @@ import { encajarRotulo, textoRotulo, fondoRotulo } from './rotulos.js';
 import { camposDeElemento, paredNueva, elementoNuevo, nombreElemento, USOS, textoAzulejo, extraPilar, tamanoHumos, esquinaDe, esquinaDescuadrada, textoDescuadre } from './modelo.js';
 import { verMedida } from './unidades.js';
 import { nombreModulo, esColumna, medidasModulo, situarMuebles, situarCuerpos } from './modulos.js';
+import { placasPared } from './alzado.js';
 
 const FONDO_MODULO = 600, FONDO_ALTO = 350;
 // Ancho orientativo (mm) de lo que se mide al centro, solo para el dibujo: no es la medida real de la caja.
@@ -61,7 +62,7 @@ export function geometriaPlanta(d, { margen = 10, unidad = 'cm' } = {}) {
   const n = pts.length, m = plano.cerrada ? n : n - 1;
   // Sin plano dibujado, cada pared de la planta es la de la ficha en ese orden, con su letra.
   const nombres = d.plano ? letras(m) : (d.paredes || []).map(p => p.letra);
-  const geo = { paredes: [], elementos: [], modulos: [], islas: [], esquinas: [], sinSituar: [], fuera: [], aEscala: escala, cierre: comprobar(plano, margen).cierre };
+  const geo = { paredes: [], elementos: [], modulos: [], placas: [], islas: [], esquinas: [], sinSituar: [], fuera: [], aEscala: escala, cierre: comprobar(plano, margen).cierre };
   const ejes = {};
   for (let i = 0; i < m; i++) {
     const a = pts[i], b = pts[(i + 1) % n], letra = nombres[i];
@@ -106,6 +107,8 @@ export function geometriaPlanta(d, { margen = 10, unidad = 'cm' } = {}) {
       if (sit.entran.der && hay(L)) geo.modulos.push({ tipo: 'rinconero', nombre: '', ancho: sit.entran.der, columna: false, pared: letra, dentro, sinTexto: true, rect: caja(L - sit.entran.der, L, FONDO_MODULO) });
       for (const b of sit.bajos) geo.modulos.push({ tipo: b.m.tipo, nombre: nombreModulo(b.m), medidas: medidasModulo(b.m), ancho: b.m.ancho, columna: esColumna(b.m), pared: letra, dentro, dato: b.m, rect: caja(b.desde, b.hasta, FONDO_MODULO) });
       for (const a of sit.altos) geo.modulos.push({ tipo: a.m.tipo, nombre: nombreModulo(a.m), medidas: medidasModulo(a.m), ancho: a.m.ancho, alto: true, columna: false, pared: letra, dentro, dato: a.m, rect: caja(a.desde, a.hasta, FONDO_ALTO) });
+      // Placas sobre la encimera: la del mueble de placa y la de debajo de cada campana sin mueble de placa (de 60 si no se dice).
+      placasPared(pared, d, sit).forEach(q => geo.placas.push({ pared: letra, ancho: q.ancho, dato: q.mueble || q.campana, bajoCampana: !!q.campana, rect: caja(q.desde, q.hasta, FONDO_MODULO) }));
       // Cuerpos del vestidor, igual que los bajos, y lo que entra del cuerpo de rincón de la pared de al lado.
       const sc = situarCuerpos(pared, d), fc = FONDO_MODULO;
       if (sc.entran.izq) geo.modulos.push({ tipo: 'cuerpo', nombre: '', ancho: sc.entran.izq, columna: false, pared: letra, dentro, sinTexto: true, dato: sc.entran.cIzq, rect: caja(0, sc.entran.izq, fc) });
@@ -300,9 +303,9 @@ export function svgPlanta(geo) {
     const W = Math.hypot(b.x - a.x, b.y - a.y), D = Math.hypot(d2.x - a.x, d2.y - a.y), poli = (u0, u1, v0, v1) => [en(u0, v0), en(u1, v0), en(u1, v1), en(u0, v1)].map(p => p.x + ',' + p.y).join(' ');
     const g = el('g', { 'data-simbolo': m.tipo, 'pointer-events': 'none' });
     if (m.tipo === 'placa') {
-      g.append(el('polygon', { points: poli(0.1, 0.9, 0.12, 0.88), fill: '#374151', 'fill-opacity': 0.85, stroke: '#111827', 'stroke-width': s * 0.3 }));
-      const r = Math.min(W * 0.8, D * 0.76) * 0.17;
-      (W >= D * 1.25 ? [[0.25, 0.32], [0.25, 0.68], [0.5, 0.5], [0.75, 0.32], [0.75, 0.68]] : [[0.3, 0.32], [0.7, 0.32], [0.3, 0.68], [0.7, 0.68]]).forEach(([u, v], i) => {
+      g.append(el('polygon', { points: poli(0, 1, 0.12, 0.88), fill: '#374151', 'fill-opacity': 0.85, stroke: '#111827', 'stroke-width': s * 0.3 }));
+      const r = Math.min(W, D * 0.76) * 0.17;
+      (W >= D * 1.25 ? [[0.17, 0.32], [0.17, 0.68], [0.5, 0.5], [0.83, 0.32], [0.83, 0.68]] : [[0.25, 0.32], [0.75, 0.32], [0.25, 0.68], [0.75, 0.68]]).forEach(([u, v], i) => {
         const c = en(u, v);
         g.append(el('circle', { cx: c.x, cy: c.y, r: r * (i % 2 ? 0.8 : 1), fill: 'none', stroke: '#d1d5db', 'stroke-width': s * 0.35 }));
       });
@@ -319,12 +322,13 @@ export function svgPlanta(geo) {
     }
     svg.append(g);
   };
-  [...geo.modulos.filter(m => !m.alto), ...geo.modulos.filter(m => m.alto)].forEach(m => {
+  // Bajos, luego las placas (con sus fuegos) y encima los altos.
+  const dibujarModulo = m => {
     svg.append(el('polygon', Object.assign({ points: m.rect.map(p => p.x + ',' + p.y).join(' '), 'data-modulo': m.tipo, 'stroke-width': s * 0.5 },
       m.alto ? { fill: '#bfdbfe', 'fill-opacity': 0.7, stroke: '#1d4ed8', 'stroke-dasharray': s * 1.2 + ' ' + s * 0.8, 'data-alto': '' }
         : { fill: m.columna ? '#e7d8c9' : '#f5ede4', stroke: '#92400e' })));
     // Símbolos de la placa (con sus fuegos) y del fregadero (seno, desagüe y grifo), como en los planos de cocina.
-    if (!m.alto && !m.chaflan && m.rect.length === 4 && (m.tipo === 'placa' || m.tipo === 'fregadero')) simbolo(m);
+    if (!m.alto && !m.chaflan && m.rect.length === 4 && m.tipo === 'fregadero') simbolo(m);
     if (m.sinTexto) return;
     const [a, b, c2, d2] = m.rect, t = (m.tipo === 'rinconero' ? 'Rinc.' : m.nombre) + (m.medidas || m.medidas === '' ? (m.medidas ? ' ' + m.medidas : '') : ' ' + verMedida(m.ancho, 'cm'));
     // El rótulo, dentro de su mueble y sin pisar otros: los altos en su caja; los bajos, si hay altos, en la parte que queda libre.
@@ -337,7 +341,10 @@ export function svgPlanta(geo) {
       || { tam: 1.8 * s, girar: false, lineas: [t], cx: (hueco.x0 + hueco.x1) / 2, cy: (hueco.y0 + hueco.y1) / 2, caja: cajaTexto((hueco.x0 + hueco.x1) / 2, (hueco.y0 + hueco.y1) / 2, t, 1.8) };
     puestos.push(r.caja);
     nombres.push(() => svg.append(fondoRotulo(el, r, r.tam), textoRotulo(el, r, { fill: color })));
-  });
+  };
+  geo.modulos.filter(m => !m.alto).forEach(dibujarModulo);
+  (geo.placas || []).forEach(q => simbolo(Object.assign({ tipo: 'placa' }, q)));
+  geo.modulos.filter(m => m.alto).forEach(dibujarModulo);
   // Islas y penínsulas (amarillo) y sus cotas al suelo (raya de puntos con la medida en medio).
   (geo.islas || []).forEach(x => {
     svg.append(el('polygon', { points: x.rect.map(p => p.x + ',' + p.y).join(' '), fill: '#fef3c7', stroke: '#b45309', 'stroke-width': s * 0.6, 'data-isla': x.tipo }));

@@ -56,3 +56,12 @@ export function botonBarra(el, nombre, etiqueta) {
   el.title = etiqueta;
   return el;
 }
+
+// Un cuadro de texto del alto de lo escrito y un renglón más (sin bajar del mínimo de la hoja de estilos).
+// Si aún no se ve (plegado o fuera de la pantalla), se deja como está.
+export function altoSegunTexto(t) {
+  if (!t || !t.isConnected || !t.offsetParent) return;
+  const renglon = parseFloat(getComputedStyle(t).lineHeight) || 24;
+  t.style.height = 'auto';
+  t.style.height = Math.ceil(t.scrollHeight + renglon + 2) + 'px';
+}
