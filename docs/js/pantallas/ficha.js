@@ -14,7 +14,7 @@ import { textoResumen, urlWhatsapp } from '../resumen.js';
 import { huella } from '../sincro.js';
 import { geometriaPlanta, svgPlanta, aplicarPlano, pilarEnParedes, pilaresEnParedes, pasarAPilar } from '../plano-vista.js';
 import { abrirPlano } from '../plano-editor.js';
-import { geometriaAlzado, svgAlzado, campanasPared, textoHolgurasCampana, centrosCampana, textoCentroCampana, anchoPlaca, anchoCampana } from '../alzado.js';
+import { geometriaAlzado, svgAlzado, campanasPared, textoHolgurasCampana, centrosCampana, textoCentroCampana, anchoPlaca, anchoCampana, textoTubo } from '../alzado.js';
 import { vistaInteractiva, abrirPerspectivaGrande } from './perspectiva-ui.js';
 import { consejosDiseno, GRUPOS as GRUPOS_CONSEJO } from '../consejos.js';
 import { comoRellenar } from '../ayuda.js';
@@ -526,8 +526,11 @@ export async function pintarFicha(App, id) {
       const textosCampana = h('div', { class: 'textos-campana' });
       function pintarCampana() {
         const x = campanasPared(p, d).find(c => (c.alto || c.placa) === m), c = centrosCampana(p, d).find(q => q.mueble === m);
+        const g = geometriaAlzado(d, p), t = g && (g.tubos || []).find(q => q.mueble === m);
         textosCampana.replaceChildren(...[x && h('small', { class: 'ayuda holguras-campana', 'data-acc': 'holguras-campana' }, textoHolgurasCampana(x)),
-          c && h('small', { class: 'ayuda centro-campana', 'data-acc': 'centro-campana' }, textoCentroCampana(c) + '.')].filter(Boolean));
+          c && h('small', { class: 'ayuda centro-campana', 'data-acc': 'centro-campana' }, textoCentroCampana(c) + '.'),
+          t && h('small', { class: 'ayuda tubo-humos' + (t.cajear || !t.salida ? ' aviso-tubo' : ''), 'data-acc': 'tubo-humos' }, textoTubo(t)),
+          m.extractor === 'recirculacion' && h('small', { class: 'ayuda', 'data-acc': 'tubo-humos' }, 'Placa extractora con recirculación: sin tubo ni salida de humos (filtros de carbón).')].filter(Boolean));
       }
       const sel = h('select', { class: 'select-tipo', 'data-acc': 'tipo-modulo', 'aria-label': 'Tipo de mueble', onchange: () => {
         const t = sel.value; m.tipo = t; if (t === 'rinconero' && !m.forma) Object.assign(m, { forma: 'L', lado2: null, gira: 'der' }); cambio(); repintar(); } },
@@ -559,7 +562,11 @@ export async function pintarFicha(App, id) {
           n.push(tamano('campana-ancho', 'Tamaño de la campana (el mueble es el hueco)', 'campana_ancho', [600, 900, 1200], anchoCampana(null, d)));
         }
         n.push(tamano('placa-ancho', m.tipo === 'placa' ? 'Tamaño de la placa' : 'Placa debajo', 'placa_ancho', [600, 700, 800, 900], anchoPlaca(null, d)));
-        if (m.tipo === 'placa' && x) n.push(tamano('campana-ancho', 'Tamaño de la campana', 'campana_ancho', [600, 900, 1200], anchoCampana(null, d)));
+        // Placa extractora (el extractor en la propia placa): sin campana encima; el aire se limpia y vuelve
+        // (recirculación) o sale a la calle con un tubo a ras de suelo, por detrás del zócalo.
+        if (m.tipo === 'placa') n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Placa con extractor'),
+          segmentado({ acc: 'placa-extractor', opciones: [['recirculacion', 'Recirculación'], ['exterior', 'Sale a la calle (a ras de suelo)']], valor: m.extractor ?? null, permitirVacio: true, alCambiar: v => { m.extractor = v; cambio(); repintar(); } })));
+        if (m.tipo === 'placa' && x && !m.extractor) n.push(tamano('campana-ancho', 'Tamaño de la campana', 'campana_ancho', [600, 900, 1200], anchoCampana(null, d)));
         pintarCampana(); n.push(textosCampana);
       }
       if (tieneInstalacion(m)) {

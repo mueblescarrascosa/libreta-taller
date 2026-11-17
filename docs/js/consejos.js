@@ -3,7 +3,7 @@
 // electrodomésticos de la ficha: el ancho del MUEBLE no es el del aparato (en un bajo de placa de 80 o 90 va
 // normalmente una placa de 60). Cada consejo: { campo, texto, porque, grupo }.
 // Todas las medidas de referencia están en MEDIDAS: la guía (pantallas/guia.js) las enseña tal cual.
-import { geometriaAlzado, ALTURAS, campanasPared, placasPared, CAMPANA } from './alzado.js';
+import { geometriaAlzado, ALTURAS, campanasPared, placasPared, CAMPANA, TUBO } from './alzado.js';
 import { paredesVecinas } from './modulos.js';
 import { verMedida } from './unidades.js';
 
@@ -127,12 +127,24 @@ export function consejosDiseno(ficha) {
     // El tamaño de la placa elegido en el propio mueble manda sobre el de Electrodomésticos.
     const sobre = placasPared(p, d), deMueble = pl => sobre.find(q => q.mueble && Math.abs((q.desde + q.hasta) / 2 - (pl.x + pl.w / 2)) < 1);
     const placaDicha = pl => { const q = deMueble(pl); return q && hay(q.mueble.placa_ancho) ? q.ancho : ap.placa; };
-    const margen = pl => Math.max(0, (pl.w - (placaDicha(pl) || anchoPlaca)) / 2);
+    const margen = pl => (pl.suelta ? 0 : Math.max(0, (pl.w - (placaDicha(pl) || anchoPlaca)) / 2));
+    // La placa puesta bajo una campana sin mueble de placa (encima de dos cajoneras…) cuenta como las demás.
+    const sueltas = sobre.filter(q => q.campana).map(q => ({ x: q.desde, w: q.ancho, tipo: 'placa', clase: 'bajo', suelta: true }));
+    const todasPlacas = placas.concat(sueltas);
+    // Encimera libre a un lado de la placa: la suelta empieza dentro de un bajo (lo que queda de él cuenta).
+    const libreDe = (pl, lado) => {
+      if (!pl.suelta) { const r = libreHacia(base, pl, lado); return { total: r.total, tope: r.tope, libre: r.total + margen(pl) }; }
+      const e = lado < 0 ? pl.x : pl.x + pl.w, b = base.find(q => (lado < 0 ? q.x < e && q.x + q.w >= e : q.x <= e && q.x + q.w > e));
+      if (!b) return { total: 0, tope: 'fin', libre: 0 };
+      if (b.clase !== 'bajo' || !ENCIMERA.includes(b.tipo)) return { total: 0, tope: b, libre: 0 };
+      const r = libreHacia(base, b, lado), parte = lado < 0 ? e - b.x : b.x + b.w - e;
+      return { total: parte + r.total, tope: r.tope, libre: parte + r.total };
+    };
 
     // ── Placa y campana ──
-    placas.forEach(pl => {
+    todasPlacas.forEach(pl => {
       [[-1, 'izquierda'], [1, 'derecha']].forEach(([lado, txt]) => {
-        const r = libreHacia(base, pl, lado), libre = r.total + margen(pl);
+        const r = libreDe(pl, lado), libre = r.libre;
         if (libre >= M.lado_placa) return;
         const porque = 'Hace falta sitio para apoyar las ollas y que los mangos no queden fuera: al menos ' + cm(M.lado_placa) + ', mejor ' + cm(M.lado_placa_bien) + '.';
         const queda = libre > 0 ? 'solo ' + cm(libre) + ' de encimera' : 'nada de encimera';
@@ -142,7 +154,7 @@ export function consejosDiseno(ficha) {
       });
     });
     const ventanas = g.piezas.filter(q => q.clase === 'ventana');
-    placas.forEach(pl => {
+    todasPlacas.forEach(pl => {
       if (ventanas.some(w => solapan(w, pl))) poner('placa', campo, 'Placa debajo de la ventana' + en, 'No se puede poner campana' + (ap.gas ? ', las corrientes apagan el gas' : '') + ' y las cortinas o la persiana se manchan y pueden prender.');
     });
     const campanas = g.piezas.filter(q => q.clase === 'alto' && q.tipo === 'alto_campana');
@@ -164,8 +176,19 @@ export function consejosDiseno(ficha) {
       if (pl && x.ancho < pl.ancho - TOLERA) poner('placa', campo, 'Campana de ' + cm(x.ancho) + ' para una placa de ' + cm(pl.ancho) + en, 'La campana debe ser igual o más ancha que la placa para recoger bien los humos.');
     });
 
+    // Tubo de humos: si la salida no queda encima del aparato (más de 10 cm a un lado), lleva codos y hay que cajearlo.
+    (g.tubos || []).forEach(t => {
+      const q = t.de === 'campana' ? 'de la campana' : 'de la placa extractora';
+      if (!t.salida) { if (t.de === 'placa') poner('placa', campo, 'Falta la salida de humos de la placa extractora' + en, 'Con salida a la calle hace falta un agujero a ras de suelo, por detrás del zócalo. Apúntalo como «Salida de humos» con su altura.'); return; }
+      const m = verMedida(Math.ceil(t.tubo / 100) * 100, 'm') + ' m', codos = t.codos + (t.codos === 1 ? ' codo' : ' codos');
+      if (t.cajear) poner('placa', campo, (t.de === 'campana' ? 'Hay que cajear el tubo de la campana' : 'Tubo de la placa extractora con codos') + en + ': unos ' + m + ' y ' + codos,
+        'La salida de humos queda ' + cm(Math.abs(t.dx)) + ' a la ' + (t.dx < 0 ? 'izquierda' : 'derecha') + ' del centro ' + q + ' (más de ' + cm(TUBO.tolera) + '): el tubo no ' + (t.de === 'campana' ? 'sube' : 'va') + ' derecho. Mueve el aparato o la salida, o cuenta con el tubo, los codos' + (t.de === 'campana' ? ' y el cajeado.' : '.'));
+      if (t.baja) poner('placa', campo, 'La salida de humos está más baja que la campana' + en, 'El tubo empieza a unos ' + cm(t.z0) + ' del suelo: la salida debería quedar por encima.');
+      if (t.alta) poner('placa', campo, 'Salida de humos alta para una placa extractora' + en, 'La placa extractora saca el aire por abajo: lo normal es una salida a ras de suelo, por detrás del zócalo.');
+    });
+
     // ── Fregadero ──
-    placas.forEach(pl => fregs.forEach(fr => {
+    todasPlacas.forEach(pl => fregs.forEach(fr => {
       const entre = separacion(pl, fr) + margen(pl);
       const porque = 'Es donde se corta y se prepara: lo cómodo son ' + cm(M.preparar) + ' a ' + cm(M.preparar_bien) + ' de encimera entre los dos.';
       if (pegados(pl, fr) && entre < M.preparar) poner('agua', campo, 'Placa y fregadero juntos' + en, 'El agua salpica la placa y no queda sitio para preparar. ' + porque);
@@ -176,7 +199,7 @@ export function consejosDiseno(ficha) {
     });
 
     // ── Frigorífico ──
-    base.filter(q => q.tipo === 'columna_frigo').forEach(fg => placas.forEach(pl => {
+    base.filter(q => q.tipo === 'columna_frigo').forEach(fg => todasPlacas.forEach(pl => {
       const entre = separacion(fg, pl) + margen(pl);
       if (entre < M.frigo_placa) poner('frio', campo, (entre <= 0 ? 'Frigorífico pegado a la placa' : 'Frigorífico a ' + cm(entre) + ' de la placa') + en, 'El calor le hace trabajar más y gasta más' + (ap.gas ? ' (y con gas, más aún)' : '') + '. Mejor ' + cm(M.frigo_placa) + ' o más de encimera entre los dos, o un panel aislante.');
     }));
@@ -223,8 +246,10 @@ export function consejosDiseno(ficha) {
     }
   });
   // Poca encimera de trabajo en total.
-  if (de('placa').length && de('fregadero').length) {
-    const libre = todas.filter(q => q.clase === 'bajo' && ENCIMERA.includes(q.tipo)).reduce((s, q) => s + q.w, 0);
+  // (La placa puesta bajo una campana, sobre cajoneras, ocupa encimera.)
+  const sueltasTodas = (d.paredes || []).filter(p => hay(p.largo)).flatMap(p => placasPared(p, d).filter(q => q.campana));
+  if ((de('placa').length || sueltasTodas.length) && de('fregadero').length) {
+    const libre = todas.filter(q => q.clase === 'bajo' && ENCIMERA.includes(q.tipo)).reduce((s, q) => s + q.w, 0) - sueltasTodas.reduce((s, q) => s + q.ancho, 0);
     if (libre < M.encimera_libre) poner('encimera', 'paredes', 'Poca encimera para trabajar: ' + cm(libre) + ' en total (sin placa ni fregadero)', 'Lo mínimo cómodo son ' + cm(M.encimera_libre) + ' seguidos para preparar.');
   }
   // ── Pasos: encimeras enfrentadas (la pared de enfrente es la vecina de la vecina) y hasta la isla ──

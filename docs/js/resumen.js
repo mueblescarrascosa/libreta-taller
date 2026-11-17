@@ -3,7 +3,7 @@ import { verMedida } from './unidades.js';
 import { tituloFicha } from './util.js';
 import { textoMaterial } from './material.js';
 import { resumenPuerta, nombreElemento, camposDeElemento, textoAzulejo, extraPilar, tamanoHumos, esquinaDe, textoDescuadre } from './modelo.js';
-import { centrosCampana, textoCentroCampana } from './alzado.js';
+import { centrosCampana, textoCentroCampana, geometriaAlzado, textoTubo } from './alzado.js';
 import { textoModulo, cuadreBajos, cuadreAltos, cuadreCuerposPared, textoCuadre, nombreLineal, nombreInterior, textoInteriores, textoRincon, textoElectro, paredesVecinas } from './modulos.js';
 
 const hay = v => v !== null && v !== undefined && v !== '';
@@ -81,7 +81,13 @@ function bloquePared(p, ud, u, ajustes, d, sinInst) {
   const v = paredesVecinas(d, p), bajos = (p.bajos || []).map(m => (m.tipo === 'rinconero' && v[m.gira === 'izq' ? 'izq' : 'der'] ? Object.assign({}, m, { sigue: v[m.gira === 'izq' ? 'izq' : 'der'].letra }) : m));
   l.push(lineaModulos('Bajos', bajos, cuadreBajos(p, d)), (p.altos || []).length ? lineaModulos('Altos', p.altos, cuadreAltos(p)) : null);
   // Dónde queda el centro de cada campana (para la salida de humos y colgarla).
-  if (hay(p.largo) && ((p.bajos || []).length || (p.altos || []).length)) centrosCampana(p, d).forEach(c => l.push('- ' + textoCentroCampana(c)));
+  if (hay(p.largo) && ((p.bajos || []).length || (p.altos || []).length)) {
+    centrosCampana(p, d).forEach(c => l.push('- ' + textoCentroCampana(c)));
+    // Tubo de humos (campana o placa extractora a la calle): cuánto tubo y codos, y si hay que cajearlo.
+    const g = geometriaAlzado(d, p);
+    ((g && g.tubos) || []).forEach(t => l.push('- ' + textoTubo(t)));
+    if ((p.bajos || []).some(m => m.tipo === 'placa' && m.extractor === 'recirculacion')) l.push('- Placa extractora con recirculación: sin salida de humos');
+  }
   return l.filter(hay);
 }
 

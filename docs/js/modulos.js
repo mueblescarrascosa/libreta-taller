@@ -52,6 +52,7 @@ export const lineaNueva = tipo => ({ id: id(), tipo, modelo: '', nombre: '' });
 export function nombreModulo(m) {
   if (m.tipo === 'otro') return m.nombre || 'Otro';
   if (m.tipo === 'rinconero') return m.forma === 'recto' ? 'Rinconero recto' : m.forma === 'chaflan' ? 'Rinconero chaflán' : 'Rinconero en L';
+  if (m.tipo === 'placa' && m.extractor) return m.horno ? 'Placa extractora con horno' : 'Placa extractora';
   if (m.tipo === 'placa' && m.horno) return 'Placa con horno';
   return NOMBRE_MODULO[m.tipo] || m.tipo;
 }

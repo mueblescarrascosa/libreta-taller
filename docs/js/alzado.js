@@ -28,6 +28,10 @@ const PUNTOS = ['humos', 'desague', 'toma', 'agua', 'gas', 'enchufe', 'otro'];
 // decorativa o no se ha dicho el tipo (las extraíbles e integradas van en el «Alto campana»). Ancho: el elegido en el
 // mueble, el de Electrodomésticos o 60. Medidas en mm: 65 cm sobre la encimera, base de 7, pirámide de 33 y chimenea de 26 hasta el techo.
 export const CAMPANA = { sobre: 650, base: 70, piramide: 330, chimenea: 260, fondo: 500, fondo_chimenea: 240, margen_min: 50, margen_bien: 100 };
+// Tubo de humos: la campana va sobre los 150 cm y tiene unos 30 cm de alto hasta donde empieza el tubo. Si la salida queda
+// a más de 10 cm a un lado del centro, el tubo no sube derecho: lleva codos y hay que cajearlo. La placa extractora con
+// salida a la calle lleva el tubo a ras de suelo, por detrás del zócalo, con unos 30 cm hasta la pared.
+export const TUBO = { hasta_tubo: 300, tolera: 100, suelo: 75, fondo_placa: 300, alta_placa: 400 };
 // Tamaño de la placa y de la campana: el elegido en el mueble; si no, el de Electrodomésticos; si no, 60.
 export const ANCHO_PLACA = 600, ANCHO_CAMPANA = 600;
 const electroDe = (d, clave) => ((d && d.electro) || []).find(e => e.clave === clave);
@@ -74,7 +78,7 @@ export function campanasPared(pared, d, sit = situarMuebles(pared, d)) {
   // En el mueble se puede elegir el tamaño de la campana (60, 90, 120) y su tipo (piramidal o recta).
   const anchoEn = (hueco, m) => Math.min(anchoCampana(m, d), hueco);
   const puestas = sit.altos.filter(a => a.m.tipo === 'campana_deco').map(a => { const w = anchoEn(a.hasta - a.desde, a.m), x = (a.desde + a.hasta - w) / 2; return { alto: a.m, desde: x, hasta: x + w, ancho: w, hueco: a.hasta - a.desde, tipo: a.m.campana_tipo || 'piramidal' }; });
-  const sobrePlaca = c && c.tipo && c.tipo !== 'decorativa' ? [] : sit.bajos.filter(({ m, desde, hasta }) => m.tipo === 'placa' && !sit.altos.some(a => a.m.tipo !== 'hueco' && a.desde < hasta - 50 && a.hasta > desde + 50))
+  const sobrePlaca = c && c.tipo && c.tipo !== 'decorativa' ? [] : sit.bajos.filter(({ m, desde, hasta }) => m.tipo === 'placa' && !m.extractor && !sit.altos.some(a => a.m.tipo !== 'hueco' && a.desde < hasta - 50 && a.hasta > desde + 50))
     .map(({ m, desde, hasta }) => { const w = anchoCampana(m, d), x = (desde + hasta - w) / 2; return { placa: m, desde: x, hasta: x + w, ancho: w, tipo: 'piramidal' }; });
   // Lo que queda a cada lado hasta el siguiente alto o columna (o la pared).
   const L = hay(pared.largo) ? pared.largo : Infinity, ocupan = sit.altos.filter(a => a.m.tipo !== 'hueco' && a.m.tipo !== 'campana_deco').concat(sit.bajos.filter(b => esColumna(b.m)));
@@ -88,6 +92,42 @@ export function textoHolgurasCampana(x) {
   const cm = mm => Math.round(mm / 10) + ' cm', lado = (v, pared, t) => (v === null ? '' : (!pared && v < CAMPANA.margen_min ? '⚠ ' : '') + cm(v) + ' a la ' + t + (pared ? ' hasta la pared' : ' hasta el mueble'));
   return 'Campana ' + (x.tipo === 'recta' ? 'recta' : 'piramidal') + ' de ' + cm(x.ancho) + (x.hueco ? ' en un hueco de ' + cm(x.hueco) : ' encima de la placa') + ': quedan '
     + [lado(x.izq, x.izqPared, 'izquierda'), lado(x.der, x.derPared, 'derecha')].filter(Boolean).join(' y ') + '.';
+}
+
+// Cuánto tubo y cuántos codos hacen falta desde el aparato (x, z0: donde empieza el tubo) hasta la salida de humos más
+// cercana en x: { de, x, z0, salida, dx, tubo (mm), codos, cajear, sinAltura, alta, camino: [[x, z]…] para el alzado }.
+export function tuboHumos(a, salidas, techo) {
+  if (!salidas.length) return Object.assign({}, a, { salida: null });
+  const s = salidas.reduce((m, q) => (Math.abs(q.x - a.x) < Math.abs(m.x - a.x) ? q : m)), dx = Math.round(s.x - a.x), lado = Math.abs(dx) > TUBO.tolera;
+  const r = Object.assign({}, a, { salida: s, dx, cajear: lado, sinAltura: !s.techo && s.y === null });
+  if (a.de === 'campana') {
+    const arriba = s.techo ? techo : s.y === null ? a.z0 : s.y, sube = Math.max(0, arriba - a.z0);
+    r.baja = !s.techo && s.y !== null && s.y < a.z0 - 50;
+    r.tubo = sube + (lado ? Math.abs(dx) : 0) + (r.baja ? a.z0 - s.y : 0);
+    r.codos = s.techo ? (lado ? 2 : 0) : lado ? 2 : 1;
+    const zh = s.techo ? Math.max(a.z0, techo - 150) : arriba;
+    r.camino = s.techo ? (lado ? [[a.x, a.z0], [a.x, zh], [s.x, zh], [s.x, techo]] : [[a.x, a.z0], [a.x, techo]]) : [[a.x, a.z0], [a.x, zh], [s.x, zh]];
+  } else {
+    // Placa extractora: baja por dentro del mueble (va con la placa), sigue por detrás del zócalo y entra en la pared.
+    const y = s.techo ? techo : s.y === null ? a.z0 : s.y, sube = Math.max(0, y - a.z0);
+    r.alta = s.techo || (s.y !== null && s.y > TUBO.alta_placa);
+    r.tubo = TUBO.fondo_placa + (lado ? Math.abs(dx) : 0) + (sube > 100 ? sube : 0);
+    r.codos = (lado ? 2 : 0) + (sube > 100 ? (lado ? 1 : 2) : 0);
+    r.camino = [[a.x, ALTURAS.encimera - 100], [a.x, a.z0], [s.x, a.z0]].concat(sube > 100 ? [[s.x, y]] : []);
+  }
+  return r;
+}
+// «Tubo de la campana: unos 1,2 m y 2 codos. Hay que cajearlo: la salida queda 40 cm a la derecha del centro.»
+export function textoTubo(t) {
+  const quien = t.de === 'campana' ? 'Tubo de la campana' : 'Tubo de la placa extractora (a ras de suelo, por detrás del zócalo)';
+  if (!t.salida) return quien + ': falta apuntar la salida de humos en esta pared.';
+  const m = Math.ceil(t.tubo / 100) * 100, codos = t.codos === 0 ? 'sin codos' : t.codos + (t.codos === 1 ? ' codo' : ' codos');
+  let x = quien + ': unos ' + verMedida(m, 'm') + ' m y ' + codos + (t.salida.techo ? ' (sale por el techo)' : '') + '.';
+  if (t.cajear) x += ' ' + (t.de === 'campana' ? 'Hay que cajearlo: l' : 'L') + 'a salida queda ' + verMedida(Math.abs(t.dx), 'cm') + ' cm a la ' + (t.dx < 0 ? 'izquierda' : 'derecha') + ' del centro.';
+  if (t.baja) x += ' ⚠ La salida está más baja que donde empieza el tubo.';
+  if (t.alta) x += ' ⚠ La salida está alta para una placa extractora: suele ir a ras de suelo.';
+  if (t.sinAltura) x += ' (Sin la altura de la salida: falta lo que sube o baja.)';
+  return x;
 }
 
 export function techoFrigo(d) {
@@ -149,8 +189,11 @@ export function geometriaAlzado(d, pared, ajustes = null) {
     if (techo > zc) pieza('f_campana', (c.desde + c.hasta - CAMPANA.chimenea) / 2, zc, CAMPANA.chimenea, techo - zc, '', 'campana');
   });
 
+  // Placas: una franja oscura sobre la encimera, de su ancho (también la de debajo de la campana, sobre cajoneras).
+  placasPared(pared, d, sit).forEach(q => pieza('f_placa', q.desde, ALTURAS.encimera, q.ancho, 25, '', 'placa'));
   // Centro de cada campana: raya de ejes y cota desde la punta de la pared más cercana, a media altura entre la encimera y la campana.
-  g.centrosCampana = centrosCampana(pared, d, sit).map(c => ({ x: c.x, desde: c.lado === 'der' ? L : 0, y: ALTURAS.encimera + CAMPANA.sobre / 2, texto: 'centro a ' + verMedida(c.dist, 'cm') + (c.letra ? ' de ' + c.letra : ''), dist: c.dist }));
+  g.centrosCampana = centrosCampana(pared, d, sit).map(c => ({ x: c.x, desde: c.lado === 'der' ? L : 0, y: ALTURAS.encimera + CAMPANA.sobre / 2, texto: 'centro a ' + verMedida(c.dist, 'cm') + (c.letra ? ' de ' + c.letra : ''), dist: c.dist, mueble: c.mueble }));
+  const placasExtractoras = sit.bajos.filter(b => b.m.tipo === 'placa' && b.m.extractor === 'exterior').map(b => ({ x: (b.desde + b.hasta) / 2, mueble: b.m }));
 
   // Cuerpos del vestidor, de izquierda a derecha, con su interior dibujado (barras, estantes, cajones…);
   // en las puntas, lo que entra del cuerpo de rincón de la pared de al lado (con su interior, sin rótulo).
@@ -196,12 +239,16 @@ export function geometriaAlzado(d, pared, ajustes = null) {
     const v = pilarDeVecina(d, pared, lado);
     if (v) pieza('pilar', lado === 'izq' ? 0 : L - v.fondo, 0, v.fondo, techo, 'Pilar ' + v.de, 'pilar_vecino');
   });
+  // Tubo de humos de cada campana y de cada placa extractora con salida a la calle, hasta la salida más cercana.
+  const salidas = g.puntos.filter(q => q.tipo === 'humos' && !(q.dato && q.dato.humos_forma === 'recirculacion'));
+  g.tubos = g.centrosCampana.map(c => tuboHumos({ de: 'campana', x: c.x, z0: (c.mueble && c.mueble.tipo === 'alto_campana' ? ALTURAS.altos_desde : ALTURAS.encimera + CAMPANA.sobre) + TUBO.hasta_tubo, mueble: c.mueble }, salidas, techo))
+    .concat(placasExtractoras.map(c => tuboHumos({ de: 'placa', x: c.x, z0: TUBO.suelo, mueble: c.mueble }, salidas, techo)));
   return g;
 }
 
 // Nombres cortos para la fila de nombres cuando el largo no cabe.
 const CORTOS = [['Columna frigo', 'Col. frigo'], ['Columna H/MO', 'Col. H/MO'], ['Alto sobre frigo', 'Alto s/frigo'], ['Alto campana', 'Campana'], ['Alto micro', 'Micro'],
-  ['Lavavajillas', 'Lavavaj.'], ['Fregadero', 'Freg.'], ['Cajonero', 'Cajon.'], ['Escobero', 'Escob.'], ['Despensero', 'Desp.'], ['Placa con horno', 'Placa+horno']];
+  ['Lavavajillas', 'Lavavaj.'], ['Fregadero', 'Freg.'], ['Cajonero', 'Cajon.'], ['Escobero', 'Escob.'], ['Despensero', 'Desp.'], ['Placa extractora con horno', 'Placa extr.+horno'], ['Placa con horno', 'Placa+horno'], ['Placa extractora', 'Placa extr.']];
 export const acortar = t => CORTOS.reduce((x, [a, b]) => x.replace(a, b), String(t));
 
 // Dibujo SVG del alzado. Solo en el navegador.
@@ -243,11 +290,12 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
     f_electro: { fill: '#3f3f46', stroke: '#18181b', 'stroke-width': s * 0.25 },
     f_cristal: { fill: '#52525b', stroke: '#a1a1aa', 'stroke-width': s * 0.2 },
     f_campana: { fill: '#a1a1aa', stroke: '#52525b', 'stroke-width': s * 0.25 },
+    f_placa: { fill: '#1f2328', stroke: '#0b0d10', 'stroke-width': s * 0.2 },
     alto: { fill: '#bfdbfe', stroke: '#1d4ed8', 'stroke-width': s * 0.4 },
     ventana: { fill: '#e0f2fe', stroke: '#0284c7', 'stroke-width': s * 0.5 },
     puerta: { fill: '#fef3c7', stroke: '#92400e', 'stroke-width': s * 0.5 },
   };
-  const orden = ['azulejo', 'pilar', 'ventana', 'puerta', 'zocalo', 'bajo', 'encimera', 'columna', 'cuerpo', 'int_estante', 'int_zapato', 'int_cajon', 'int_pantalonero', 'int_barra', 'hueco', 'alto', 'f_zocalo', 'f_tablero', 'f_hoja', 'f_hoja_alto', 'f_acero', 'f_electro', 'f_cristal', 'f_campana', 'f_tirador'];
+  const orden = ['azulejo', 'pilar', 'ventana', 'puerta', 'zocalo', 'bajo', 'encimera', 'columna', 'cuerpo', 'int_estante', 'int_zapato', 'int_cajon', 'int_pantalonero', 'int_barra', 'hueco', 'alto', 'f_zocalo', 'f_tablero', 'f_hoja', 'f_hoja_alto', 'f_acero', 'f_electro', 'f_cristal', 'f_campana', 'f_placa', 'f_tirador'];
   const rotulos = [];
   orden.forEach(clase => g.piezas.filter(p => p.clase === clase).forEach(p => {
     if (p.trap) svg.append(el('polygon', Object.assign({ points: [[p.x, p.y], [p.x + p.w, p.y], [p.x + (p.w + p.trap) / 2, p.y + p.h], [p.x + (p.w - p.trap) / 2, p.y + p.h]].map(([x, y]) => x + ',' + Y(y)).join(' '), 'data-pieza': p.clase }, ESTILO[clase])));
@@ -306,6 +354,8 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
     svg.append(fondoRotulo(el, { caja }, s * tam));
     texto(q.x, caja.y + hh / 2, t, { fill: col, 'font-size': s * tam, 'data-rotulo-punto': q.tipo, stroke: 'none' });
   });
+  // Tubo de humos: raya de trazos gris hasta la salida.
+  (g.tubos || []).filter(t => t.camino).forEach(t => svg.append(el('polyline', { points: t.camino.map(([x, z]) => x + ',' + Y(z)).join(' '), fill: 'none', stroke: '#57534e', 'stroke-width': s * 0.6, 'stroke-dasharray': s * 1.2 + ' ' + s * 0.7, 'stroke-linejoin': 'round', 'data-tubo': t.de })));
   // Centro de la campana: eje de puntos de la encimera a la campana y la cota desde la pared más cercana.
   (g.centrosCampana || []).forEach(c => {
     const col = '#7c3aed', y = Y(c.y), z0 = Y(ALTURAS.encimera), z1 = Y(ALTURAS.encimera + CAMPANA.sobre), t = s * 1.2;

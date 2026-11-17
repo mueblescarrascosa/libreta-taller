@@ -84,6 +84,46 @@ prueba('consejos: usan el tamaño de placa del mueble y avisan si la campana es 
   afirma(t(f).includes('Campana de 60 cm para una placa de 80 cm (pared A)'), t(f).join(' | '));
   A.altos[1].placa_ancho = null;
   afirma(!t(f).some(x => /Campana de/.test(x)), 'de 60 y 60, bien');
+  // La placa sobre cajoneras cuenta para el sitio a los lados: pegada a la columna, avisa.
+  A.bajos = [mod('columna_frigo', 600), mod('cajonero', 600), mod('cajonero', 600), mod('bajo', 600)]; A.altos = [mod('campana_deco', 600)];
+  afirma(t(f).some(x => /^Placa junto a la columna frigo por la izquierda/.test(x)), t(f).join(' | '));
+  A.altos = [mod('alto', 600), mod('campana_deco', 600)];
+  afirma(!t(f).some(x => /^Placa junto/.test(x)), 'con 60 de encimera a la izquierda, bien: ' + t(f).join(' | '));
+});
+
+prueba('tubo de humos: metros y codos hasta la salida, cajear si queda a un lado (más de 10 cm)', async () => {
+  const { consejosDiseno } = await import('../docs/js/consejos.js'), { textoTubo } = await import('../docs/js/alzado.js');
+  const humos = (distancia, x) => Object.assign({ id: 'h' + distancia, tipo: 'humos', ref: 'izq', distancia, altura: 2200 }, x || {});
+  const A = pared('A', 3000, { bajos: [mod('bajo', 600), mod('placa', 600), mod('bajo', 600)], elementos: [humos(900)] }), f = cocina([A]);
+  const tubos = () => geometriaAlzado(f.datos, A).tubos;
+  // Campana sobre los 150 (154 con la encimera a 89) y 30 de alto: el tubo empieza a 184; la salida a 220 encima.
+  igual(tubos().map(t => [t.de, t.tubo, t.codos, t.cajear]), [['campana', 360, 1, false]]);
+  igual(textoTubo(tubos()[0]), 'Tubo de la campana: unos 0,4 m y 1 codo.');
+  A.elementos = [humos(1400)];
+  igual(tubos().map(t => [t.tubo, t.codos, t.cajear, t.dx]), [[860, 2, true, 500]]);
+  igual(textoTubo(tubos()[0]), 'Tubo de la campana: unos 0,9 m y 2 codos. Hay que cajearlo: la salida queda 50 cm a la derecha del centro.');
+  afirma(consejosDiseno(f).some(c => c.texto === 'Hay que cajear el tubo de la campana (pared A): unos 0,9 m y 2 codos' && /50 cm a la derecha/.test(c.porque)), consejosDiseno(f).map(c => c.texto).join(' | '));
+  A.elementos = [humos(980)];
+  igual(tubos()[0].cajear, false, '8 cm de lado: vale');
+  A.elementos = [humos(900, { humos_sale: 'techo', altura: null })];
+  igual(textoTubo(tubos()[0]), 'Tubo de la campana: unos 0,7 m y sin codos (sale por el techo).');
+  A.elementos = [];
+  igual(textoTubo(tubos()[0]), 'Tubo de la campana: falta apuntar la salida de humos en esta pared.');
+  afirma(geometriaAlzado(f.datos, A).piezas.filter(p => p.clase === 'f_placa').length === 1, 'la placa en el alzado');
+  // Placa extractora a la calle: sin campana; el tubo a ras de suelo hasta la salida.
+  A.bajos[1].extractor = 'exterior'; A.elementos = [humos(1500, { altura: 100 })];
+  igual(campanasPared(A, f.datos), [], 'sin campana encima');
+  igual(tubos().map(t => [t.de, t.tubo, t.codos, t.cajear]), [['placa', 900, 2, true]]);
+  igual(textoTubo(tubos()[0]), 'Tubo de la placa extractora (a ras de suelo, por detrás del zócalo): unos 0,9 m y 2 codos. La salida queda 60 cm a la derecha del centro.');
+  A.elementos = [humos(900)];
+  afirma(consejosDiseno(f).some(c => c.texto === 'Salida de humos alta para una placa extractora (pared A)'), 'salida a 2,20 para una placa extractora');
+  A.elementos = [];
+  afirma(consejosDiseno(f).some(c => c.texto === 'Falta la salida de humos de la placa extractora (pared A)'));
+  // Recirculación: sin tubo.
+  A.bajos[1].extractor = 'recirculacion';
+  igual([campanasPared(A, f.datos).length, tubos().length], [0, 0]);
+  const txt = textoResumen({ ficha: f, trabajo: null, ajustes: AJUSTES_FABRICA });
+  afirma(txt.includes('Placa extractora 60') && txt.includes('Placa extractora con recirculación: sin salida de humos'), txt);
 });
 
 const con = fn => async () => { const a = await abrir({}); try { await entrar(a); await fn(a); igual(a.errores, [], 'errores de página'); } finally { await a.cerrar(); } };
@@ -116,6 +156,7 @@ prueba('ficha: botones de tamaño de placa y campana, centro de la campana y not
   await a.page.waitForSelector(abierto + '[data-acc="placa-ancho"][data-v="800"].on');
   await a.page.waitForSelector('[data-acc="alzado"] [data-cota-campana]');
   igual(await a.page.$eval('[data-acc="alzado"] [data-cota-campana]', t => t.textContent), 'centro a 120');
+  afirma(/falta apuntar la salida de humos/.test(await a.page.innerText(abierto + '[data-acc="tubo-humos"]')), 'el tubo pide la salida');
   // Notas: del alto del texto y un renglón más.
   await a.page.click('[data-acc="anadir-nota"]');
   const t = '[data-acc="nota"]';
