@@ -110,12 +110,19 @@ export const textoModulo = m => nombreModulo(m) + (hay(m.ancho) ? ' ' + medidasM
 // Lo que un rinconero ocupa en la pared donde sigue: el otro lado (en L o chaflán) o el fondo (recto).
 const ocupaVecina = m => (m.forma === 'recto' ? FONDO_BAJO : hay(m.lado2) ? m.lado2 : null);
 // Rinconeros de las paredes de al lado que entran en esta: cuánto ocupan en su punta izquierda y en la derecha.
+// El rinconero gira hacia la pared de su punta: el primero de la fila (con más muebles detrás), hacia la de la izquierda;
+// el último, hacia la de la derecha. Solo en medio de la fila (o si va solo) manda lo elegido en «Sigue en».
+export function ajustarGiros(p) {
+  const l = ((p && p.bajos) || []).filter(m => hay(m.ancho));
+  l.forEach((m, i) => { if (m.tipo === 'rinconero' && l.length > 1 && (i === 0 || i === l.length - 1)) m.gira = i === 0 ? 'izq' : 'der'; });
+}
 export function rinconerosQueEntran(datos, p) {
   const r = { izq: 0, der: 0 }, lista = (datos && datos.paredes) || [], i = lista.indexOf(p);
   if (i < 0) return r;
   const cerrada = !!(datos.plano && datos.plano.cerrada);
   const ant = i > 0 ? lista[i - 1] : cerrada && lista.length > 1 ? lista[lista.length - 1] : null;
   const sig = i < lista.length - 1 ? lista[i + 1] : cerrada && lista.length > 1 ? lista[0] : null;
+  [ant, sig].forEach(ajustarGiros);
   (ant && ant.bajos || []).forEach(m => { if (m.tipo === 'rinconero' && m.gira !== 'izq') r.izq += ocupaVecina(m) || 0; });
   (sig && sig.bajos || []).forEach(m => { if (m.tipo === 'rinconero' && m.gira === 'izq') r.der += ocupaVecina(m) || 0; });
   return r;
@@ -267,6 +274,7 @@ export const FONDO_ALTO_VISTO = 350;
 // de la pared anterior (o desde la regleta de la pared); los altos, seguidos pero saltando las columnas, salvo el alto
 // sobre frigo, que va encima de la suya. remates: las regletas y costados con su sitio ({ tipo, fila, desde, hasta }).
 export function situarMuebles(p, datos) {
+  ajustarGiros(p);
   const e = rinconerosQueEntran(datos, p), bajos = [], altos = [], columnas = [], remates = [], R = medidasRemates(datos);
   const L = hay(p.largo) ? p.largo : null, lista = (p.bajos || []).filter(m => hay(m.ancho)), filaDe = m => (esColumna(m) ? 'columna' : 'bajos');
   const poner = (tipo, fila, desde, ancho, col = null) => { if (ancho > 0) remates.push(Object.assign({ tipo, fila, desde, hasta: desde + ancho, ancho }, col && col.tipo === 'semicolumna' ? { tope: SEMICOLUMNA } : {})); };
