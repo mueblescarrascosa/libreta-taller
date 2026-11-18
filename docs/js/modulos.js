@@ -42,6 +42,8 @@ export const LAVAVAJILLAS_ALTO = { desde: 280, hueco: 850 };
 // Alto micro de 50: el microondas es de libre instalación (suelen medir de 44 a 48 de ancho y de 28 a 30 de alto: 46 × 29);
 // de 60, integrable.
 export const MICRO_LIBRE = { ancho: 460, alto: 290, mueble: 500 };
+// Integrable: 60 × 38 (el hueco del alto micro de 60 y de la columna H/MO).
+export const MICRO_INTEGRABLE = { ancho: 600, alto: 380 };
 export const microLibre = m => !!m && m.tipo === 'alto_micro' && m.ancho > 0 && m.ancho <= 550;
 // Alto del horno (45 compacto o 60): el elegido en el mueble; si no, 60.
 export const altoHorno = m => (m && m.horno_alto === 450 ? 450 : 600);
@@ -73,7 +75,7 @@ export const CORTO_MODULO = { alto_abierto: 'Abierto', campana_deco: 'Campana de
 // Anchos habituales en España (mm) por tipo de mueble; los demás usan la lista general de Ajustes. Siempre se puede escribir otro.
 const ANCHOS_TIPO = {
   fregadero: [500, 600, 800, 900, 1000, 1200], placa: [600, 800, 900, 1000, 1200], cajonero: [400, 450, 500, 600, 800, 900, 1000, 1200],
-  lavavajillas: [450, 600], lavadora: [600], columna_hmo: [600], columna_frigo: [600, 700, 920], escobero: [300, 400, 450, 500, 600], despensero: [300, 400, 450, 500, 600], columna_electro: [450, 600], columna_desayuno: [600, 800, 900, 1000, 1200], semicolumna: [300, 400, 450, 500, 600, 700, 800, 900, 1000],
+  lavavajillas: [450, 600], lavadora: [600], columna_hmo: [600], columna_frigo: [600, 700, 920], escobero: [300, 400, 450, 500, 600], despensero: [300, 400, 450, 500, 600], columna_electro: [450, 600], columna_desayuno: [600, 700, 800, 900, 1000], semicolumna: [300, 400, 450, 500, 600, 700, 800, 900, 1000],
   alto_campana: [600, 900], campana_deco: [600, 900, 1200], alto_micro: [500, 600], alto_frigo: [600, 700, 920],
 };
 // Rinconero: en L o chaflán, de 93 a 103 por lado; recto, de 90, 100 o 120 de largo y 60 de fondo.
@@ -504,8 +506,8 @@ export const ELECTRO = [
   ['otro', 'Otro', []],
 ];
 // Medidas habituales (mm, estándar europeo): anchos y altos del aparato o de su hueco.
-export const ANCHOS_ELECTRO = { frigo: [600, 700, 920], horno: [600], microondas: [600, 500, 460], placa: [300, 600, 700, 800, 900], campana: [600, 900, 1200], lavavajillas: [450, 600], lavadora: [600] };
-export const ALTOS_ELECTRO = { frigo: [1220, 1400, 1580, 1780, 1940, 1850, 2010], horno: [600, 450], microondas: [380, 450, 290], lavavajillas: [820, 865] };
+export const ANCHOS_ELECTRO = { frigo: [600, 700, 920], horno: [600], microondas: [600, 460], placa: [300, 600, 700, 800, 900], campana: [600, 900, 1200], lavavajillas: [450, 600], lavadora: [600] };
+export const ALTOS_ELECTRO = { frigo: [1220, 1400, 1580, 1780, 1940, 1850, 2010], horno: [600, 450], microondas: [380, 290], lavavajillas: [820, 865] };
 export const datosElectro = clave => ELECTRO.find(e => e[0] === clave) || ['otro', 'Otro', []];
 export const electroNuevo = clave => ({ id: id(), clave, tipo: null, ancho: null, alto: null, modelo: '', nombre: '' });
 export const nombreElectro = e => (e.clave === 'otro' ? e.nombre || 'Otro' : datosElectro(e.clave)[1]);
@@ -537,11 +539,11 @@ export function electrosDeMuebles(d) {
     if (['columna_hmo', 'semicolumna', 'columna_electro'].includes(m.tipo)) {
       const x = electrosColumna(m);
       if (x.horno) poner('horno', { tipo: 'columna', alto: altoHorno(m) });
-      if (x.micro) poner('microondas', { tipo: 'integrable' });
+      if (x.micro) poner('microondas', { tipo: 'integrable', ancho: MICRO_INTEGRABLE.ancho, alto: MICRO_INTEGRABLE.alto });
     }
     if (m.tipo === 'columna_electro' && (m.abajo || 'lavavajillas') === 'lavavajillas') poner('lavavajillas', { tipo: 'integrable', ancho: m.ancho || null });
     if (m.tipo === 'columna_electro' && m.abajo === 'lavadora') poner('lavadora', { tipo: 'integrable' });
-    if (m.tipo === 'alto_micro') poner('microondas', microLibre(m) ? { tipo: 'libre', ancho: MICRO_LIBRE.ancho, alto: MICRO_LIBRE.alto } : { tipo: 'integrable' });
+    if (m.tipo === 'alto_micro') poner('microondas', microLibre(m) ? { tipo: 'libre', ancho: MICRO_LIBRE.ancho, alto: MICRO_LIBRE.alto } : { tipo: 'integrable', ancho: MICRO_INTEGRABLE.ancho, alto: MICRO_INTEGRABLE.alto });
     if (m.tipo === 'columna_frigo') poner('frigo', { tipo: m.instalacion || null, ancho: m.instalacion === 'americano' ? 920 : null });
     if (m.tipo === 'lavavajillas') poner('lavavajillas', { tipo: m.instalacion || null, ancho: m.ancho || null });
     if (m.tipo === 'lavadora') poner('lavadora', { tipo: m.instalacion || null });

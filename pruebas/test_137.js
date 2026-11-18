@@ -84,7 +84,7 @@ prueba('semicolumna: hasta 140, los altos la saltan; modelos del catálogo', () 
   igual(c.h, 1400);
   afirma(situarMuebles(p, d).altos[0].desde >= 600, 'el alto no va encima');
   igual(articulo(p.bajos[0], d).texto, 'SEMICOLUMNA 135-145 · HORNO + 1 PUERTA · 60');
-  igual(articulo(mod('semicolumna', 900), d).mo, '2 PUERTAS');
+  igual(articulo(mod('semicolumna', 900), d).mo, '2 PUERTA');   // como en la plantilla
   igual(electrosDeMuebles(d).get('horno').tipo, 'columna');
 });
 
@@ -96,7 +96,7 @@ prueba('columna con electro abajo: lavavajillas subido y lo de arriba', () => {
   igual(electros(f()), 1);
   const d = cocina([pared('A', 3000, { bajos: [m] })]);
   igual([electrosDeMuebles(d).get('lavavajillas').tipo, electrosDeMuebles(d).get('horno').tipo], ['integrable', 'columna']);
-  afirma(articulo(m, d).revisar, 'no está en el catálogo');
+  igual(articulo(m, d).texto, 'COLUMNA 220-240 · LAVAVAJILLAS + H/MO · 60');   // 1.39: en el catálogo; «horno + puerta» arriba va como el hueco H/MO
   m.abajo = 'vinoteca'; m.arriba = 'hmo';
   igual([nombreModulo(m), electros(f())], ['Columna vinoteca', 3]);
 });
@@ -105,7 +105,7 @@ prueba('alto micro de 50: microondas libre de 46 × 29; de 60, integrable', () =
   const m = mod('alto_micro', 500), d = cocina([pared('A', 3000, { altos: [m] })]);
   igual(electrosDeMuebles(d).get('microondas'), { tipo: 'libre', ancho: 460, alto: 290 });
   afirma(frenteModulo('alto_micro', 500, 1450, 2150, {}).some(q => q.k === 'acero' && q.x1 - q.x0 === 460), 'el micro dentro del hueco');
-  m.ancho = 600; igual(electrosDeMuebles(d).get('microondas'), { tipo: 'integrable' });
+  m.ancho = 600; igual(electrosDeMuebles(d).get('microondas'), { tipo: 'integrable', ancho: 600, alto: 380 });
 });
 
 prueba('campana vista: costado del alto de al lado aunque pise el margen, y cuánto; los de después, pegados a la columna', () => {

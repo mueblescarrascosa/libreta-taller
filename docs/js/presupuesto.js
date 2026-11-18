@@ -2,7 +2,7 @@
 // catálogo de allí (tipo · modelo · medida). Si se ha elegido una variante o una altura en la libreta, manda esa;
 // si no, la habitual. Lo que no tiene artículo claro va a «Revisar». La app de presupuestos lo comprueba otra vez
 // contra su catálogo y crea un presupuesto NUEVO en borrador (libreta.js de cocinas).
-import { situarMuebles, situarCuerpos, piezasInterior, esLibre, instalacionDe, PUENTE } from './modulos.js';
+import { situarMuebles, situarCuerpos, piezasInterior, esLibre, instalacionDe, PUENTE, topePuente } from './modulos.js';
 import { textoMaterial, materialCocina } from './material.js';
 import { ALTURAS, desdeAlto } from './alzado.js';
 
@@ -72,10 +72,13 @@ export function articulo(m, d) {
       if (m.forma === 'chaflan') return { revisar: 'Rinconero en chaflán de ' + med + ': no hay bajo en chaflán en el catálogo' };
       return r('BAJO', 'RINCÓN EN L');
     case 'columna_hmo': return r(alto, v);
-    case 'semicolumna': return r('SEMICOLUMNA 135-145', v === 'PUERTAS' || !v ? puertas(cm, '1 PUERTA', '2 PUERTAS') : v);
+    // (en la plantilla: «2 PUERTA» y «4 - 5 CACEROLEROS»)
+    case 'semicolumna': return r('SEMICOLUMNA 135-145', v === 'PUERTAS' || !v ? puertas(cm, '1 PUERTA', '2 PUERTA') : v === '4-5 CACEROLEROS' ? '4 - 5 CACEROLEROS' : v);
     // En el catálogo no hay columna con un electrodoméstico abajo: a mano
-    case 'columna_desayuno': return { revisar: 'Columna desayunador de ' + med + ' (bajo ' + (v === 'PUERTAS' || !v ? 'de puertas' : v.toLowerCase()) + ', encimera, hueco de ' + ((m.hueco === 800 ? 80 : 70)) + ' y alto de fondo 60): no está en el catálogo, elegir a mano' };
-    case 'columna_electro': return { revisar: 'Columna con ' + ((m.abajo || 'lavavajillas') === 'nevera' ? 'nevera bajo encimera' : m.abajo || 'lavavajillas') + ' abajo de ' + med + ': no está en el catálogo, elegir a mano' };
+    // Desayunador: la columna de su alto con el bajo elegido (el hueco de 70; con 80, la puerta de arriba es algo más corta)
+    case 'columna_desayuno': return r(alto, 'DESAYUNADOR ' + (v || 'PUERTAS'));
+    // Con un electrodoméstico abajo: lavavajillas (subido) u otro integrable; arriba puerta, o hueco H/MO (horno y/o micro)
+    case 'columna_electro': return r(alto, ((m.abajo || 'lavavajillas') === 'lavavajillas' ? 'LAVAVAJILLAS' : 'ELECTRO') + ' + ' + ((m.arriba || 'puertas') === 'puertas' ? 'PUERTA' : 'H/MO'));
     case 'columna_frigo':
       if (esLibre(m, d)) return { revisar: 'Hueco para frigorífico ' + (instalacionDe(m, d) === 'americano' ? 'americano' : 'libre') + ' de ' + med + ' (sin mueble)' };
       return r(alto, 'FRIGORÍFICO INTEGRADO');
@@ -92,6 +95,16 @@ export function articulo(m, d) {
     case 'hueco': return null;
     default: return { revisar: (m.nombre || 'Mueble') + ' de ' + med + ': elegir a mano' };
   }
+}
+
+// Alto de arriba de la cocina puente (fondo 60): ALTO PUENTE de la altura que le toca (30-40, 50-60 o 70-80).
+export function articuloPuente(m, d) {
+  if (!m || m.tipo === 'hueco') return null;
+  const cm = Math.round((m.ancho || 0) / 10 * 10) / 10, med = String(cm), h = topePuente(d) - PUENTE.desde;
+  if (!hay(m.ancho)) return { revisar: 'Alto de arriba (puente) sin ancho: elegir a mano' };
+  if (m.tipo !== 'alto') return { revisar: 'Alto de arriba (puente) ' + (m.tipo === 'alto_abierto' ? 'abierto' : m.nombre || m.tipo) + ' de ' + med + ': elegir a mano' };
+  const tramo = h <= 450 ? '30-40' : h <= 650 ? '50-60' : '70-80', mo = puertas(cm);
+  return { m: 'ALTO PUENTE ' + tramo, mo, med, texto: 'ALTO PUENTE ' + tramo + ' · ' + mo + ' · ' + med };
 }
 
 // El plano de la ficha para la vista 3D de presupuestos: los datos tal cual, sin fotos ni dibujos pegados
@@ -147,7 +160,7 @@ export function paquetePresupuesto(ficha, trabajo, ajustes) {
     sit.bajos.forEach(b => { const a = articulo(b.m, d); if (!a) return; if (a.revisar) revisar.push('Pared ' + p.letra + ': ' + a.revisar); else bajos.push(Object.assign({ und: 1 }, a, { texto: 'Pared ' + p.letra + ': ' + a.texto })); });
     sit.altos.forEach(x => { const a = articulo(x.m, d); if (!a) return; if (a.revisar) revisar.push('Pared ' + p.letra + ': ' + a.revisar); else altos.push(Object.assign({ und: 1 }, a, { texto: 'Pared ' + p.letra + ': ' + a.texto })); });
     // Altos de arriba de la cocina puente (fondo 60): el catálogo no los tiene a esa altura, a mano
-    (sit.altillos || []).forEach(x => { if (x.m.tipo !== 'hueco') revisar.push('Pared ' + p.letra + ': alto de arriba (puente, fondo 60) de ' + Math.round(x.m.ancho / 10) + ' cm: elegir a mano (ALTO PUENTE)'); });
+    (sit.altillos || []).forEach(x => { const a = articuloPuente(x.m, d); if (!a) return; if (a.revisar) revisar.push('Pared ' + p.letra + ': ' + a.revisar); else altos.push(Object.assign({ und: 1 }, a, { texto: 'Pared ' + p.letra + ': ' + a.texto })); });
     // Vestidor: un tramo por pared, con sus cuerpos.
     const sc = situarCuerpos(p, d);
     if (sc.cuerpos.length) {

@@ -30,7 +30,8 @@ prueba('cocina puente: altos hasta 195, los de arriba (fondo 60) y las columnas 
   // Material: cascos de fondo 60 arriba, cierre de 2,5 cm encima; presupuesto: los de arriba a mano
   afirma(piezasCascoCocina(d).some(q => q.al === 825 || q.an === 825), 'costados de los de arriba (2775 − 1950)');
   afirma(rematesCocina(d, { todos: true }).some(r => r.tipo === 'techo' && r.alto === 25), 'cierre a techo de 2,5');
-  afirma(paquetePresupuesto(f).grupos.find(g => g.tipo === 'revisar').lineas.some(t => /alto de arriba \(puente/.test(t)), 'revisar los de arriba');
+  // 1.39: los de arriba van al ALTO PUENTE de su altura (2800 − 25 − 1950 = 82,5 → 70-80)
+  afirma(JSON.stringify(paquetePresupuesto(f).grupos).includes('ALTO PUENTE 70-80 · 1 PUERTA · 60'), 'alto puente 70-80');
   igual(articulo(p.altos[0], d).med, '60');
   // Planta: no se dibujan (taparían los otros), pero la perspectiva sí los tiene
   afirma(geometriaPlanta(d).modulos.filter(m => m.altillo).length === 3);
@@ -46,7 +47,7 @@ prueba('columna desayunador: bajo, encimera, hueco de 70 u 80 y alto de fondo 60
   afirma(f().filter(q => q.k === 'hoja' && q.z1 <= 850).length === 2, 'dos caceroleros abajo');
   m.hueco = 800; igual(f().find(q => q.k === 'hueco').z1, 1690);
   const d = cocina([pared('A', 3000, { bajos: [mod('bajo', 600), m] })]).datos;
-  afirma(articulo(m, d).revisar && /hueco de 80/.test(articulo(m, d).revisar), articulo(m, d).revisar);
+  igual(articulo(m, d).texto, 'COLUMNA 220-240 · DESAYUNADOR 2 CACEROLEROS · 60');
   afirma(materialCocina(d).piezas.some(q => /desayunador/.test(q.nota)), 'su trozo de encimera');
   afirma(geometriaAlzado(d, d.paredes[0]).piezas.some(q => q.clase === 'f_hueco'), 'el hueco dibujado');
 });

@@ -6,7 +6,7 @@ import { nombrarPuerta, CORTO_ELEMENTO, HUMOS_DIAMETROS, HUMOS_RECTANGULARES, is
 import { duplicarFicha } from '../trabajos.js';
 import { campoMedida, campoEntero } from '../campos.js';
 import { verMedida } from '../unidades.js';
-import { ANCHOS_ELECTRO, ALTOS_ELECTRO, TIPOS_MODULO, GRUPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, medidasModulo, anchosDe, FORMAS_RINCONERO, LADOS_RINCONERO, paredesVecinas, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, FORMAS_RINCON_CUERPO, LADOS_RINCON_CUERPO, INTERIOR_RINCON, textoRincon, textoCuadre, lineaNueva, nombreLineal, nombreInterior, interioresDe, elegirInterior, textoInteriores, acabadosNuevos, MATERIALES_ENCIMERA, ELECTRO, datosElectro, electroNuevo, tieneInstalacion, instalacionDe, sincronizarElectros, COLORES_ELECTRO, colorElectroComun, altoHorno, ABAJO_COLUMNA, ARRIBA_COLUMNA, microLibre, MICRO_LIBRE, cuadreAltillos, HUECOS_DESAYUNO, huecoDesayuno, PUENTE, topePuente } from '../modulos.js';
+import { ANCHOS_ELECTRO, ALTOS_ELECTRO, TIPOS_MODULO, GRUPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, medidasModulo, anchosDe, FORMAS_RINCONERO, LADOS_RINCONERO, paredesVecinas, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, FORMAS_RINCON_CUERPO, LADOS_RINCON_CUERPO, INTERIOR_RINCON, textoRincon, textoCuadre, lineaNueva, nombreLineal, nombreInterior, interioresDe, elegirInterior, textoInteriores, acabadosNuevos, MATERIALES_ENCIMERA, ELECTRO, datosElectro, electroNuevo, tieneInstalacion, instalacionDe, sincronizarElectros, COLORES_ELECTRO, colorElectroComun, altoHorno, ABAJO_COLUMNA, ARRIBA_COLUMNA, microLibre, MICRO_LIBRE, MICRO_INTEGRABLE, cuadreAltillos, HUECOS_DESAYUNO, huecoDesayuno, PUENTE, topePuente } from '../modulos.js';
 import { seccionAdjuntos } from './adjuntos.js';
 import { textoMaterial, textoRemates, TIPOS_REMATE, MATERIALES_REMATE, opcionRemate } from '../material.js';
 import { variantesDe, varianteHabitual, alturasDe, alturaHabitual, NOMBRE_VARIANTE, articulo, paquetePresupuesto, CLAVE_PASO } from '../presupuesto.js';
@@ -909,7 +909,9 @@ export async function pintarFicha(App, id) {
           else if (e.clave === 'frigo' && e.tipo === 'americano' && e.ancho === 920) anotarMedida(e, 'ancho', null);
           // Microondas libre: 46 × 29 y su alto micro de 50; integrable, el alto micro de 60
           if (e.clave === 'microondas' && v) {
-            if (v === 'libre') { anotarMedida(e, 'ancho', MICRO_LIBRE.ancho); e.alto = MICRO_LIBRE.alto; }
+            // las medidas se ponen solas: libre 46 × 29, integrable 60 × 38
+            const q = v === 'libre' ? MICRO_LIBRE : MICRO_INTEGRABLE;
+            anotarMedida(e, 'ancho', q.ancho); e.alto = q.alto;
             (d.paredes || []).forEach(p => (p.altos || []).filter(m => m.tipo === 'alto_micro').forEach(m => anotarMedida(m, 'ancho', v === 'libre' ? MICRO_LIBRE.mueble : 600)));
           }
           e.tipo = v; e.auto = false; cambio(); repintar(); } })) : null,

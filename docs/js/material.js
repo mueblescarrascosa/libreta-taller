@@ -51,6 +51,10 @@ function tramosPared(p, d) {
   const sit = situarMuebles(p, d), trozos = [];
   if (sit.entran.izq) trozos.push({ desde: 0, hasta: sit.entran.izq, m: null });
   sit.bajos.forEach(b => { if (b.m.tipo !== 'hueco' && !esColumna(b.m)) trozos.push({ desde: b.desde, hasta: b.hasta, m: b.m }); });
+  // La encimera va también por encima de las regletas y los costados de los bajos (hasta la pared o el canto)
+  // (solo las que tocan un mueble con encimera: la regleta junto a un hueco no la lleva)
+  const conEncimera = trozos.slice();
+  (sit.remates || []).filter(r => r.fila === 'bajos' && conEncimera.some(t => t.m && r.desde < t.hasta + 5 && r.hasta > t.desde - 5)).forEach(r => trozos.push({ desde: r.desde, hasta: r.hasta, m: null }));
   if (sit.entran.der) trozos.push({ desde: p.largo - sit.entran.der, hasta: p.largo, m: null });
   trozos.sort((a, b) => a.desde - b.desde);
   const tramos = [];
