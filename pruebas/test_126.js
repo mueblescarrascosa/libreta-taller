@@ -91,7 +91,8 @@ prueba('frentes de fabricación propia: puertas y cajones en tableros de 2800×2
   const f = fichaNueva('cocina', null, 't');
   f.datos.paredes = [Object.assign(paredNueva([]), { letra: 'A', largo: 3600, elementos: [], bajos: [mod('bajo', 600), mod('cajonero', 600), mod('fregadero', 800), mod('columna_hmo', 600)], altos: [mod('alto', 600), mod('alto', 800)] })];
   const l = textoMaterial(f, 'cm').find(x => /^Frentes/.test(x));
-  afirma(/13 piezas, 2,93 m² → 1 tablero de 280×207/.test(l), l);
+  // 1.33: los remates (costados vistos, regletas) se suman en el tablero, pero no como frentes
+  afirma(/13 piezas( y \d+ remates?)?, [\d,]+ m² → 1 tablero de 280×207/.test(l), l);
   igual([empaquetar([{ an: 1500, al: 600, cant: 4 }]).tableros, empaquetar([{ an: 3000, al: 600, cant: 2 }]).partidas], [1, 2]);
   // Vestidor: casco y puertas.
   const v = fichaNueva('armario', 'vestidor', 't');

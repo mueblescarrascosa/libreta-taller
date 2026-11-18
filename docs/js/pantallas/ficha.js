@@ -8,7 +8,7 @@ import { campoMedida, campoEntero } from '../campos.js';
 import { verMedida } from '../unidades.js';
 import { ANCHOS_ELECTRO, ALTOS_ELECTRO, TIPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, medidasModulo, anchosDe, FORMAS_RINCONERO, LADOS_RINCONERO, paredesVecinas, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, FORMAS_RINCON_CUERPO, LADOS_RINCON_CUERPO, INTERIOR_RINCON, textoRincon, textoCuadre, lineaNueva, nombreLineal, nombreInterior, interioresDe, elegirInterior, textoInteriores, acabadosNuevos, MATERIALES_ENCIMERA, ELECTRO, datosElectro, electroNuevo, tieneInstalacion, instalacionDe, sincronizarElectros, COLORES_ELECTRO, colorElectroComun } from '../modulos.js';
 import { seccionAdjuntos } from './adjuntos.js';
-import { textoMaterial } from '../material.js';
+import { textoMaterial, textoRemates, TIPOS_REMATE, MATERIALES_REMATE, opcionRemate } from '../material.js';
 import { variantesDe, varianteHabitual, alturasDe, alturaHabitual, NOMBRE_VARIANTE, articulo, paquetePresupuesto, CLAVE_PASO } from '../presupuesto.js';
 import { textoResumen, urlWhatsapp } from '../resumen.js';
 import { huella } from '../sincro.js';
@@ -730,7 +730,8 @@ export async function pintarFicha(App, id) {
     // Alturas de esta cocina: vacías, las de Ajustes (cocina tipo); lo que se ponga aquí manda solo en esta cocina.
     const infoAlturas = h('small', { class: 'ayuda', 'data-acc': 'alturas-info' });
     const pintarInfo = () => { const ct = alturasCocina(d, AJ), enc = ct.zocalo + ct.mueble + ct.grueso, des = enc + ct.separacion;
-      infoAlturas.textContent = 'Encimera a ' + verMedida(enc, 'cm') + ' cm · altos de ' + verMedida(des, 'cm') + ' a ' + verMedida(des + ct.alto_alto, 'cm') + ' cm del suelo.'; };
+      infoAlturas.textContent = 'Encimera a ' + verMedida(enc, 'cm') + ' cm · altos de ' + verMedida(des, 'cm') + ' a ' + verMedida(des + ct.alto_alto, 'cm') + ' cm del suelo · columna hasta arriba de los altos: casco de ' + verMedida(des + ct.alto_alto - ct.zocalo, 'cm') + ' cm'
+        + (ct.redondeada ? ' (altos a ' + verMedida(ct.separacion, 'cm') + ' cm de la encimera, para que la columna quede en número redondo).' : '.'); };
     const alturas = () => {
       if (!d.alturas) d.alturas = {};
       const ctAj = (AJ && AJ.cocina_tipo) || {};
@@ -739,6 +740,24 @@ export async function pintarFicha(App, id) {
         h('div', { class: 'dos alturas-cocina' }, CAMPOS_ALTURA.map(([k, t]) => campoMedida({ etiqueta: t + (ctAj[k] ? ' (' + verMedida(ctAj[k], 'cm') + ')' : ''), acc: 'altura-' + k, valor: d.alturas[k] ?? null, unidad: 'cm',
           alCambiar: v => { if (v > 0) d.alturas[k] = v; else delete d.alturas[k]; fijarCocinaTipo(alturasCocina(d, AJ)); pintarInfo(); cambio(); } }))),
         infoAlturas];
+    };
+    // Remates: costados vistos, regletas y cierres a techo. Salen solos de las medidas; aquí se elige si van y de qué
+    // material (como los frentes, como el casco u otro). Lo que va cuenta en los tableros y en las hojas de pedido.
+    const infoRemates = h('small', { class: 'ayuda', 'data-acc': 'remates-info' });
+    const pintarRemates = () => { const t = textoRemates(d); infoRemates.textContent = t.length ? t.join(' · ') : 'Con lo medido no hace falta ningún remate.'; };
+    refrescos.push(() => { if (infoRemates.isConnected) pintarRemates(); });
+    const remates = () => {
+      if (!d.remates) d.remates = {};
+      pintarRemates();
+      return [h('label', { class: 'et' }, 'Remates (costados vistos, regletas y cierres a techo)'),
+        ...TIPOS_REMATE.map(([k, t]) => {
+          const o = () => (d.remates[k] = d.remates[k] || {}), op = opcionRemate(d, k);
+          return h('div', { class: 'campo remate', 'data-remate': k }, h('label', { class: 'et' }, t),
+            segmentado({ acc: 'remate-usar', opciones: SI_NO, valor: op.usar, alCambiar: v => { o().usar = v; cambio(); pintar(); } }),
+            op.usar ? segmentado({ acc: 'remate-material', opciones: MATERIALES_REMATE, valor: op.material, alCambiar: v => { o().material = v; cambio(); pintar(); } }) : null,
+            op.usar && op.material === 'otro' ? texto(o(), 'otro', 'remate-otro', '¿Qué material? (p. ej. DM lacado, roble…)') : null);
+        }),
+        infoRemates];
     };
     const pintarLineales = () => zonaLin.replaceChildren(...ac.lineales.map(l => h('div', { class: 'libre', 'data-lineal': l.tipo },
       l.tipo === 'otro' ? texto(l, 'nombre', 'lineal-nombre', '¿Qué lineal?') : h('span', {}, nombreLineal(l, AJ)),
@@ -761,6 +780,7 @@ export async function pintarFicha(App, id) {
           h('div', { class: 'dos' }, texto(ac.encimera, 'modelo', 'encimera-modelo', 'Modelo'), texto(ac.encimera, 'color', 'encimera-color', 'Color')),
           campoMedida({ etiqueta: 'Grueso', acc: 'encimera-grueso', valor: ac.encimera.grueso, unidad: 'cm', rapidos: AJ.encimera_gruesos, alCambiar: v => { ac.encimera.grueso = v; cambio(); } }),
           ...alturas(),
+          ...remates(),
           h('label', { class: 'et' }, 'Lineales'), zonaLin,
           h('div', { class: 'chips' }, AJ.lineales.concat([['otro', 'Otro']]).map(([v, t]) => h('button', { type: 'button', 'data-acc': 'anadir-lineal', 'data-v': v, onclick: () => { ac.lineales.push(lineaNueva(v)); cambio(); pintarLineales(); } }, t)))]));
       pintarLineales();

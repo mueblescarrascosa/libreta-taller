@@ -1,6 +1,6 @@
 // Material para pedir, sacado de lo medido: encimera (piezas, uniones en las esquinas y huecos), lineales en metros
 // y herrajes (bisagras, guías, tiradores, patas, barras…). Orientativo: lo medido y lo pedido mandan.
-import { situarMuebles, situarCuerpos, esColumna, piezasInterior, paredesVecinas, esLibre } from './modulos.js';
+import { situarMuebles, situarCuerpos, esColumna, piezasInterior, paredesVecinas, esLibre, cuadreBajos, cuadreAltos } from './modulos.js';
 import { frenteModulo, puertasCuerpo, varianteDe } from './frentes.js';
 import { ALTURAS } from './alzado.js';
 import { verMedida } from './unidades.js';
@@ -137,6 +137,64 @@ export function piezasCascoCocina(d) {
   return piezas;
 }
 
+// ── Remates de la cocina: costados vistos, regletas y cierres a techo ──
+// Se calculan de las medidas; en «Acabados → Remates» se elige si van y de qué material: como los frentes (cuentan en
+// los tableros y el pedido de frentes), como el casco (con los cascos) u otro material (aparte, con su nombre).
+// Medidas en mm: alto × ancho (en los costados, el ancho es el fondo).
+export const TIPOS_REMATE = [['costados', 'Costados vistos'], ['regletas', 'Regletas'], ['techo', 'Cierres a techo']];
+export const MATERIALES_REMATE = [['frentes', 'Como los frentes'], ['casco', 'Como el casco'], ['otro', 'Otro material']];
+export const REGLETA_MAX = 150, CIERRE_MIN = 20, LARGO_TABLERO = 2700;
+// Lo elegido para cada tipo (por defecto: costados y regletas sí, como los frentes; cierre a techo no)
+export function opcionRemate(d, tipo) {
+  const r = (d.remates || {})[tipo] || {};
+  return { usar: r.usar ?? (tipo !== 'techo'), material: r.material || 'frentes', otro: r.otro || '' };
+}
+export function rematesCocina(d, { todos = false } = {}) {
+  const l = [], frenteBajo = ALTURAS.encimera - ALTURAS.grueso_encimera - ALTURAS.zocalo, costadoBajo = ALTURAS.encimera - ALTURAS.grueso_encimera;
+  const altoAlto = ALTURAS.altos_hasta - ALTURAS.altos_desde, techo = hay(d.alto_techo) && d.alto_techo > 0 ? d.alto_techo : ALTURAS.techo;
+  const poner = (tipo, pieza, alto, ancho, donde, deAltos) => { if (alto > 0 && ancho > 0) l.push({ tipo, pieza, alto: Math.round(alto), ancho: Math.round(ancho), donde, deAltos, cant: 1 }); };
+  (d.paredes || []).filter(p => hay(p.largo)).forEach(p => {
+    const sit = situarMuebles(p, d), L = p.largo;
+    // Bajos: lo que sobra al final. Hasta 15 cm, regleta; más, queda abierto y se ve el costado del último mueble.
+    if (sit.bajos.length) {
+      const fin = sit.bajos[sit.bajos.length - 1], resto = L - fin.hasta;
+      if (resto > 2 && resto <= REGLETA_MAX) poner('regletas', 'Regleta de bajos', frenteBajo, resto, p.letra, false);
+      else if (resto > REGLETA_MAX) poner('costados', esColumna(fin.m) ? 'Costado de columna' : 'Costado de bajo', esColumna(fin.m) ? ALTURAS.columna : costadoBajo, CASCO.fondo_bajo + 20, p.letra, esColumna(fin.m));
+    }
+    // Altos (y columnas, que llegan a la misma altura): lo mismo arriba
+    const arriba = sit.altos.concat(sit.bajos.filter(b => esColumna(b.m))).sort((a, b) => a.hasta - b.hasta);
+    if (sit.altos.length) {
+      const fin = arriba[arriba.length - 1], resto = L - fin.hasta;
+      if (resto > 2 && resto <= REGLETA_MAX) poner('regletas', 'Regleta de altos', altoAlto, resto, p.letra, true);
+      else if (resto > REGLETA_MAX && !esColumna(fin.m)) poner('costados', 'Costado de alto', altoAlto, CASCO.fondo_alto + 20, p.letra, true);
+    }
+    // Cierre a techo: encima de altos y columnas, del alto que falte hasta el techo (en tiras de como mucho 2,70 m)
+    const cierre = techo - ALTURAS.altos_hasta;
+    if (arriba.length && cierre >= CIERRE_MIN) {
+      let largo = arriba.reduce((sm, a) => sm + (a.hasta - a.desde), 0);
+      while (largo > 0) { const t = Math.min(largo, LARGO_TABLERO); poner('techo', 'Cierre a techo', cierre, t, p.letra, true); largo -= t; }
+    }
+  });
+  // Islas y penínsulas: costados (dos la isla, uno la península) y la trasera vista
+  (d.islas || []).forEach((x, i) => {
+    if (!hay(x.largo) || !hay(x.fondo)) return;
+    const nom = x.tipo === 'peninsula' ? 'península' : 'isla' + ((d.islas || []).length > 1 ? ' ' + (i + 1) : '');
+    for (let k = 0; k < (x.tipo === 'peninsula' ? 1 : 2); k++) poner('costados', 'Costado de ' + (x.tipo === 'peninsula' ? 'península' : 'isla'), costadoBajo, x.fondo, nom, false);
+    poner('costados', 'Trasera de ' + (x.tipo === 'peninsula' ? 'península' : 'isla'), costadoBajo, x.largo, nom, false);
+  });
+  if (todos) return l;
+  return l.filter(r => opcionRemate(d, r.tipo).usar).map(r => Object.assign(r, opcionRemate(d, r.tipo)));
+}
+// Texto de un remate para el resumen: «2 costados vistos (como los frentes)»
+export function textoRemates(d) {
+  const l = rematesCocina(d);
+  if (!l.length) return [];
+  const mat = r => (r.material === 'otro' ? (r.otro || 'otro material') : r.material === 'casco' ? 'como el casco' : 'como los frentes');
+  const NOMBRE = { costados: ['costado visto', 'costados vistos'], regletas: ['regleta', 'regletas'], techo: ['cierre a techo', 'cierres a techo'] };
+  return ['Remates: ' + TIPOS_REMATE.map(([k]) => { const de = l.filter(r => r.tipo === k); return de.length ? de.length + ' ' + NOMBRE[k][de.length > 1 ? 1 : 0] + ' (' + mat(de[0]) + ')' : null; }).filter(Boolean).join(', ')]
+    .concat(l.map(r => '- ' + r.pieza + ' ' + verMedida(r.alto, 'cm') + ' × ' + verMedida(r.ancho, 'cm') + ' cm (' + r.donde + ')'));
+}
+
 export function materialCocina(d) {
   const paredes = (d.paredes || []).filter(p => hay(p.largo));
   const porPared = new Map(paredes.map(p => [p, tramosPared(p, d)]));
@@ -190,8 +248,11 @@ export function materialCocina(d) {
     });
     sit.altos.forEach(a => { if (a.m.tipo !== 'hueco') contar(a.m.tipo, a.hasta - a.desde, ALTURAS.altos_desde, ALTURAS.altos_hasta); });
   });
-  const cascos = piezasCascoCocina(d);
-  return { piezas, uniones, huecos, lineales: { zocalo, cornisa: arriba, led: bajoAltos }, herrajes: h, frentes, tablerosFrentes: empaquetar(frentes), cascos, tablerosCascos: empaquetar(cascos) };
+  // Los remates no cuentan como frentes ni como cascos (el presupuesto los cuenta aparte), pero sí en sus tableros.
+  const cascos = piezasCascoCocina(d), remates = rematesCocina(d), rematesFrentes = [], rematesCasco = [], otros = [];
+  remates.forEach(r => { const q = { an: r.ancho, al: r.alto, cant: 1, remate: r.tipo }; (r.material === 'casco' ? rematesCasco : r.material === 'otro' ? otros : rematesFrentes).push(q); });
+  return { piezas, uniones, huecos, lineales: { zocalo, cornisa: arriba, led: bajoAltos }, herrajes: h, frentes, tablerosFrentes: empaquetar(frentes.concat(rematesFrentes)), cascos, tablerosCascos: empaquetar(cascos.concat(rematesCasco)),
+    remates, rematesFrentes, rematesCasco, otros, tablerosOtros: otros.length ? empaquetar(otros) : null };
 }
 
 // Vestidor: barras (metros y soportes), estantes, cajones y patas de los cuerpos.
@@ -254,7 +315,7 @@ export function materialArmario(d, subtipo) {
 export const CLASES_TABLERO = [['cascos', 'Cascos de cocina'], ['frentes', 'Frentes de cocina (si son de fabricación propia)'], ['armarios', 'Armarios y vestidores (casco y puertas)']];
 export function piezasTableroFicha(ficha) {
   const d = ficha.datos || {}, r = { cascos: [], frentes: [], armarios: [] };
-  if (ficha.tipo === 'cocina') { r.cascos = piezasCascoCocina(d); r.frentes = materialCocina(d).frentes; }
+  if (ficha.tipo === 'cocina') { const m = materialCocina(d); r.cascos = m.cascos.concat(m.rematesCasco); r.frentes = m.frentes.concat(m.rematesFrentes); }
   else if (ficha.subtipo === 'vestidor') r.armarios = materialVestidor(d).piezas;
   else if (ficha.tipo === 'armario') { const a = materialArmario(d, ficha.subtipo); r.armarios = a ? a.piezas : []; }
   return r;
@@ -288,7 +349,10 @@ export function textoMaterial(ficha, unidad = 'cm', ajustes = null) {
       l.push('Cascos: ' + r.cascos.reduce((s, q) => s + q.cant, 0) + ' piezas, ' + String(t.m2).replace('.', ',') + ' m² → ' + t.tableros + (t.tableros === 1 ? ' tablero' : ' tableros') + ' de 280×207 (aprovecha el ' + t.aprovechamiento + ' %)'); }
     // Frentes de fabricación propia: puertas y cajones colocados en tableros de 2800×2070.
     if (r.frentes.length) { const t = r.tablerosFrentes;
-      l.push('Frentes (si son de fabricación propia): ' + r.frentes.length + ' piezas, ' + String(t.m2).replace('.', ',') + ' m² → ' + t.tableros + (t.tableros === 1 ? ' tablero' : ' tableros') + ' de 280×207 (aprovecha el ' + t.aprovechamiento + ' %)'); }
+      l.push('Frentes (si son de fabricación propia): ' + r.frentes.length + ' piezas' + (r.rematesFrentes.length ? ' y ' + r.rematesFrentes.length + (r.rematesFrentes.length > 1 ? ' remates' : ' remate') : '') + ', ' + String(t.m2).replace('.', ',') + ' m² → ' + t.tableros + (t.tableros === 1 ? ' tablero' : ' tableros') + ' de 280×207 (aprovecha el ' + t.aprovechamiento + ' %)'); }
+    if (r.otros.length) { const t = r.tablerosOtros, nom = [...new Set(r.remates.filter(x => x.material === 'otro').map(x => x.otro || 'otro material'))].join(', ');
+      l.push('Remates en ' + nom + ': ' + r.otros.length + (r.otros.length === 1 ? ' pieza, ' : ' piezas, ') + String(t.m2).replace('.', ',') + ' m² → ' + t.tableros + (t.tableros === 1 ? ' tablero' : ' tableros') + ' de 280×207'); }
+    textoRemates(d).forEach(t => l.push(t));
     const lin = (d.acabados && d.acabados.lineales || []).map(x => x.tipo);
     if (r.lineales.zocalo) l.push('Zócalo: ' + m(r.lineales.zocalo));
     if (lin.includes('cornisa') && r.lineales.cornisa) l.push('Cornisa: ' + m(r.lineales.cornisa));

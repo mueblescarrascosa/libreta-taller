@@ -535,3 +535,8 @@ header a.atras, header .engranaje, header .estado { min-width: 40px; min-height:
 [data-acc="subir"] { min-width: 40px; justify-content: center; }
 [data-acc="crear-ejemplo"], [data-acc="guia-uso"] { display: inline-flex !important; align-items: center; min-height: 40px; }
 button.enlace[data-acc="crear-ejemplo"] { min-height: 40px !important; }
+.chips a.boton-chip.on { background: var(--oscuro); border-color: var(--oscuro); color: #fff; }
+.pedido-doc .tabla-pedido td:nth-child(4) { min-width: 9em; }
+.tabla-scroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+@media (max-width: 600px) { .tabla-pedido { font-size: .85em; } .tabla-pedido th, .tabla-pedido td { padding: 4px 3px; } }
+@media print { .tabla-scroll { overflow: visible; } }

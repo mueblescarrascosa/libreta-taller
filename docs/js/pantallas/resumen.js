@@ -12,7 +12,8 @@ import { geometriaPlanta, svgPlanta } from '../plano-vista.js';
 import { generarPdf, aclararDibujos } from '../pdf.js';
 import { geometriaAlzado, svgAlzado, fijarCocinaTipo, alturasCocina } from '../alzado.js';
 import { tablerosFichas } from '../material.js';
-import { pedidoCascos, pedidoFrentes, textoPedidoCascos, textoPedidoFrentes } from '../pedido.js';
+import { pedidoCascos, pedidoFrentes, pedidoJuntos, textoPedido, MODOS_PEDIDO } from '../pedido.js';
+const ORDEN_PEDIDO = ['Bajos', 'Columnas', 'Altos', 'Remates'];
 
 const v = (mm, u) => (mm === null || mm === undefined ? '' : verMedida(mm, u));
 const siNo = x => (x === true ? 'Sí' : x === false ? 'No' : '');
@@ -239,46 +240,67 @@ export async function pintarResumen(App, id) {
   await pintarBotones(); await pintarDoc();
   // Cocinas: hoja de pedido de cascos (para el taller) y de frentes (para el proveedor)
   const pedidos = ficha.tipo === 'cocina' ? h('div', { class: 'elegir-fichas pedidos no-imprimir' }, h('small', { class: 'et' }, 'Hojas de pedido:'),
-    h('div', { class: 'chips' }, h('a', { class: 'boton-chip', href: '#/pedido/' + id + '/cascos', 'data-acc': 'pedido-cascos' }, 'Cascos (taller)'),
-      h('a', { class: 'boton-chip', href: '#/pedido/' + id + '/frentes', 'data-acc': 'pedido-frentes' }, 'Frentes (proveedor)'))) : null;
+    h('div', { class: 'chips' }, MODOS_PEDIDO.map(([m, t]) => h('a', { class: 'boton-chip', href: '#/pedido/' + id + '/' + m, 'data-acc': 'pedido-' + m }, t)))) : null;
   main.append(...[zona, pedidos, aviso, doc].filter(Boolean));
 }
 
-// Hoja de pedido de una cocina: cascos (taller) o frentes (proveedor), con la misma barra que el resumen (WhatsApp, PDF, imprimir).
-export async function pintarPedido(App, id, cual) {
+// Hoja de pedido: de una cocina (#/pedido/<ficha>/<modo>) o de varias cocinas de un trabajo (#/pedido-trabajo/<trabajo>/<modo>/<ids>).
+// modo: cascos (taller), frentes (proveedor) o juntos (casco y frentes de cada mueble, por si se piden hechos).
+// Arriba se cambia de modo y, en el trabajo, qué cocinas entran; la barra es la del resumen (WhatsApp, PDF, imprimir).
+export async function pintarPedido(App, id, modo) {
   const leida = await App.almacen.leer('fichas', id);
   if (!leida || leida.borrado_at) return App.ir('#/');
-  const ficha = normalizarFicha(leida), AJ = App.ajustes(), d = ficha.datos;
-  fijarCocinaTipo(alturasCocina(d, AJ));
-  const trabajo = ficha.trabajo_id ? await App.almacen.leer('trabajos', ficha.trabajo_id) : null;
-  const frentes = cual === 'frentes', nombre = frentes ? 'Pedido de frentes' : 'Pedido de cascos';
+  const ficha = normalizarFicha(leida), trabajo = ficha.trabajo_id ? await App.almacen.leer('trabajos', ficha.trabajo_id) : null;
+  return pedidoDe(App, { fichas: [ficha], todas: [ficha], trabajo, modo, volver: '#/resumen/' + id, ruta: m => '#/pedido/' + id + '/' + m });
+}
+export async function pintarPedidoTrabajo(App, tid, modo, ids) {
+  const trabajo = await App.almacen.leer('trabajos', tid);
+  if (!trabajo || trabajo.borrado_at) return App.ir('#/');
+  const todas = ordenFichas(vivos(await App.almacen.todos('fichas')).filter(f => f.trabajo_id === tid && f.tipo === 'cocina')).map(normalizarFicha);
+  const elegidas = ids ? new Set(decodeURIComponent(ids).split(',')) : null;
+  const fichas = todas.filter(f => !elegidas || elegidas.has(f.id));
+  return pedidoDe(App, { fichas, todas, trabajo, modo, volver: '#/resumen-trabajo/' + tid, ruta: (m, lista) => '#/pedido-trabajo/' + tid + '/' + m + '/' + encodeURIComponent((lista || fichas).map(f => f.id).join(',')) });
+}
+async function pedidoDe(App, { fichas, todas, trabajo, modo, volver, ruta }) {
+  const AJ = App.ajustes();
+  modo = MODOS_PEDIDO.some(([m]) => m === modo) ? modo : 'cascos';
+  const nombre = { cascos: 'Pedido de cascos', frentes: 'Pedido de frentes', juntos: 'Pedido de muebles (casco y frentes)' }[modo];
   const aviso = h('p', { class: 'aviso-resumen' }), doc = h('article', { class: 'resumen-doc pedido-doc' });
-  const ac = d.acabados || {}, titulo = tituloLargo(trabajo, nombre + ' - ' + tituloFicha(ficha));
-  const texto = () => (trabajo ? '*' + (trabajo.nombre || 'Trabajo') + '*\n' : '') + (frentes ? textoPedidoFrentes(d) : textoPedidoCascos(d, ac.casco));
-  const main = App.marco('resumen', nombre, '#/resumen/' + id, acciones({ doc, titulo, aviso, texto, editar: () => App.ir('#/ficha/' + id) }));
-  const filas = frentes ? pedidoFrentes(d) : pedidoCascos(d);
-  const celdas = (...c) => h('tr', {}, c.map(x => h('td', {}, String(x))));
-  const tabla = (cab, cuerpo) => h('table', { class: 'tabla-pedido' }, h('thead', {}, h('tr', {}, cab.map(c => h('th', {}, c)))), h('tbody', {}, cuerpo));
-  const partes = [cabecera(trabajo), h('h2', {}, nombre + ' · ' + tituloFicha(ficha))];
-  if (!filas.length) partes.push(h('p', { class: 'vacio' }, 'Aún no hay muebles con medida en esta cocina.'));
-  else if (frentes) {
-    [...new Set(filas.map(f => f.acabado))].forEach(a => {
-      const de = filas.filter(f => f.acabado === a);
-      partes.push(h('h3', {}, 'Acabado: ' + a), tabla(['Cant.', 'Pieza', 'Alto', 'Ancho', 'Paredes'], de.map(f => celdas(f.cant, f.pieza, f.alto, f.ancho, f.paredes.join(', ')))));
-    });
-    partes.push(h('p', {}, h('b', {}, 'Total: ' + filas.reduce((s, f) => s + f.cant, 0) + ' piezas'), ' · medidas en mm (alto × ancho), con la holgura entre frentes ya descontada.'));
-  } else {
-    partes.push(h('p', {}, 'Color de los cascos: ', h('b', {}, ac.casco || 'sin apuntar'), ' · medidas en mm (ancho × alto × fondo).'));
-    ['Bajos', 'Columnas', 'Altos'].forEach(g => {
-      const de = filas.filter(f => f.grupo === g);
-      if (de.length) partes.push(h('h3', {}, g), tabla(['Cant.', 'Mueble', 'Ancho', 'Alto', 'Fondo', 'Paredes'], de.map(f => celdas(f.cant, f.mueble, f.ancho, f.alto, f.fondo, f.paredes.join(', ')))));
-    });
-    partes.push(h('p', {}, h('b', {}, 'Total: ' + filas.reduce((s, f) => s + f.cant, 0) + ' cascos')));
+  const que = fichas.length === 1 ? tituloFicha(fichas[0]) : fichas.length + ' cocinas';
+  const titulo = tituloLargo(trabajo, nombre + ' - ' + que);
+  const texto = () => (trabajo ? '*' + (trabajo.nombre || 'Trabajo') + '*' + (fichas.length > 1 ? ' · ' + fichas.map(tituloFicha).join(', ') : '') + '\n' : '') + textoPedido(modo, fichas, AJ);
+  const main = App.marco('resumen', nombre, volver, acciones({ doc, titulo, aviso, texto, editar: () => App.ir(fichas.length === 1 ? '#/ficha/' + fichas[0].id : volver) }));
+  // Modo y, si hay varias cocinas, cuáles entran
+  const elegir = h('div', { class: 'elegir-fichas pedidos no-imprimir' }, h('small', { class: 'et' }, 'Qué hoja:'),
+    h('div', { class: 'chips' }, MODOS_PEDIDO.map(([m, t]) => h('a', { class: 'boton-chip' + (m === modo ? ' on' : ''), href: ruta(m), 'data-acc': 'modo-pedido', 'data-v': m }, t))));
+  if (todas.length > 1) {
+    const ids = new Set(fichas.map(f => f.id));
+    elegir.append(h('small', { class: 'et' }, 'Cocinas que entran (toca para quitar o poner; ✓ = entra):'),
+      h('div', { class: 'chips' }, todas.map(f => h('a', { class: 'boton-chip' + (ids.has(f.id) ? ' on' : ''), 'data-acc': 'cocina-pedido', 'data-v': f.id,
+        href: ruta(modo, ids.has(f.id) ? fichas.filter(x => x.id !== f.id) : todas.filter(x => ids.has(x.id) || x.id === f.id)) }, (ids.has(f.id) ? '✓ ' : '') + tituloFicha(f)))));
   }
-  const ct = alturasCocina(d, AJ);
-  partes.push(h('small', { class: 'ayuda' }, 'Alturas de esta cocina: zócalo ' + ct.zocalo + ', mueble bajo ' + ct.mueble + ', encimera ' + ct.grueso + ', altos de ' + ct.alto_alto + ' (mm). Orientativo: sale de los muebles medidos; compruébalo antes de pedir.'), h('footer', {}, COPYRIGHT));
+  const celdas = (...c) => h('tr', {}, c.map(x => h('td', {}, String(x))));
+  const tabla = (cab, cuerpo) => h('div', { class: 'tabla-scroll' }, h('table', { class: 'tabla-pedido' }, h('thead', {}, h('tr', {}, cab.map(c => h('th', {}, c)))), h('tbody', {}, cuerpo)));
+  const partes = [cabecera(trabajo), h('h2', {}, nombre + ' · ' + que)];
+  if (!fichas.length) partes.push(h('p', { class: 'vacio' }, 'No hay ninguna cocina elegida.'));
+  else if (modo === 'frentes') {
+    const filas = pedidoFrentes(fichas, AJ);
+    [...new Set(filas.map(f => f.acabado))].forEach(a => partes.push(h('h3', {}, 'Acabado: ' + a),
+      tabla(['Cant.', 'Pieza', 'Alto', 'Ancho', 'Dónde'], filas.filter(f => f.acabado === a).map(f => celdas(f.cant, f.pieza, f.alto, f.ancho, f.donde.join(', '))))));
+    partes.push(h('p', {}, h('b', {}, 'Total: ' + filas.reduce((x, f) => x + f.cant, 0) + ' piezas'), ' · medidas en mm (alto × ancho), con la holgura entre frentes ya descontada.'));
+  } else if (modo === 'cascos') {
+    const filas = pedidoCascos(fichas, AJ);
+    ORDEN_PEDIDO.forEach(g => { const de = filas.filter(f => f.grupo === g); if (de.length) partes.push(h('h3', {}, g), tabla(['Cant.', 'Mueble', 'Ancho', 'Alto', 'Fondo', 'Color', 'Dónde'], de.map(f => celdas(f.cant, f.mueble, f.ancho, f.alto, f.fondo, f.color || '—', f.donde.join(', '))))); });
+    partes.push(h('p', {}, h('b', {}, 'Total: ' + filas.reduce((x, f) => x + f.cant, 0) + ' cascos'), ' · medidas en mm (ancho × alto × fondo).'));
+  } else {
+    const filas = pedidoJuntos(fichas, AJ);
+    ORDEN_PEDIDO.forEach(g => { const de = filas.filter(f => f.grupo === g); if (de.length) partes.push(h('h3', {}, g), tabla(['Cant.', 'Mueble', 'Casco (an × al × fo)', 'Frentes (al × an)', 'Acabado', 'Dónde'],
+      de.map(f => celdas(f.cant, f.mueble, f.casco ? f.casco.ancho + ' × ' + f.casco.alto + ' × ' + f.casco.fondo + (f.casco.color ? ' · ' + f.casco.color : '') : 'sin casco', f.frentes || '—', f.acabado || '—', f.donde.join(', '))))); });
+    partes.push(h('p', {}, h('b', {}, 'Total: ' + filas.reduce((x, f) => x + f.cant, 0) + ' muebles'), ' · medidas en mm.'));
+  }
+  partes.push(h('small', { class: 'ayuda' }, 'Cada cocina con sus alturas (las de Ajustes o las cambiadas en su ficha). Orientativo: sale de los muebles medidos; compruébalo antes de pedir.'), h('footer', {}, COPYRIGHT));
   doc.replaceChildren(...partes);
-  main.append(aviso, doc);
+  main.append(elegir, aviso, doc);
 }
 
 // Todo el trabajo: cabecera, recuento de puertas para el pedido y cada ficha en orden.
@@ -322,6 +344,10 @@ export async function pintarResumenTrabajo(App, id) {
     partes.push(h('footer', {}, COPYRIGHT));
     doc.replaceChildren(...partes);
   }
+  // Hojas de pedido de las cocinas del trabajo (todas juntas; en la hoja se eligen cuáles)
+  const cocinas = fichas.filter(f => f.tipo === 'cocina');
+  const zonaPedidos = cocinas.length ? h('div', { class: 'elegir-fichas pedidos no-imprimir' }, h('small', { class: 'et' }, 'Hojas de pedido de ' + (cocinas.length > 1 ? 'las ' + cocinas.length + ' cocinas' : 'la cocina') + ':'),
+    h('div', { class: 'chips' }, MODOS_PEDIDO.map(([m, t]) => h('a', { class: 'boton-chip', href: '#/pedido-trabajo/' + id + '/' + m + '/' + encodeURIComponent(cocinas.map(f => f.id).join(',')), 'data-acc': 'pedido-trabajo-' + m }, t)))) : null;
   const ver = partesGuardadas(), zonaPartes = h('div');
   const pintarPartes = async () => zonaPartes.replaceChildren(...[await botonesPartes(App, elegidas(), ver, async () => { await pintarPartes(); await pintarDoc(); })].filter(Boolean));
   const zonaSel = h('div', { class: 'elegir-fichas' });
@@ -337,5 +363,5 @@ export async function pintarResumenTrabajo(App, id) {
   }
   if (fichas.length > 1) pintarSel();
   await pintarPartes(); await pintarDoc();
-  main.append(zonaSel, zonaPartes, aviso, doc);
+  main.append(...[zonaPedidos].filter(Boolean), zonaSel, zonaPartes, aviso, doc);
 }

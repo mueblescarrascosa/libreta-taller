@@ -20,11 +20,28 @@ export function fijarCocinaTipo(ct) {
   return Object.assign(ALTURAS, { zocalo: ct.zocalo, mueble_bajo: ct.mueble, grueso_encimera: ct.grueso, encimera, altos_desde: desde, altos_hasta: hasta, columna: hasta, frigo: Math.min(1850, hasta - 300) });
 }
 // Alturas de una cocina: las de la cocina tipo de Ajustes y, encima, las que se hayan cambiado en la propia ficha.
-export const CAMPOS_ALTURA = [['zocalo', 'Zócalo'], ['mueble', 'Alto del mueble bajo (casco)'], ['grueso', 'Grueso de la encimera'], ['alto_alto', 'Alto de los altos'], ['separacion', 'De la encimera a los altos']];
+// «desde»: a qué altura del suelo va el mueble alto (si se pone, manda sobre la separación).
+// Si no se ha dicho ni la separación ni el «desde» en la cocina, los altos se suben o bajan lo justo para que la columna
+// (que llega hasta arriba de los altos) quede en números redondos (casco de 0 o 5 cm): lo más cerca y lo más cómodo
+// (separación entre 54 y 62 cm de la encimera; a igual distancia, más bajo, que se llega mejor).
+export const CAMPOS_ALTURA = [['zocalo', 'Zócalo'], ['mueble', 'Alto del mueble bajo (casco)'], ['grueso', 'Grueso de la encimera'], ['alto_alto', 'Alto de los altos'], ['separacion', 'De la encimera a los altos'], ['desde', 'Altos desde el suelo']];
+export const SEPARACION_COMODA = [540, 620], REDONDEO_COLUMNA = 50;
 export function alturasCocina(d, ajustes) {
   const base = Object.assign({}, (ajustes && ajustes.cocina_tipo) || { zocalo: 150, mueble: 700, grueso: 40, alto_alto: 700, separacion: 560 });
-  const propias = (d && d.alturas) || {};
-  CAMPOS_ALTURA.forEach(([k]) => { if (Number.isFinite(propias[k]) && propias[k] > 0) base[k] = propias[k]; });
+  const propias = (d && d.alturas) || {}, dicho = k => Number.isFinite(propias[k]) && propias[k] > 0;
+  CAMPOS_ALTURA.forEach(([k]) => { if (k !== 'desde' && dicho(k)) base[k] = propias[k]; });
+  const encimera = base.zocalo + base.mueble + base.grueso;
+  base.redondeada = false;
+  if (dicho('desde')) base.separacion = propias.desde - encimera;
+  else if (!dicho('separacion')) {
+    const casco = encimera + base.separacion + base.alto_alto - base.zocalo, R = REDONDEO_COLUMNA;
+    if (casco % R) {
+      const abajo = Math.floor(casco / R) * R, arriba = abajo + R;
+      const sep = c => base.separacion + (c - casco), comoda = c => sep(c) >= SEPARACION_COMODA[0] && sep(c) <= SEPARACION_COMODA[1];
+      const opciones = [abajo, arriba].sort((x, y) => (comoda(y) - comoda(x)) || (Math.abs(x - casco) - Math.abs(y - casco)) || (x - y));
+      base.separacion = sep(opciones[0]); base.redondeada = true;
+    }
+  }
   return base;
 }
 const PUNTOS = ['humos', 'desague', 'toma', 'agua', 'gas', 'enchufe', 'otro'];

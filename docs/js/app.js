@@ -10,7 +10,7 @@ import { pintarInicio } from './pantallas/inicio.js';
 import { pintarTrabajo } from './pantallas/trabajo.js';
 import { pintarFicha, descartarVacio } from './pantallas/ficha.js';
 import { pintarAjustes } from './pantallas/ajustes.js';
-import { pintarResumen, pintarResumenTrabajo, pintarPedido } from './pantallas/resumen.js';
+import { pintarResumen, pintarResumenTrabajo, pintarPedido, pintarPedidoTrabajo } from './pantallas/resumen.js';
 import { pintarPapelera } from './pantallas/papelera.js';
 import { pintarGuia } from './pantallas/guia.js';
 import { fijarCocinaTipo } from './alzado.js';
@@ -164,6 +164,7 @@ async function ruta() {
   if (seccion === 'resumen') return pintarResumen(App, id);
   if (seccion === 'resumen-trabajo') return pintarResumenTrabajo(App, id);
   if (seccion === 'pedido') return pintarPedido(App, id, (location.hash || '').split('/')[3]);
+  if (seccion === 'pedido-trabajo') { const r = (location.hash || '').split('/'); return pintarPedidoTrabajo(App, id, r[3], r[4]); }
   if (seccion === 'papelera') return pintarPapelera(App);
   if (seccion === 'pendientes') return pintarPendientes(App);
   if (seccion === 'guia') return pintarGuia(App, id);

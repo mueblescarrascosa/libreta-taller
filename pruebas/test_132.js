@@ -5,7 +5,7 @@ import { prueba, afirma, igual, fin } from './mini.js';
 import { fichaNueva, paredNueva, AJUSTES_FABRICA } from '../docs/js/modelo.js';
 import { moduloNuevo, sincronizarElectros, textoElectro } from '../docs/js/modulos.js';
 import { alturasCocina, fijarCocinaTipo, ALTURAS } from '../docs/js/alzado.js';
-import { pedidoCascos, pedidoFrentes, textoPedidoCascos, textoPedidoFrentes } from '../docs/js/pedido.js';
+import { pedidoCascos, pedidoFrentes, textoPedido } from '../docs/js/pedido.js';
 import { puntuarCocina } from '../docs/js/puntuacion.js';
 import { textoResumen } from '../docs/js/resumen.js';
 import { abrir, entrar, crearTrabajo } from './arnes.js';
@@ -16,7 +16,7 @@ const pared = (letra, largo, x) => Object.assign(paredNueva([]), { letra, largo,
 const tipica = () => cocina([pared('A', 3600, { bajos: [mod('columna_frigo', 600), mod('placa', 900), mod('cajonero', 600), mod('lavavajillas', 600), mod('fregadero', 800)], altos: [mod('alto', 600), mod('alto_campana', 900), mod('alto', 600), mod('alto', 600), mod('alto', 800)] })]);
 
 prueba('alturas: las de Ajustes y, encima, las de la cocina', () => {
-  igual(alturasCocina({}, AJUSTES_FABRICA), AJUSTES_FABRICA.cocina_tipo);
+  const { redondeada, ...sinMarca } = alturasCocina({}, AJUSTES_FABRICA); igual(sinMarca, AJUSTES_FABRICA.cocina_tipo); igual(redondeada, false);
   const ct = alturasCocina({ alturas: { mueble: 800, zocalo: 100 } }, AJUSTES_FABRICA);
   igual([ct.mueble, ct.zocalo, ct.grueso], [800, 100, AJUSTES_FABRICA.cocina_tipo.grueso]);
   fijarCocinaTipo(ct); igual(ALTURAS.encimera, 100 + 800 + AJUSTES_FABRICA.cocina_tipo.grueso);
@@ -25,22 +25,22 @@ prueba('alturas: las de Ajustes y, encima, las de la cocina', () => {
 
 prueba('hoja de pedido de cascos: juntos los iguales, con su alto × ancho × fondo', () => {
   fijarCocinaTipo(AJUSTES_FABRICA.cocina_tipo);
-  const f = tipica(), c = pedidoCascos(f.datos);
+  const f = tipica(), c = pedidoCascos([f], AJUSTES_FABRICA);
   const altos = c.filter(x => x.grupo === 'Altos' && x.ancho === 600);
   igual(altos.length, 1); igual(altos[0].cant, 3, 'los tres altos de 600 en una fila');
   afirma(!c.some(x => /Lavavajillas/i.test(x.mueble)), 'el lavavajillas no lleva casco');
   afirma(c.some(x => x.grupo === 'Columnas'), 'la columna del frigo');
-  afirma(/Pedido de cascos/.test(textoPedidoCascos(f.datos, 'Blanco')), textoPedidoCascos(f.datos, 'Blanco'));
+  afirma(/Pedido de cascos/.test(textoPedido('cascos', [f], AJUSTES_FABRICA)), textoPedido('cascos', [f], AJUSTES_FABRICA));
 });
 
 prueba('hoja de pedido de frentes: por acabado (bitono: altos y bajos aparte)', () => {
   const f = tipica();
   f.datos.acabados = { bitono: true, modelo_altos: 'Lisa', color_altos: 'Blanco', modelo_bajos: 'Ranurada', color_bajos: 'Roble' };
-  const fr = pedidoFrentes(f.datos);
+  const fr = pedidoFrentes([f], AJUSTES_FABRICA);
   afirma(fr.some(x => x.acabado === 'Lisa Blanco') && fr.some(x => x.acabado === 'Ranurada Roble'), JSON.stringify(fr.map(x => x.acabado)));
   afirma(fr.some(x => x.pieza === 'Cajón'), 'el cajonero da cajones');
   afirma(fr.some(x => /lavavajillas/i.test(x.pieza)), 'frente del lavavajillas integrable');
-  afirma(/Total: \d+ piezas/.test(textoPedidoFrentes(f.datos)));
+  afirma(/Total: \d+ piezas/.test(textoPedido('frentes', [f], AJUSTES_FABRICA)));
 });
 
 prueba('electrodomésticos: se ponen solos con los muebles, lo tocado a mano manda', () => {

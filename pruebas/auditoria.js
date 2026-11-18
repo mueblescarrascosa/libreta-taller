@@ -88,7 +88,7 @@ async function recorrido(ancho) {
     for (const y of [0.33, 0.66, 1]) { await a.page.evaluate(f => scrollTo(0, document.body.scrollHeight * f), y); await a.page.waitForTimeout(150); await revisar(a, ancho, 'Ficha de cocina (bajando ' + Math.round(y * 100) + ' %)'); }
     await a.page.click('[data-acc="terminar"]'); await a.page.waitForSelector('[data-pantalla="resumen"]');
     await revisar(a, ancho, 'Resumen de cocina');
-    for (const p of ['cascos', 'frentes']) { await a.page.click('[data-acc="pedido-' + p + '"]'); await a.page.waitForSelector('.pedido-doc'); await revisar(a, ancho, 'Pedido de ' + p); await a.page.goBack(); await a.page.waitForSelector('[data-pantalla="resumen"]'); }
+    for (const p of ['cascos', 'frentes', 'juntos']) { await a.page.click('[data-acc="pedido-' + p + '"]'); await a.page.waitForSelector('.pedido-doc'); await revisar(a, ancho, 'Pedido de ' + p); await a.page.goBack(); await a.page.waitForSelector('[data-pantalla="resumen"]'); }
     // Vestidor, armario y puertas
     for (const [tipo, sub, et] of [['armario', 'vestidor', 'vestidor'], ['armario', 'corredera', 'armario de correderas'], ['puerta', null, 'puertas'], ['nota', null, 'nota']]) {
       await a.page.evaluate(u => { location.hash = new URL(u).hash; }, urlTrabajo); await a.page.waitForSelector('[data-pantalla="trabajo"]');
