@@ -2,7 +2,7 @@
 import { h, segmentado, tituloFicha, vivos, icono, altoSegunTexto } from '../util.js';
 import { unidadDe } from '../unidades.js';
 import { nombrarPuerta, CORTO_ELEMENTO, HUMOS_DIAMETROS, HUMOS_RECTANGULARES, islaNueva, avisos, camposDeElemento, elementoNuevo, paredNueva, puertaNueva, normalizarFicha, resumenPuerta, limpiarDatos, tieneInformacion,
-  TIPOS_ELEMENTO, NOMBRE_ELEMENTO, RAPIDAS_PUERTA, USOS, nombreElemento, tiposPuertaPara, otraHoja, anchoFijo, pilarEnPunta, esquinaDe, esquinaDescuadrada } from '../modelo.js';
+  TIPOS_ELEMENTO, NOMBRE_ELEMENTO, RAPIDAS_PUERTA, USOS, nombreElemento, tiposPuertaPara, CORREDERAS, otraHoja, anchoFijo, pilarEnPunta, esquinaDe, esquinaDescuadrada } from '../modelo.js';
 import { duplicarFicha } from '../trabajos.js';
 import { campoMedida, campoEntero } from '../campos.js';
 import { verMedida } from '../unidades.js';
@@ -159,7 +159,9 @@ export async function pintarFicha(App, id) {
         medida(p, 'alto', premarco() ? 'Alto del premarco' : 'Alto', { rapidos: premarco() ? AJ.premarco_altos : AJ.puerta_altos, aviso: null }),
         medida(p, 'tabique', 'Tabique', { rapidos: AJ.puerta_tabiques, aviso: null }),
         h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Tipo'),
-          segmentado({ acc: 'tipo-puerta', opciones: tiposPuertaPara(p), valor: p.tipo || null, permitirVacio: true, alCambiar: v => { p.tipo = v; if (v === 'doble' || v === 'corredera') quitarFijo(p); cambio(); repintar(); } })),
+          segmentado({ acc: 'tipo-puerta', opciones: tiposPuertaPara(p), valor: p.tipo || null, permitirVacio: true, alCambiar: v => { p.tipo = v; if (v === 'doble' || v === 'corredera') quitarFijo(p); if (v !== 'corredera') delete p.corredera; cambio(); repintar(); } })),
+        p.tipo === 'corredera' ? h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Corredera'),
+          segmentado({ acc: 'corredera', opciones: CORREDERAS, valor: p.corredera || null, permitirVacio: true, alCambiar: v => { p.corredera = v || null; cambio(); } })) : null,
         ...extrasPuerta(p),
         h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Abre a (desde el pasillo)'),
           segmentado({ acc: 'mano', opciones: [['izq', '← Izquierda'], ['der', 'Derecha →']], valor: p.mano, permitirVacio: true, alCambiar: v => { p.mano = v; cambio(); } })),
@@ -320,7 +322,7 @@ export async function pintarFicha(App, id) {
         h('small', { class: 'ayuda' }, 'Alturas de muebles orientativas.')].filter(Boolean)
         : [h('small', { class: 'ayuda' }, 'Pon el largo de la pared para verla de frente.')]));
     }
-    // Perspectiva, de pie con los ojos a 175 cm; también a pantalla completa.
+    // Perspectiva, de pie (ojos a 160 por defecto, se pueden cambiar); también a pantalla completa.
     const zonaPersp = h('div', { class: 'zona-perspectiva' });
     const pintarPerspectiva = () => zonaPersp.replaceChildren(vistaInteractiva({ d, margen: AJ.margen, ajustes: AJ, alGuardar: cambio,
       alAmpliar: () => abrirPerspectivaGrande({ d, margen: AJ.margen, ajustes: AJ, alGuardar: cambio, alCerrar: pintarPerspectiva }) }));
@@ -385,12 +387,12 @@ export async function pintarFicha(App, id) {
         // La mejor combinación posible sin tocar los electrodomésticos: se enseña al lado y se aplica si se quiere
         h('button', { type: 'button', class: 'mini', 'data-acc': 'buscar-mejor', onclick: ev => {
           const r = mejorCocina(ficha), caja = ev.currentTarget.parentElement.querySelector('.mejor-cocina');
-          if (!r || !r.cambios.length) { caja.replaceChildren(h('small', { class: 'ayuda' }, 'No encuentro nada mejor sin tocar los electrodomésticos: está bien así.')); return; }
+          if (!r || !r.cambios.length) { caja.replaceChildren(h('small', { class: 'ayuda' }, 'No encuentro nada mejor sin tocar los electrodomésticos ni alejarlos de sus tomas: está bien así.')); return; }
           caja.replaceChildren(h('p', {}, h('b', {}, 'La mejor que encuentro: ' + r.despues.total + '/100'), ' (la tuya, ' + r.antes.total + ') · almacenaje ' + r.despues.almacenaje.nota + ' · usabilidad ' + r.despues.usabilidad.nota),
             h('ul', { class: 'consejos' }, r.cambios.map(t => h('li', {}, t))),
             h('div', { class: 'dos' },
               h('button', { type: 'button', 'data-acc': 'aplicar-mejor', onclick: async () => {
-                if (!confirm('¿Cambiar los muebles de la cocina por esta combinación? Los electrodomésticos se quedan donde están.')) return;
+                if (!confirm('¿Cambiar los muebles de la cocina por esta combinación? Los electrodomésticos no cambian ni se alejan de su desagüe, salida de humos o enchufe.')) return;
                 d.paredes = r.ficha.datos.paredes; cambio(); await guardarYa(); window.dispatchEvent(new HashChangeEvent('hashchange'));
               } }, 'Aplicarla'),
               h('button', { type: 'button', 'data-acc': 'dejar-mia', onclick: () => caja.replaceChildren() }, 'Dejar la mía')));
@@ -775,6 +777,9 @@ export async function pintarFicha(App, id) {
         h('div', { class: 'dos' },
           campoMedida({ etiqueta: 'Regleta a la pared (mín.)', acc: 'remate-regleta', valor: d.remates.regleta_mm ?? null, unidad: 'cm', rapidos: [30, 40, 50], alCambiar: v => { if (v > 0) d.remates.regleta_mm = v; else delete d.remates.regleta_mm; cambio(); } }),
           campoMedida({ etiqueta: 'Grueso del costado', acc: 'remate-costado', valor: d.remates.costado_mm ?? null, unidad: 'cm', rapidos: [16, 19, 20], alCambiar: v => { if (v > 0) d.remates.costado_mm = v; else delete d.remates.costado_mm; cambio(); } })),
+        h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Costado de columna junto a un bajo'),
+          segmentado({ acc: 'costado-columna', opciones: [['suelo', 'Hasta el suelo'], ['encimera', 'Sobre la encimera']], valor: d.remates.costado_columna || 'suelo', alCambiar: v => { if (v === 'encimera') d.remates.costado_columna = v; else delete d.remates.costado_columna; cambio(); pintar(); } }),
+          h('small', { class: 'ayuda' }, 'Sobre la encimera: los bajos van pegados a la columna y se ganan esos 2 cm abajo.')),
         h('small', { class: 'ayuda' }, 'Vacío: regleta de 4 cm (que abran las bisagras de 110° con el tirador) y costado de 2 cm. Ocupan su sitio en la pared.'),
         infoRemates];
     };

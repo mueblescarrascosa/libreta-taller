@@ -145,7 +145,7 @@ const resto = (largo, s) => (hay(largo) ? largo - s : null);
 // Lo que ocupan los bajos en una pared (con lo que entran los rinconeros de las de al lado) y lo que queda (negativo: se pasa).
 // Si la fila toca un pilar (de la pared o de la de al lado, en esa esquina), lo dice: hay que cajear, y el cuadre es hasta la pared siguiente.
 export function cuadreBajos(p, datos) {
-  const sit = situarMuebles(p, datos), fijos = sit.remates.filter(r => r.fila !== 'altos' && !(r.desde >= (sit.bajos.length ? sit.bajos[sit.bajos.length - 1].hasta : 0) - 1)).reduce((a, r) => a + r.ancho, 0);
+  const sit = situarMuebles(p, datos), fijos = sit.remates.filter(r => r.fila !== 'altos' && r.fila !== 'sobre' && !(r.desde >= (sit.bajos.length ? sit.bajos[sit.bajos.length - 1].hasta : 0) - 1)).reduce((a, r) => a + r.ancho, 0);
   const e = rinconerosQueEntran(datos, p), s = suma(p.bajos) + e.izq + e.der + fijos, c = { suma: s, resto: resto(p.largo, s) }, rg = medidasRemates(datos).regleta;
   if (fijos) c.remates = fijos;
   if (rg) c.regleta = rg;
@@ -178,7 +178,7 @@ export function cuadreAltos(p, datos) {
   const sit = situarMuebles(p, datos || {}), fin = sit.altos.length ? sit.altos[sit.altos.length - 1].hasta : 0;
   // Arriba también ocupan las regletas y costados de las columnas (llegan hasta arriba)
   const fin2 = Math.max(fin, ...sit.bajos.filter(b => esColumna(b.m)).map(b => b.hasta));
-  const fijos = sit.remates.filter(r => (r.fila === 'altos' || r.fila === 'columna') && r.desde < fin2 - 1).reduce((a, r) => a + r.ancho, 0);
+  const fijos = sit.remates.filter(r => (r.fila === 'altos' || r.fila === 'columna' || r.fila === 'sobre') && r.desde < fin2 - 1).reduce((a, r) => a + r.ancho, 0);
   const s = suma((p.altos || []).filter(m => m.tipo !== 'alto_frigo')) + suma((p.bajos || []).filter(esColumna)) + fijos;
   const c = { suma: s, resto: resto(p.largo, s) }, rg = medidasRemates(datos || {}).regleta;
   if (fijos) c.remates = fijos;
@@ -195,9 +195,14 @@ export const REGLETA_PARED = 40, GRUESO_COSTADO = 20, REGLETA_HASTA = 150, HOLGU
 export const REMATES = { porDefecto: true };
 export function medidasRemates(datos) {
   const r = (datos && datos.remates) || {}, usa = k => (r[k] && typeof r[k].usar === 'boolean' ? r[k].usar : REMATES.porDefecto);
-  return { regleta: usa('regletas') ? (r.regleta_mm > 0 ? r.regleta_mm : REGLETA_PARED) : 0, costado: usa('costados') ? (r.costado_mm > 0 ? r.costado_mm : GRUESO_COSTADO) : 0 };
+  return { regleta: usa('regletas') ? (r.regleta_mm > 0 ? r.regleta_mm : REGLETA_PARED) : 0, costado: usa('costados') ? (r.costado_mm > 0 ? r.costado_mm : GRUESO_COSTADO) : 0,
+    // Costado de la columna junto a un bajo: hasta el suelo (ocupa su sitio también abajo) o solo sobre la encimera (los bajos van pegados a la columna)
+    columnaSobre: r.costado_columna === 'encimera' };
 }
 
+// Arriba, lo que deja ver el lado del alto de al lado: campana decorativa o hueco. FONDO_ALTO_VISTO: el fondo del alto con su puerta.
+const abiertoArriba = m => m.tipo === 'hueco' || m.tipo === 'campana_deco';
+export const FONDO_ALTO_VISTO = 350;
 // Dónde va cada mueble a lo largo de la pared (mm desde la izquierda). Los bajos, seguidos desde lo que ocupe un rinconero
 // de la pared anterior (o desde la regleta de la pared); los altos, seguidos pero saltando las columnas, salvo el alto
 // sobre frigo, que va encima de la suya. remates: las regletas y costados con su sitio ({ tipo, fila, desde, hasta }).
@@ -215,7 +220,8 @@ export function situarMuebles(p, datos) {
     // (el costado llega hasta arriba: los altos de al lado empiezan después de él)
     let antes = 0;
     if (ant && R.costado && esColumna(m) !== esColumna(ant) && ant.tipo !== 'hueco' && m.tipo !== 'hueco') {
-      poner('costado', 'columna', s, R.costado); s += R.costado;
+      if (R.columnaSobre) poner('costado', 'sobre', esColumna(ant) ? s : s - R.costado, R.costado);
+      else { poner('costado', 'columna', s, R.costado); s += R.costado; }
       if (esColumna(ant) && columnas.length) columnas[columnas.length - 1].ocupaHasta += R.costado; else antes = R.costado;
     }
     bajos.push({ m, desde: s, hasta: s + m.ancho });
@@ -232,20 +238,34 @@ export function situarMuebles(p, datos) {
   // Altos: también con su regleta a la pared si no empieza una columna en ese lado
   s = 0;
   const conAltos = (p.altos || []).some(m => hay(m.ancho));
-  if (conAltos && R.regleta && !columnas.some(c => c.desde <= inicio)) { poner('regleta', 'altos', 0, R.regleta); s = R.regleta; }
+  // Entre un alto y una campana decorativa o un hueco se ve el lado del alto: costado. Si el hueco es el de un pilar tan
+  // hondo como el alto (o más), el pilar lo tapa y hace de pared: regleta.
+  const listaA = (p.altos || []).filter(m => hay(m.ancho)), pilares = tramosPilar(datos || {}, p);
+  const tapaPilar = (a, b) => pilares.some(([x, y, f]) => x < b - 1 && a < y - 1 && hay(f) && f >= FONDO_ALTO_VISTO);
+  if (conAltos && R.regleta && !columnas.some(c => c.desde <= inicio) && listaA.length && !abiertoArriba(listaA[0])) { poner('regleta', 'altos', 0, R.regleta); s = R.regleta; }
+  let previo = null;
   for (const m of p.altos || []) {
     if (!hay(m.ancho)) break;
+    if (previo && R.costado && previo.hasta === s && abiertoArriba(previo.m) !== abiertoArriba(m) && m.tipo !== 'alto_frigo') {
+      const hueco = abiertoArriba(m) ? [s, s + m.ancho, m] : [previo.desde, previo.hasta, previo.m];
+      // Pilar tan hondo como el alto: hace de pared, regleta para que abra la puerta; si no, costado
+      const pared = hueco[2].tipo === 'hueco' && tapaPilar(hueco[0], hueco[1]), w = pared ? R.regleta : R.costado;
+      if (w) { poner(pared ? 'regleta' : 'costado', 'altos', s, w); s += w; }
+    }
     if (m.tipo === 'alto_frigo') {
       const c = columnas.find(c => c.m.tipo === 'columna_frigo' && !c.usada && c.hasta > s);
-      if (c) { c.usada = true; altos.push({ m, desde: c.desde, hasta: c.desde + m.ancho }); s = Math.max(s, c.desde + m.ancho); continue; }
+      if (c) { c.usada = true; altos.push(previo = { m, desde: c.desde, hasta: c.desde + m.ancho }); s = Math.max(s, c.desde + m.ancho); continue; }
     }
     let choca;
+    const s0 = s;
     while ((choca = columnas.find(c => s < c.ocupaHasta && s + m.ancho > c.ocupaDesde))) s = choca.ocupaHasta;
-    altos.push({ m, desde: s, hasta: s + m.ancho });
+    // Si saltando la columna se sale de la pared, no cabe: se queda donde iba (el cuadre dice cuánto te pasas)
+    if (L !== null && s !== s0 && s + m.ancho > L + 1) s = s0;
+    altos.push(previo = { m, desde: s, hasta: s + m.ancho });
     s += m.ancho;
   }
-  const finAlto = altos.length ? altos[altos.length - 1].hasta : 0, columnaDetras = columnas.some(c => c.ocupaDesde >= finAlto - 1);
-  if (altos.length && L !== null && !columnaDetras) {
+  const finAlto = altos.length ? altos[altos.length - 1].hasta : 0, columnaDetras = columnas.some(c => c.ocupaHasta >= finAlto - 1);
+  if (altos.length && L !== null && !columnaDetras && !abiertoArriba(altos[altos.length - 1].m)) {
     const queda = L - finAlto;
     if (queda > 0 && queda <= REGLETA_HASTA && R.regleta) poner('regleta', 'altos', finAlto, queda);
     else if (queda > REGLETA_HASTA && R.costado) poner('costado', 'altos', finAlto, R.costado);

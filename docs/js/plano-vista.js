@@ -62,7 +62,7 @@ export function geometriaPlanta(d, { margen = 10, unidad = 'cm' } = {}) {
   const n = pts.length, m = plano.cerrada ? n : n - 1;
   // Sin plano dibujado, cada pared de la planta es la de la ficha en ese orden, con su letra.
   const nombres = d.plano ? letras(m) : (d.paredes || []).map(p => p.letra);
-  const geo = { paredes: [], elementos: [], modulos: [], placas: [], islas: [], esquinas: [], sinSituar: [], fuera: [], aEscala: escala, cierre: comprobar(plano, margen).cierre };
+  const geo = { paredes: [], elementos: [], modulos: [], placas: [], remates: [], islas: [], esquinas: [], sinSituar: [], fuera: [], aEscala: escala, cierre: comprobar(plano, margen).cierre };
   const ejes = {};
   for (let i = 0; i < m; i++) {
     const a = pts[i], b = pts[(i + 1) % n], letra = nombres[i];
@@ -109,6 +109,9 @@ export function geometriaPlanta(d, { margen = 10, unidad = 'cm' } = {}) {
       for (const a of sit.altos) geo.modulos.push({ tipo: a.m.tipo, nombre: nombreModulo(a.m), medidas: medidasModulo(a.m), ancho: a.m.ancho, alto: true, columna: false, pared: letra, dentro, dato: a.m, rect: caja(a.desde, a.hasta, FONDO_ALTO) });
       // Placas sobre la encimera: la del mueble de placa y la de debajo de cada campana sin mueble de placa (de 60 si no se dice).
       placasPared(pared, d, sit).forEach(q => geo.placas.push({ pared: letra, ancho: q.ancho, dato: q.mueble || q.campana, bajoCampana: !!q.campana, rect: caja(q.desde, q.hasta, FONDO_MODULO) }));
+      // Regletas y costados (para la perspectiva): el costado, todo el fondo del mueble; la regleta, una tira de 2 cm por delante.
+      const tira = (desde, hasta, f0, f1) => { const pa = en(desde), pb = en(hasta), a = f0 * k, b = f1 * k; return [{ x: pa.x + dentro.x * a, y: pa.y + dentro.y * a }, { x: pb.x + dentro.x * a, y: pb.y + dentro.y * a }, { x: pb.x + dentro.x * b, y: pb.y + dentro.y * b }, { x: pa.x + dentro.x * b, y: pa.y + dentro.y * b }]; };
+      (sit.remates || []).forEach(r => { const f = r.fila === 'altos' ? FONDO_ALTO : FONDO_MODULO; geo.remates.push({ pared: letra, tipo: r.tipo, fila: r.fila, rect: r.tipo === 'regleta' ? tira(r.desde, r.hasta, f - 20, f) : caja(r.desde, r.hasta, f) }); });
       // Cuerpos del vestidor, igual que los bajos, y lo que entra del cuerpo de rincón de la pared de al lado.
       const sc = situarCuerpos(pared, d), fc = FONDO_MODULO;
       if (sc.entran.izq) geo.modulos.push({ tipo: 'cuerpo', nombre: '', ancho: sc.entran.izq, columna: false, pared: letra, dentro, sinTexto: true, dato: sc.entran.cIzq, rect: caja(0, sc.entran.izq, fc) });

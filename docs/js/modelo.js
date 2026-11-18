@@ -159,6 +159,8 @@ export function nombrarPuerta(puertas, p, base) {
 // Tipo de puerta: la abatible de una hoja es la normal y no se repite en los resúmenes.
 // «fija» era un tipo antiguo: ya no se ofrece (el paño fijo es un añadido de la puerta), pero se sigue enseñando si estaba puesto.
 export const TIPOS_PUERTA = [['abatible', 'Abatible'], ['corredera', 'Corredera'], ['doble', 'Doble']];
+// Corredera: de granero (por fuera, sin marco ni tapetas) o empotrada (casoneto, con marco y tapetas).
+export const CORREDERAS = [['granero', 'De granero'], ['empotrada', 'Empotrada (casoneto)']];
 export const tiposPuertaPara = p => (p.tipo === 'fija' ? [...TIPOS_PUERTA, ['fija', 'Fija (antiguo)']] : TIPOS_PUERTA);
 const ladoTexto = l => (l === 'izq' ? 'a la izquierda' : l === 'der' ? 'a la derecha' : '');
 
@@ -170,7 +172,7 @@ export const otraHoja = p => { const a = anchoPuerta(p); return hay(a) && hay(p.
 // Doble: hojas iguales o el ancho de cada una. Paño fijo: su ancho y a qué lado (mirando desde el pasillo).
 export function textoTipoPuerta(p, unidad) {
   const v = mm => verMedida(mm, unidad), t = [];
-  if (p.tipo === 'corredera') t.push('corredera');
+  if (p.tipo === 'corredera') t.push(p.corredera === 'granero' ? 'corredera de granero' : p.corredera === 'empotrada' ? 'corredera empotrada' : 'corredera');
   if (p.tipo === 'fija') t.push('fija');
   if (p.tipo === 'doble') {
     if (p.hojas_iguales === true) t.push('doble, hojas iguales');

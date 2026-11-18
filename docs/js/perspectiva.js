@@ -6,9 +6,11 @@ import { ALTURAS, frigoLibre, techoFrigo, campanasPared, CAMPANA } from './alzad
 import { piezasInterior, textoInteriores } from './modulos.js';
 import { frenteModulo, frenteCuerpo, puertasCuerpo, frenteFrigoLibre, varianteDe, varianteAlto } from './frentes.js';
 
-export const OJOS = 1750;
+// Por defecto, ojos a 160 y mirando un poco hacia abajo (8°): así entran los altos enteros. Se pueden cambiar en la vista.
+export const OJOS = 1600;
+export const ALTURAS_OJOS = [1500, 1600, 1750], INCLINACIONES = [[0, 'Recta'], [-8, 'Un poco abajo'], [-20, 'Abajo']];
 const FOV = 90 * Math.PI / 180, CERCA = 60;
-export const INCLINACION = -20;
+export const INCLINACION = -8;
 const hay = v => v !== null && v !== undefined;
 const COLOR = {
   suelo: ['#ece6da', '#d6cfc0'], pared: ['#faf8f3', '#6b7280'], azulejo: ['#ccfbf1', '#5eead4'], ventana: ['#bae6fd', '#0369a1'], puerta: ['#e5e7eb', '#374151'],
@@ -153,7 +155,7 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null, colores = nu
     const w = ancho(m.r);
     if (m.columna) { const top = conAlto ? Math.min(techoFrigo(d), techo) : col;
       const fl = m.tipo === 'columna_frigo' && frigoLibre(d, m.dato);
-      return mueble(m.r, 0, top, 'columna', t, null, detallesDe(fl ? frenteFrigoLibre(w, fl === 'americano') : frenteModulo(m.tipo, w, 0, top, { columna: true, variante: varianteDe(m.dato) }), w, false, true)); }
+      return mueble(m.r, 0, top, 'columna', t, null, detallesDe(fl ? frenteFrigoLibre(w, fl === 'americano') : frenteModulo(m.tipo, w, 0, top, { columna: true, variante: varianteDe(m.dato), zocalo: ALTURAS.zocalo }), w, false, true)); }
     mueble(m.r, 0, bajoEncimera, 'bajo', t, null, [{ t0: 0, t1: 1, z0: 0, z1: ALTURAS.zocalo, color: 'zocalo' }].concat(detallesDe(frenteModulo(m.chaflan ? 'bajo' : m.tipo, w, ALTURAS.zocalo, bajoEncimera, { variante: varianteDe(m.dato, d) }), w)), fiDe(m));
     // Encimera del chaflán: la misma pieza, con 2 cm de vuelo en la diagonal.
     if (m.chaflan) {
@@ -210,6 +212,11 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null, colores = nu
     cajas.push({ caras, huella: abajo, z0: zp, z1: zc, color: 'campana', centro: [(abajo[0].x + abajo[2].x) / 2, (abajo[0].y + abajo[2].y) / 2, (zp + zc) / 2], texto: null });
     if (techo > zc) caja(arribaP, zc, techo, 'campana', '', 'campana');
   }));
+  // Regletas y costados: del color de los frentes (tablero), cada uno a su altura
+  (geo.remates || []).forEach(r => {
+    const [z0, z1] = r.fila === 'altos' ? [ALTURAS.altos_desde, arriba] : r.fila === 'columna' ? [r.tipo === 'regleta' ? ALTURAS.zocalo : 0, col] : r.fila === 'sobre' ? [encimera, col] : [r.tipo === 'regleta' ? ALTURAS.zocalo : 0, bajoEncimera];
+    if (z1 > z0) mueble(r.rect.map(P), z0, z1, 'tablero', '', 'tablero');   // también se cajean en los pilares
+  });
   // Placas: la de cada mueble de placa y la de debajo de cada campana sin mueble de placa (placasPared), de su ancho
   // (60 si no se dice). Si está cajeada en un pilar, no se dibuja (no se sabe dónde iría).
   (geo.placas || []).map(q => ({ tipo: 'placa', r: q.rect.map(P) })).concat(mods.filter(m => m.r && !m.alto && !m.columna && !m.chaflan && m.tipo === 'fregadero'))
@@ -379,7 +386,7 @@ export function proyectar(esc, vista, W = 1000, H = 640) {
   const a = vista.ang * Math.PI / 180, b = (hay(vista.inc) ? vista.inc : INCLINACION) * Math.PI / 180;
   const f = [Math.cos(b) * Math.cos(a), Math.cos(b) * Math.sin(a), Math.sin(b)], r = [-Math.sin(a), Math.cos(a), 0];
   const up = [-Math.sin(b) * Math.cos(a), -Math.sin(b) * Math.sin(a), Math.cos(b)];
-  const C = [vista.x, vista.y, OJOS], foco = (W / 2) / Math.tan(FOV / 2);
+  const C = [vista.x, vista.y, hay(vista.ojos) ? vista.ojos : OJOS], foco = (W / 2) / Math.tan(FOV / 2);
   const cam = p => { const d = [p[0] - C[0], p[1] - C[1], p[2] - C[2]], pr = v => d[0] * v[0] + d[1] * v[1] + d[2] * v[2]; return [pr(r), pr(up), pr(f)]; };
   const pant = q => [W / 2 + foco * q[0] / q[2], H / 2 - foco * q[1] / q[2]];
   const ve = c => { const m = c.pts.reduce((s, p) => [s[0] + p[0], s[1] + p[1], s[2] + p[2]], [0, 0, 0]).map(v => v / c.pts.length);
@@ -410,7 +417,14 @@ export function proyectar(esc, vista, W = 1000, H = 640) {
     const [x, y] = pant(q), tam = Math.max(9, Math.min(grande ? 30 : 18, foco * (grande ? 160 : 70) / q[2]));
     if (x > -50 && x < W + 50 && y > -20 && y < H + 20) textos.push({ x, y, texto: t.texto, tam, clase: t.clase || 'mueble', z: q[2] });
   };
-  ordenCajas(esc.cajas, C).forEach(b => {
+  // Lo que ocupa cada caja en la pantalla: solo se ordenan entre sí las que se pisan (si no, salen círculos que lo estropean)
+  const enPantalla = esc.cajas.map(b => {
+    const pts = b.caras.map(c => recortar(c.pts.map(cam))).filter(Boolean).flat().map(pant);
+    if (!pts.length) return null;
+    const xs = pts.map(q => q[0]), ys = pts.map(q => q[1]);
+    return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
+  });
+  ordenCajas(esc.cajas, C, enPantalla).forEach(b => {
     b.caras.filter(ve).forEach(c => { const p = poli(c); if (p) salida.push(p); });
   });
   esc.cajas.forEach(b => texto(b.texto, false));
@@ -428,7 +442,7 @@ export function proyectar(esc, vista, W = 1000, H = 640) {
 
 // Orden de dibujo de las cajas, de atrás a delante: si un plano separa dos cajas, la del lado de los ojos va después
 // (por alturas: encima y debajo; en planta: un lado de una de las dos huellas). Si no, la más lejana primero.
-export function ordenCajas(cajas, C) {
+export function ordenCajas(cajas, C, enPantalla = null) {
   const n = cajas.length, dist = b => Math.hypot(b.centro[0] - C[0], b.centro[1] - C[1], b.centro[2] - C[2]);
   const antes = Array.from({ length: n }, () => []), faltan = new Array(n).fill(0);
   const delante = (A, B) => { // 1: A tapa a B; -1: B tapa a A; 0: no se sabe
@@ -439,7 +453,9 @@ export function ordenCajas(cajas, C) {
     const c = C[0] * s.n.x + C[1] * s.n.y;
     return Math.max(...s.a) <= Math.min(...s.b) + 0.5 ? (c > Math.max(...s.a) ? -1 : 1) : (c < Math.min(...s.a) ? -1 : 1);
   };
+  const pisan = (i, j) => { if (!enPantalla) return true; const a = enPantalla[i], b = enPantalla[j]; return !!a && !!b && a.x0 < b.x1 - 0.5 && b.x0 < a.x1 - 0.5 && a.y0 < b.y1 - 0.5 && b.y0 < a.y1 - 0.5; };
   for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+    if (!pisan(i, j)) continue;
     const d = delante(cajas[i], cajas[j]);
     if (d === 1) { antes[j].push(i); faltan[i]++; } else if (d === -1) { antes[i].push(j); faltan[j]++; }
   }

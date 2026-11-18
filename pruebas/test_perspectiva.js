@@ -18,7 +18,8 @@ function cocina() {
 prueba('escena: paredes, muebles en caja, ventana sobre su pared y el frigo con su alto encima', () => {
   const e = escenaPerspectiva(cocina().datos);
   igual([e.k, e.techo, e.paredes.length], [1, 2600, 4]);
-  igual(e.cajas.length, 9); // 5 muebles, la encimera de fregadero + bajo de una pieza, y sobre ella el seno y el grifo (tubo y caño)
+  igual(e.cajas.filter(c => c.color !== 'tablero').length, 9); // 5 muebles, la encimera de fregadero + bajo de una pieza, y sobre ella el seno y el grifo (tubo y caño)
+  afirma(e.cajas.some(c => c.color === 'tablero'), 'regletas y costados dibujados');
   const col = e.cajas.find(c => c.texto && /Columna frigo/.test(c.texto.texto));
   igual(Math.max(...col.caras.flatMap(c => c.pts.map(p => p[2]))), 1850);
   igual(e.sobre.filter(c => c.fill === '#bae6fd').length, 1);

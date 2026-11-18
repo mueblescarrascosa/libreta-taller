@@ -1,7 +1,7 @@
 // La perspectiva con su planta pequeña: tocar en la planta dónde te pones y arrastrar hacia dónde miras;
 // deslizar sobre el dibujo para girar. Lo elegido se guarda en la ficha (d.vista, en mm) y sale igual en el resumen.
 import { h } from '../util.js';
-import { escenaPerspectiva, vistaDe, vistaPorDefecto, svgPerspectiva } from '../perspectiva.js';
+import { escenaPerspectiva, vistaDe, vistaPorDefecto, svgPerspectiva, OJOS, INCLINACION, ALTURAS_OJOS, INCLINACIONES } from '../perspectiva.js';
 import { svgPlanta } from '../plano-vista.js';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -15,7 +15,18 @@ export function vistaInteractiva({ d, margen, ajustes = null, alGuardar, grande 
   let pendiente = false;
   const pintarVista = () => zonaVista.replaceChildren(svgPerspectiva(esc, vista));
   const pronto = () => { if (pendiente) return; pendiente = true; requestAnimationFrame(() => { pendiente = false; pintarVista(); pintarMarca(); }); };
-  const guardar = () => { d.vista = { x: Math.round(vista.x), y: Math.round(vista.y), ang: Math.round(vista.ang * 10) / 10 }; alGuardar(); };
+  const guardar = () => {
+    d.vista = { x: Math.round(vista.x), y: Math.round(vista.y), ang: Math.round(vista.ang * 10) / 10 };
+    if (Number.isFinite(vista.ojos)) d.vista.ojos = vista.ojos;
+    if (Number.isFinite(vista.inc)) d.vista.inc = vista.inc;
+    alGuardar();
+  };
+  // Altura de los ojos y cuánto se mira hacia abajo (se guardan con la vista)
+  const ojos = () => (Number.isFinite(vista.ojos) ? vista.ojos : OJOS), inc = () => (Number.isFinite(vista.inc) ? vista.inc : INCLINACION);
+  const fila = (acc, opciones, actual, poner) => h('div', { class: 'chips', 'data-acc': acc }, opciones.map(([v, t]) => h('button', { type: 'button', class: 'mini' + (v === actual() ? ' on' : ''), 'data-v': String(v), 'aria-pressed': String(v === actual()),
+    onclick: ev => { poner(v); [...ev.currentTarget.parentNode.children].forEach(b => { const on = b === ev.currentTarget; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); guardar(); pronto(); } }, t)));
+  const filaOjos = fila('perspectiva-ojos', ALTURAS_OJOS.map(v => [v, 'Ojos ' + v / 10]), ojos, v => { vista.ojos = v; });
+  const filaInc = fila('perspectiva-mirada', INCLINACIONES, inc, v => { vista.inc = v; });
 
   // Planta pequeña con el punto donde estás y hacia dónde miras.
   const planta = svgPlanta(esc.geo);
@@ -54,7 +65,8 @@ export function vistaInteractiva({ d, margen, ajustes = null, alGuardar, grande 
   return h('div', { class: 'perspectiva-ui' + (grande ? ' grande' : '') }, zonaVista,
     h('div', { class: 'perspectiva-control' }, planta,
       h('div', { class: 'perspectiva-botones' },
-        h('small', { class: 'ayuda' }, 'Toca en la planta dónde te pones y arrastra hacia dónde miras. Desliza sobre el dibujo para girar. Ojos a 175 cm; alturas de muebles orientativas.'),
+        h('small', { class: 'ayuda' }, 'Toca en la planta dónde te pones y arrastra hacia dónde miras. Desliza sobre el dibujo para girar. Alturas de muebles orientativas.'),
+        filaOjos, filaInc,
         alAmpliar ? h('button', { type: 'button', class: 'mini', 'data-acc': 'perspectiva-grande', onclick: alAmpliar }, '⛶ Pantalla completa') : null,
         h('button', { type: 'button', class: 'mini', 'data-acc': 'perspectiva-inicial', onclick: () => { vista = vistaPorDefecto(esc); d.vista = null; alGuardar(); pronto(); } }, 'Vista inicial'))));
 }

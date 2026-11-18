@@ -48,7 +48,7 @@ function mueblesDe(d, etiqueta) {
       const w = Math.round(hasta - desde), c = esColumna(m), sinCasco = ['lavavajillas', 'lavadora'].includes(m.tipo);
       const libre = (m.tipo === 'lavavajillas' || m.tipo === 'lavadora') && esLibre(m, d);
       lista.push({ grupo: c ? 'Columnas' : 'Bajos', mueble: nombreModulo(m), donde, casco: sinCasco ? null : { ancho: w, alto: c ? col : bajo, fondo: CASCO.fondo_bajo, color: casco },
-        frentes: libre ? [] : c ? frentesDe(m, w, 0, ALTURAS.columna, { columna: true, variante: varianteDe(m, d) }, true) : frentesDe(m, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera, { variante: varianteDe(m, d), rincon: m.tipo === 'rinconero' ? m : null }, false) });
+        frentes: libre ? [] : c ? frentesDe(m, w, 0, ALTURAS.columna, { columna: true, variante: varianteDe(m, d), zocalo: ALTURAS.zocalo }, true) : frentesDe(m, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera, { variante: varianteDe(m, d), rincon: m.tipo === 'rinconero' ? m : null }, false) });
     });
     sit.altos.forEach(({ m, desde, hasta }) => {
       if (m.tipo === 'hueco') return;
@@ -127,10 +127,11 @@ export function textoPedido(modo, fichas, ajustes) {
 // y el galce (grueso del tabique), con cuántas abren a cada lado, condena y vidriera. Tapetas: de 7, 9 o a medida (se
 // elige en la ficha de puertas): por puerta, 4 largas (2 por cara) y 2 cabezales (1 por cara). Los cabezales van aparte:
 // de una tira de cabezal salen 2, así que va 1 tira por puerta; en doble bandera (más ancha), 1 cabezal por tira: 2 tiras.
+// Las correderas de granero van por fuera: sin marco (galce) ni tapetas.
 export const TAPETAS = [[70, '7 cm'], [90, '9 cm'], ['especial', 'Medida especial']];
 export const anchoTapeta = d => (d.tapeta === 'especial' ? (d.tapeta_mm > 0 ? d.tapeta_mm : null) : d.tapeta || null);
 export function pedidoPuertas(fichas, ajustes) {
-  const filas = [], tapetas = new Map(), sinTapeta = [], galces = new Map();
+  const filas = [], tapetas = new Map(), sinTapeta = [], galces = new Map(), sinTipoCorredera = [];
   fichas.map(normalizarFicha).filter(f => f.tipo === 'puerta').forEach(f => {
     const d = f.datos, acabado = [d.modelo, d.color].filter(Boolean).join(' ') || 'sin apuntar', t = anchoTapeta(d);
     (d.puertas || []).forEach(p0 => {
@@ -141,10 +142,12 @@ export function pedidoPuertas(fichas, ajustes) {
         if (q.ancho && q.alto) { an = q.ancho.w; al = q.alto.w; nota = [q.ancho.rebaje ? 'rebajar ' + q.ancho.rebaje + ' de ancho' : '', q.alto.rebaje ? 'rebajar ' + q.alto.rebaje + ' de alto' : ''].filter(Boolean).join(' y '); }
         else nota = 'sin puerta de serie que encaje';
       }
-      const tipo = esDeEntrada(p) ? 'Entrada' : p.tipo === 'corredera' ? 'Corredera' : p.tipo === 'doble' ? 'Doble' : 'Abatible';
+      const tipo = esDeEntrada(p) ? 'Entrada' : p.tipo === 'corredera' ? (p.corredera === 'granero' ? 'Corredera de granero' : p.corredera === 'empotrada' ? 'Corredera empotrada' : 'Corredera') : p.tipo === 'doble' ? 'Doble' : 'Abatible';
       filas.push({ an, al, tipo, galce: hay(p.tabique) ? p.tabique : null, acabado, izq: p.mano === 'izq' ? 1 : 0, der: p.mano === 'der' ? 1 : 0,
         condena: p.condena ? 1 : 0, vidriera: p.vidriera ? 1 : 0, nota, cant: 1, donde: tituloFicha(f) + (p.nombre ? ': ' + p.nombre : '') });
       if (tipo === 'Entrada') return;
+      if (tipo === 'Corredera') sinTipoCorredera.push(tituloFicha(f) + (p.nombre ? ': ' + p.nombre : ''));
+      if (tipo === 'Corredera de granero') return;   // va por fuera: ni marco ni tapetas
       galces.set(hay(p.tabique) ? p.tabique : null, (galces.get(hay(p.tabique) ? p.tabique : null) || 0) + 1);
       if (!t) { sinTapeta.push(tituloFicha(f)); return; }
       const g = tapetas.get(t) || { largas: 0, cabezales: 0, tiras: 0 };
@@ -158,8 +161,8 @@ export function pedidoPuertas(fichas, ajustes) {
     if (g) { ['cant', 'izq', 'der', 'condena', 'vidriera'].forEach(c => (g[c] += f[c])); if (!g.donde.includes(f.donde)) g.donde.push(f.donde); }
     else m.set(k, Object.assign({}, f, { donde: [f.donde] }));
   });
-  const orden = ['Abatible', 'Doble', 'Corredera', 'Entrada'];
-  return { filas: [...m.values()].sort((a, b) => orden.indexOf(a.tipo) - orden.indexOf(b.tipo) || (b.an || 0) - (a.an || 0)), tapetas: [...tapetas], sinTapeta: [...new Set(sinTapeta)],
+  const orden = ['Abatible', 'Doble', 'Corredera empotrada', 'Corredera', 'Corredera de granero', 'Entrada'];
+  return { filas: [...m.values()].sort((a, b) => orden.indexOf(a.tipo) - orden.indexOf(b.tipo) || (b.an || 0) - (a.an || 0)), tapetas: [...tapetas], sinTapeta: [...new Set(sinTapeta)], sinTipoCorredera,
     galces: [...galces].sort((a, b) => (a[0] === null) - (b[0] === null) || (a[0] || 0) - (b[0] || 0)) };
 }
 const cmT = mm => String(Math.round(mm) / 10).replace('.', ',');
@@ -175,6 +178,8 @@ export function textoPedidoPuertas(fichas, ajustes) {
   l.push('', '*Tapetas y cabezales*');
   r.tapetas.forEach(([t, g]) => l.push('Tapetas de ' + cmT(t) + ' cm: ' + g.largas + ' largas (4 por puerta) · cabezales: ' + g.cabezales + ', en ' + g.tiras + (g.tiras === 1 ? ' tira' : ' tiras') + ' (de cada tira salen 2; en doble bandera, 1)'));
   if (r.sinTapeta.length) l.push('⚠ Falta elegir las tapetas (7, 9 o medida especial) en: ' + r.sinTapeta.join(', '));
+  if (r.sinTipoCorredera.length) l.push('⚠ Corredera sin decir si es de granero o empotrada (cuento marco y tapetas como empotrada): ' + r.sinTipoCorredera.join(', '));
+  if (r.filas.some(f => f.tipo === 'Corredera de granero')) l.push('Las correderas de granero van sin marco ni tapetas.');
   l.push('', 'Total: ' + r.filas.reduce((x, f) => x + f.cant, 0) + ' puertas');
   return l.join('\n');
 }

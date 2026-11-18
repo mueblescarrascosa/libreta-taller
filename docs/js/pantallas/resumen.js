@@ -4,7 +4,7 @@ import { verMedida } from '../unidades.js';
 import { normalizarFicha, textoTipoPuerta, nombreElemento, extraPilar, tamanoHumos } from '../modelo.js';
 import { EMPRESA, COPYRIGHT } from '../config.js';
 import { paredesVecinas } from '../modulos.js';
-import { escenaPerspectiva, vistaDe, svgPerspectiva } from '../perspectiva.js';
+import { escenaPerspectiva, vistaDe, svgPerspectiva, OJOS } from '../perspectiva.js';
 const mayus = t => (t ? t[0].toUpperCase() + t.slice(1) : '');
 import { bloquesResumen, textoResumen, unidadesDe, urlWhatsapp } from '../resumen.js';
 import { recuentoPuertas, textoTrabajo, ordenFichas } from '../trabajos.js';
@@ -152,7 +152,7 @@ async function nodosFicha(App, ficha, trabajo, AJ, ver = partesGuardadas()) {
     }
     // La perspectiva, desde donde se dejó en la ficha.
     const esc = ver.perspectiva ? escenaPerspectiva(d, { margen: AJ.margen, ajustes: AJ }) : null;
-    if (esc) pareja.append(h('div', { class: 'alzado-resumen perspectiva-resumen' }, h('p', { class: 'tit' }, h('b', {}, 'Perspectiva'), ' ', h('small', {}, '(de pie, ojos a 175 cm; alturas orientativas)')), svgPerspectiva(esc, vistaDe(esc, d.vista))));
+    if (esc) pareja.append(h('div', { class: 'alzado-resumen perspectiva-resumen' }, h('p', { class: 'tit' }, h('b', {}, 'Perspectiva'), ' ', h('small', {}, '(de pie, ojos a ' + Math.round(((d.vista && d.vista.ojos) || OJOS) / 10) + ' cm; alturas orientativas)')), svgPerspectiva(esc, vistaDe(esc, d.vista))));
     if (pareja.childNodes.length) nodos.push(pareja);
     nodos.push(...frentes);
     const t = ver.instalaciones ? tablaInstalaciones(d, u) : null;
@@ -300,7 +300,9 @@ async function pedidoDe(App, { fichas, todas, trabajo, modo, volver, ruta }) {
       [f.izq ? f.izq + ' izq.' : '', f.der ? f.der + ' dcha.' : ''].filter(Boolean).join(', ') || '—', f.acabado, [f.condena ? f.condena + ' con condena' : '', f.vidriera ? f.vidriera + ' con vidriera' : '', f.nota].filter(Boolean).join('; ') || '—', f.donde.join(', ')))));
     partes.push(h('h3', {}, 'Galces (marcos)'), h('p', {}, r.galces.map(([g, n]) => n + ' de ' + (g === null ? 'galce sin apuntar' : cm(g) + ' cm')).join(' · ')));
     partes.push(h('h3', {}, 'Tapetas y cabezales'), ...r.tapetas.map(([t, g]) => h('p', {}, h('b', {}, 'Tapetas de ' + cm(t) + ' cm: ' + g.largas + ' largas'), ' (4 por puerta) · ', h('b', {}, 'cabezales: ' + g.cabezales + ', en ' + g.tiras + (g.tiras === 1 ? ' tira' : ' tiras')), ' (de cada tira salen 2; en doble bandera, 1)')),
-      ...(r.sinTapeta.length ? [h('p', { class: 'aviso-tapetas' }, '⚠ Falta elegir las tapetas (7, 9 o medida especial) en: ' + r.sinTapeta.join(', '))] : []));
+      ...(r.sinTapeta.length ? [h('p', { class: 'aviso-tapetas' }, '⚠ Falta elegir las tapetas (7, 9 o medida especial) en: ' + r.sinTapeta.join(', '))] : []),
+      ...(r.sinTipoCorredera.length ? [h('p', { class: 'aviso-tapetas' }, '⚠ Corredera sin decir si es de granero o empotrada (cuento marco y tapetas como empotrada): ' + r.sinTipoCorredera.join(', '))] : []),
+      ...(r.filas.some(f => f.tipo === 'Corredera de granero') ? [h('p', {}, 'Las correderas de granero van sin marco ni tapetas.')] : []));
     partes.push(h('p', {}, h('b', {}, 'Total: ' + r.filas.reduce((x, f) => x + f.cant, 0) + ' puertas'), ' · medidas en cm; con premarco, la puerta del catálogo que le toca.'));
   }
   else if (modo === 'frentes') {

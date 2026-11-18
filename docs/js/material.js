@@ -154,8 +154,9 @@ export function rematesCocina(d, { todos = false } = {}) {
   const altoAlto = ALTURAS.altos_hasta - ALTURAS.altos_desde, techo = hay(d.alto_techo) && d.alto_techo > 0 ? d.alto_techo : ALTURAS.techo;
   const poner = (tipo, pieza, alto, ancho, donde, deAltos) => { if (alto > 0 && ancho > 0) l.push({ tipo, pieza, alto: Math.round(alto), ancho: Math.round(ancho), donde, deAltos, cant: 1 }); };
   // Regletas y costados: los de la colocación de los muebles (ocupan su sitio en la pared). Costado: su alto × su fondo.
-  const ALTO = { bajos: [frenteBajo, costadoBajo, CASCO.fondo_bajo + 20, false], columna: [ALTURAS.columna - ALTURAS.zocalo, ALTURAS.columna, CASCO.fondo_bajo + 20, true], altos: [altoAlto, altoAlto, CASCO.fondo_alto + 20, true] };
-  const NOMBRE = { bajos: 'bajo', columna: 'columna', altos: 'alto' };
+  const ALTO = { bajos: [frenteBajo, costadoBajo, CASCO.fondo_bajo + 20, false], columna: [ALTURAS.columna - ALTURAS.zocalo, ALTURAS.columna, CASCO.fondo_bajo + 20, true], altos: [altoAlto, altoAlto, CASCO.fondo_alto + 20, true],
+    sobre: [ALTURAS.columna - ALTURAS.encimera, ALTURAS.columna - ALTURAS.encimera, CASCO.fondo_bajo + 20, true] };
+  const NOMBRE = { bajos: 'bajo', columna: 'columna', altos: 'alto', sobre: 'columna sobre la encimera' };
   (d.paredes || []).filter(p => hay(p.largo)).forEach(p => {
     const sit = situarMuebles(p, d);
     sit.remates.forEach(r => {
@@ -238,7 +239,7 @@ export function materialCocina(d) {
       const w = b.hasta - b.desde;
       h.patas += 4;
       if (b.m.tipo === 'columna_frigo' && esLibre(b.m, d)) return;   // frigorífico libre: sin mueble ni puertas
-      if (esColumna(b.m)) contar(b.m.tipo, w, 0, ALTURAS.columna, { columna: true, variante: varianteDe(b.m, d) });
+      if (esColumna(b.m)) contar(b.m.tipo, w, 0, ALTURAS.columna, { columna: true, variante: varianteDe(b.m, d), zocalo: ALTURAS.zocalo });
       else contar(b.m.tipo, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera, { variante: varianteDe(b.m, d), rincon: b.m.tipo === 'rinconero' ? b.m : null });
     });
     sit.altos.forEach(a => { if (a.m.tipo !== 'hueco') contar(a.m.tipo, a.hasta - a.desde, ALTURAS.altos_desde, ALTURAS.altos_hasta); });

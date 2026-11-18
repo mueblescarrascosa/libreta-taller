@@ -40,11 +40,12 @@ const CAJONES_DE = { '4 GAVETEROS': 4, '5 GAVETEROS': 5, '2 CACEROLEROS': [1, 1]
 // El frente de un mueble de cocina (tipo de módulo) de ancho «ancho», que va de z0 a z1 (con el zócalo ya fuera en los bajos).
 // columna: si es una columna (empieza en el suelo y lleva su zócalo).
 // variante: el modelo elegido para el presupuesto (cajones, especiero, soporte de horno, H/MO con puerta…), si lo hay.
-export function frenteModulo(tipo, ancho, z0, z1, { columna = false, variante = null, rincon = null } = {}) {
+export function frenteModulo(tipo, ancho, z0, z1, { columna = false, variante = null, rincon = null, zocalo = FRENTE.zocalo } = {}) {
   const r = [];
   if (!(ancho > 0) || !(z1 > z0) || tipo === 'hueco' || tipo === 'otro') return r;
   let base = z0;
-  if (columna) { r.push({ k: 'zocalo', x0: 0, x1: ancho, z0, z1: z0 + FRENTE.zocalo }); base = z0 + FRENTE.zocalo; }
+  // El zócalo de la columna, el mismo de los bajos (el de la cocina): quien llama pasa ALTURAS.zocalo
+  if (columna) { r.push({ k: 'zocalo', x0: 0, x1: ancho, z0, z1: z0 + zocalo }); base = z0 + zocalo; }
   // Bajos con un modelo elegido que cambia el frente.
   if (variante && ['bajo', 'cajonero', 'placa', 'fregadero'].includes(tipo)) {
     if (CAJONES_DE[variante]) { cajones(r, 0, ancho, base, z1, CAJONES_DE[variante]); return r; }

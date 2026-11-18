@@ -5,6 +5,11 @@
 import { situarMuebles, esColumna, cuadreAltos, moduloNuevo, nombreModulo } from './modulos.js';
 import { consejosDiseno } from './consejos.js';
 import { varianteDe } from './frentes.js';
+import { avisosObra } from './avisos-obra.js';
+// Instalaciones que se quedan sin su mueble (desagüe y agua del fregadero, humos de la placa, enchufes): sin números,
+// para comparar antes y después de un cambio.
+const INSTALACION = /Desagüe|Toma de agua|salida de humos|Salida de humos|Enchufe/;
+const fueraDeSitio = f => new Set(avisosObra(f, 'mm').map(a => a.texto).filter(t => INSTALACION.test(t)).map(t => t.replace(/\d+([.,]\d+)?/g, '#')));
 
 const hay = v => v !== null && v !== undefined && v !== '';
 // Metros útiles por metro de ancho de cada mueble
@@ -82,16 +87,18 @@ export function textoPuntuacion(p) {
 // Prueba, de uno en uno, los cambios que no tocan electrodomésticos (placa, fregadero, lavavajillas, columnas, campana…):
 // un bajo de puertas a cajonero, mover un bajo o cajonero a otro sitio de su pared y poner altos donde haya pared libre
 // (de 30 a 90 cm). Se queda con el que más sube la nota y repite mientras mejore. No cambia la ficha: devuelve la copia.
+// Descarta los cambios que alejan el fregadero de su desagüe o toma, la placa de su salida de humos o un mueble de su enchufe.
 const MOVIBLES = ['bajo', 'cajonero'];
 const copiar = o => JSON.parse(JSON.stringify(o));
 export function mejorCocina(ficha, { pasos = 6 } = {}) {
   const p0 = puntuarCocina(ficha);
   if (!p0) return null;
   let actual = copiar(ficha), nota = p0.total;
+  const malAntes = fueraDeSitio(ficha);   // un cambio no puede dejar una toma, el desagüe o un enchufe lejos de su mueble
   const cambios = [];
   for (let paso = 0; paso < pasos; paso++) {
     let mejor = null;
-    const probar = (nueva, texto) => { const pu = puntuarCocina(nueva); if (pu && pu.total > (mejor ? mejor.nota : nota)) mejor = { ficha: nueva, nota: pu.total, texto }; };
+    const probar = (nueva, texto) => { if ([...fueraDeSitio(nueva)].some(t => !malAntes.has(t))) return; const pu = puntuarCocina(nueva); if (pu && pu.total > (mejor ? mejor.nota : nota)) mejor = { ficha: nueva, nota: pu.total, texto }; };
     (actual.datos.paredes || []).forEach((p, ip) => {
       // Bajo de puertas → cajonero
       (p.bajos || []).forEach((m, i) => {

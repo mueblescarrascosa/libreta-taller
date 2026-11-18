@@ -201,7 +201,7 @@ export function geometriaAlzado(d, pared, ajustes = null) {
     if (esColumna(m)) {
       const h = m.tipo === 'columna_frigo' && frigosConAlto.has(desde) ? Math.min(techoFrigo(d), col) : col;
       pieza('columna', desde, 0, hasta - desde, h, texto, m.tipo);
-      return frente(m.tipo === 'columna_frigo' && frigoLibre(d, m) ? frenteFrigoLibre(hasta - desde, frigoLibre(d, m) === 'americano') : frenteModulo(m.tipo, hasta - desde, 0, h, { columna: true, variante: varianteDe(m) }), desde);
+      return frente(m.tipo === 'columna_frigo' && frigoLibre(d, m) ? frenteFrigoLibre(hasta - desde, frigoLibre(d, m) === 'americano') : frenteModulo(m.tipo, hasta - desde, 0, h, { columna: true, variante: varianteDe(m), zocalo: ALTURAS.zocalo }), desde);
     }
     bajo(desde, hasta - desde, texto, m.tipo, varianteDe(m, d), m.tipo === 'rinconero' ? m : null);
   });
@@ -213,7 +213,7 @@ export function geometriaAlzado(d, pared, ajustes = null) {
   });
   // Regletas y costados (ocupan su sitio): del color de los frentes, finos
   (sit.remates || []).forEach(r => {
-    const [y0, y1] = r.fila === 'altos' ? [ALTURAS.altos_desde, arriba] : r.fila === 'columna' ? [0, col] : [r.tipo === 'costado' ? 0 : ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera];
+    const [y0, y1] = r.fila === 'altos' ? [ALTURAS.altos_desde, arriba] : r.fila === 'columna' ? [0, col] : r.fila === 'sobre' ? [ALTURAS.encimera, col] : [r.tipo === 'costado' ? 0 : ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera];
     pieza('f_tablero', r.desde, y0, r.ancho, y1 - y0, '', r.tipo);
   });
   campanasPared(pared, d, sit).forEach(c => {
