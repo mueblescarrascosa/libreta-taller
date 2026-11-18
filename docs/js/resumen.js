@@ -6,7 +6,7 @@ import { resumenPuerta, nombreElemento, camposDeElemento, textoAzulejo, extraPil
 import { centrosCampana, textoCentroCampana, geometriaAlzado, textoTubo, campanasPared, textoHolgurasCampana, fijarCocinaTipo, alturasCocina } from './alzado.js';
 import { puntuarCocina, textoPuntuacion } from './puntuacion.js';
 import { airePlaca, textoAirePlaca } from './consejos.js';
-import { textoModulo, cuadreBajos, cuadreAltos, cuadreCuerposPared, textoCuadre, nombreLineal, nombreInterior, textoInteriores, textoRincon, textoElectro, paredesVecinas } from './modulos.js';
+import { textoModulo, cuadreBajos, cuadreAltos, cuadreAltillos, cuadreCuerposPared, textoCuadre, nombreLineal, nombreInterior, textoInteriores, textoRincon, textoElectro, paredesVecinas } from './modulos.js';
 
 const hay = v => v !== null && v !== undefined && v !== '';
 const unir = (partes, sep = ' · ') => partes.filter(hay).join(sep);
@@ -45,6 +45,7 @@ function lineaIsla(x, u) {
   const partes = x.tipo === 'peninsula'
     ? [tam, x.pared ? 'sale de la pared ' + x.pared : null, hay(x.distancia) ? 'a ' + v(x.distancia) + ' desde la ' + lado : null]
     : [tam, x.pared ? 'paralela a la pared ' + x.pared : null, hay(x.separacion) ? 'separada ' + v(x.separacion) : null, hay(x.distancia) ? 'a ' + v(x.distancia) + ' desde la ' + lado : null];
+  if (x.vuelo > 0) partes.push('vuelo de ' + v(x.vuelo) + ' para sentarse' + (hay(x.largo) ? ' (' + Math.floor(x.largo / 600) + ' personas)' : ''));
   return '- ' + (x.tipo === 'peninsula' ? 'Península' : 'Isla') + ': ' + partes.filter(Boolean).join(', ');
 }
 
@@ -81,7 +82,8 @@ function bloquePared(p, ud, u, ajustes, d, sinInst) {
   (p.elementos || []).filter(e => e.tipo !== 'zona' && !(sinInst && INSTALACIONES.includes(e.tipo))).forEach(e => l.push(lineaElemento(e, u, extraPilar(d, p, e) > 0)));
   // El rinconero dice en qué pared sigue.
   const v = paredesVecinas(d, p), bajos = (p.bajos || []).map(m => (m.tipo === 'rinconero' && v[m.gira === 'izq' ? 'izq' : 'der'] ? Object.assign({}, m, { sigue: v[m.gira === 'izq' ? 'izq' : 'der'].letra }) : m));
-  l.push(lineaModulos('Bajos', bajos, cuadreBajos(p, d)), (p.altos || []).length ? lineaModulos('Altos', p.altos, cuadreAltos(p, d)) : null);
+  l.push(lineaModulos('Bajos', bajos, cuadreBajos(p, d)), (p.altos || []).length ? lineaModulos('Altos', p.altos, cuadreAltos(p, d)) : null,
+    p.puente && (p.altillos || []).length ? lineaModulos('Altos de arriba (cocina puente, fondo 60, desde 195)', p.altillos, cuadreAltillos(p, d)) : null);
   // Dónde queda el centro de cada campana (para la salida de humos y colgarla).
   if (hay(p.largo) && ((p.bajos || []).length || (p.altos || []).length)) {
     centrosCampana(p, d).forEach(c => l.push('- ' + textoCentroCampana(c)));

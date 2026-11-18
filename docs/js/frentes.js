@@ -51,12 +51,21 @@ const ALTO_MICRO = 400;
 // columna: si es una columna (empieza en el suelo y lleva su zócalo).
 // variante: el modelo elegido para el presupuesto (cajones, especiero, soporte de horno, H/MO con puerta…), si lo hay.
 // modulo: el mueble, para lo que no va en la variante (alto del horno, qué electrodoméstico lleva la columna abajo y arriba).
-export function frenteModulo(tipo, ancho, z0, z1, { columna = false, variante = null, rincon = null, zocalo = FRENTE.zocalo, modulo = null } = {}) {
+// encimera y grueso: a qué altura va la encimera (la columna desayunador la lleva dentro).
+export function frenteModulo(tipo, ancho, z0, z1, { columna = false, variante = null, rincon = null, zocalo = FRENTE.zocalo, modulo = null, encimera = 890, grueso = 40 } = {}) {
   const r = [];
   if (!(ancho > 0) || !(z1 > z0) || tipo === 'hueco' || tipo === 'otro') return r;
   let base = z0;
   // El zócalo de la columna, el mismo de los bajos (el de la cocina): quien llama pasa ALTURAS.zocalo
   if (columna) { r.push({ k: 'zocalo', x0: 0, x1: ancho, z0, z1: z0 + zocalo }); base = z0 + zocalo; }
+  // Placa extractora con recirculación: el filtro va debajo de la placa; el cajón de arriba es ciego (sin tirador) y
+  // abajo, dos caceroleros.
+  if (tipo === 'placa' && modulo && modulo.extractor === 'recirculacion') {
+    const g = FRENTE.holgura, c = base + (z1 - base) * 0.8;
+    cajones(r, 0, ancho, base, c, 2);
+    r.push({ k: 'hoja', x0: g, x1: ancho - g, z0: c + g, z1: z1 - g, ciego: true });
+    return r;
+  }
   // Bajos con un modelo elegido que cambia el frente.
   if (variante && ['bajo', 'cajonero', 'placa', 'fregadero'].includes(tipo)) {
     if (CAJONES_DE[variante]) { cajones(r, 0, ancho, base, z1, CAJONES_DE[variante]); return r; }
@@ -115,6 +124,15 @@ export function frenteModulo(tipo, ancho, z0, z1, { columna = false, variante = 
       if (arriba === 'hmo' || arriba === 'horno') { const hz = Math.min(z1, s + altoHorno(modulo)); horno(r, ancho, s, hz); s = hz; }
       if ((arriba === 'hmo' || arriba === 'micro') && z1 > s + 200) { const mz = Math.min(z1, s + ALTO_MICRO); micro(r, ancho, s, mz); s = mz; }
       if (z1 > s + 50) puertas(r, 0, ancho, s, z1, 'abajo');
+      break;
+    }
+    case 'columna_desayuno': {
+      // Desayunador: bajo (con su frente), encimera, el hueco libre (70 u 80) y el alto de fondo 60 hasta arriba
+      const bajo = encimera - grueso, h0 = encimera + ((modulo && modulo.hueco === 800) ? 800 : 700);
+      frenteModulo('bajo', ancho, base, bajo, { variante: variante || 'PUERTAS' }).forEach(q => r.push(q));
+      r.push({ k: 'tablero', x0: 0, x1: ancho, z0: bajo, z1: encimera });
+      r.push({ k: 'hueco', x0: 0, x1: ancho, z0: encimera, z1: Math.min(h0, z1) });
+      if (z1 > h0 + 50) puertas(r, 0, ancho, h0, z1, 'abajo');
       break;
     }
     case 'semicolumna': {

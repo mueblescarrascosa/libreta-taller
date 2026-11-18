@@ -2,8 +2,8 @@
 // Dibujo sencillo de cajas de colores (como los alzados), hecho a mano: funciona sin conexión y sale en el PDF.
 // Todo va en mm: x e y como en la planta (y hacia abajo), z hacia arriba desde el suelo.
 import { geometriaPlanta } from './plano-vista.js';
-import { ALTURAS, frigoLibre, techoFrigo, campanasPared, CAMPANA, sobreCampana, desdeAlto, altoColumna } from './alzado.js';
-import { piezasInterior, textoInteriores } from './modulos.js';
+import { ALTURAS, frigoLibre, techoFrigo, campanasPared, CAMPANA, sobreCampana, desdeAlto, altoColumna, hastaAltos, topeColumnas } from './alzado.js';
+import { piezasInterior, textoInteriores, PUENTE } from './modulos.js';
 import { frenteModulo, frenteCuerpo, puertasCuerpo, frenteFrigoLibre, varianteDe, varianteAlto } from './frentes.js';
 
 // Por defecto, ojos a 160 y mirando un poco hacia abajo (8°): así entran los altos enteros. Se pueden cambiar en la vista.
@@ -17,7 +17,7 @@ const COLOR = {
   bajo: ['#f5ede4', '#92400e'], cuerpo: ['#f5ede4', '#92400e'], barra: ['#57534e', '#44403c'], estante: ['#c08a4a', '#92400e'], zapato: ['#a8a29e', '#78716c'],
   cajon: ['#fde68a', '#92400e'], hoja: ['#fbf6f0', '#92400e'], hoja_alto: ['#e8f0fe', '#1d4ed8'], hoja_columna: ['#fbf6f0', '#92400e'], tirador: ['#57534e', '#44403c'], electro: ['#3f3f46', '#18181b'],
   placa: ['#1f2328', '#0b0d10'], fuego: ['#2f343b', '#8b929b'], seno: ['#9aa5b1', '#64748b'], grifo: ['#cbd5e1', '#475569'],
-  cristal: ['#52525b', '#a1a1aa'], acero: ['#e2e8f0', '#64748b'], campana: ['#a1a1aa', '#52525b'], zocalo: ['#d6c3ae', '#92400e'], tablero: ['#e2cdb5', '#92400e'], pantalonero: ['#fef3c7', '#78350f'], encimera: ['#9ca3af', '#4b5563'], columna: ['#e7d8c9', '#92400e'], alto: ['#dbeafe', '#1d4ed8'], pilar: ['#d1d5db', '#6b7280'], isla: ['#fef3c7', '#b45309'],
+  cristal: ['#52525b', '#a1a1aa'], hueco: ['#ece6dc', '#a8a29e'], acero: ['#e2e8f0', '#64748b'], campana: ['#a1a1aa', '#52525b'], zocalo: ['#d6c3ae', '#92400e'], tablero: ['#e2cdb5', '#92400e'], pantalonero: ['#fef3c7', '#78350f'], encimera: ['#9ca3af', '#4b5563'], columna: ['#e7d8c9', '#92400e'], alto: ['#dbeafe', '#1d4ed8'], pilar: ['#d1d5db', '#6b7280'], isla: ['#fef3c7', '#b45309'],
 };
 
 // Colores elegidos (guía de colores de Presupuestos): { altos, bajos, columnas, encimera, tirador, suelo, pared } en #rrggbb.
@@ -128,7 +128,10 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null, colores = nu
   // Muebles en mm; donde dos se pisan (en las esquinas), el que llega de la otra pared se recorta.
   const mods = geo.modulos.filter(m => m.tipo !== 'hueco').map(m => Object.assign({}, m, { r: m.rect.map(P) }));
   recortarSolapes(mods.filter(m => !m.alto && !m.chaflan).sort((a, b) => !!a.sinTexto - !!b.sinTexto));
-  recortarSolapes(mods.filter(m => m.alto).sort((a, b) => !!a.sinTexto - !!b.sinTexto));
+  recortarSolapes(mods.filter(m => m.alto && !m.altillo).sort((a, b) => !!a.sinTexto - !!b.sinTexto));
+  recortarSolapes(mods.filter(m => m.altillo).sort((a, b) => !!a.sinTexto - !!b.sinTexto));
+  // Por pared (la cocina puente cambia hasta dónde llegan los altos y las columnas)
+  const paredDe = l => (d.paredes || []).find(p => p.letra === l), arribaDe = l => Math.min(hastaAltos(paredDe(l)), techo), colDe = l => Math.min(topeColumnas(paredDe(l), d), techo);
   const bajoEncimera = encimera - grueso;
   // Frentes (puertas, cajones, tiradores, horno…) como detalles de la cara de delante.
   // Ancho del frente: en el chaflán, la diagonal (de r[1] a r[2]).
@@ -137,8 +140,10 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null, colores = nu
   const detallesDe = (lista, w, alto = false, columna = false) => lista.map(q => ({ t0: q.x0 / w, t1: q.x1 / w, z0: q.z0, z1: q.z1, color: q.k === 'hoja' && alto ? 'hoja_alto' : q.k === 'hoja' && columna ? 'hoja_columna' : q.k }));
   mods.filter(m => m.r).forEach(m => {
     const t = m.sinTexto ? '' : [m.nombre, m.medidas].filter(Boolean).join(' ');
+    if (m.altillo) { const w = ancho(m.r), top = colDe(m.pared);
+      return mueble(m.r, PUENTE.desde, top, 'alto', t, null, detallesDe(frenteModulo(m.tipo, w, PUENTE.desde, top, { modulo: m.dato }), w, true)); }
     if (m.alto) { if (m.tipo === 'campana_deco') return;   // sin mueble: la campana va aparte
-      const y0 = desdeAlto(m.dato || m, d), w = ancho(m.r);
+      const y0 = desdeAlto(m.dato || m, d), w = ancho(m.r), arriba = arribaDe(m.pared);
       return mueble(m.r, y0, arriba, 'alto', t, null, detallesDe(frenteModulo(m.tipo, w, y0, arriba, { variante: varianteAlto(m.dato, d), modulo: m.dato }), w, true)); }
     // La columna del frigo con un alto encima llega hasta el frigo; el alto va encima.
     const conAlto = m.tipo === 'columna_frigo' && geo.modulos.some(a => a.alto && a.tipo === 'alto_frigo' && a.pared === m.pared && Math.hypot(a.rect[0].x - m.rect[0].x, a.rect[0].y - m.rect[0].y) < 1e-6 + 0.01 * Math.hypot(m.rect[1].x - m.rect[0].x, m.rect[1].y - m.rect[0].y));
@@ -153,9 +158,9 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null, colores = nu
       return mueble(m.r, 0, col, 'cuerpo', m.sinTexto ? '' : m.nombre.replace('Cuerpo ', 'C') + (m.rincon ? ' rincón' : '') + (ti ? ' ' + ti : ''), null, (m.dato && m.dato.puertas ? [] : det).concat(detallesDe(frenteCuerpo(ancho, col).concat(puertasCuerpo(ancho, col, m.dato && m.dato.puertas)), ancho)), fiDe(m));
     }
     const w = ancho(m.r);
-    if (m.columna) { const top = conAlto ? Math.min(techoFrigo(d), techo) : altoColumna(m.dato || m, col);
+    if (m.columna) { const top = conAlto ? Math.min(techoFrigo(d), techo) : altoColumna(m.dato || m, colDe(m.pared));
       const fl = m.tipo === 'columna_frigo' && frigoLibre(d, m.dato);
-      return mueble(m.r, 0, top, 'columna', t, null, detallesDe(fl ? frenteFrigoLibre(w, fl === 'americano') : frenteModulo(m.tipo, w, 0, top, { columna: true, variante: varianteDe(m.dato), zocalo: ALTURAS.zocalo, modulo: m.dato }), w, false, true)); }
+      return mueble(m.r, 0, top, 'columna', t, null, detallesDe(fl ? frenteFrigoLibre(w, fl === 'americano') : frenteModulo(m.tipo, w, 0, top, { columna: true, variante: varianteDe(m.dato), zocalo: ALTURAS.zocalo, modulo: m.dato, encimera, grueso }), w, false, true)); }
     mueble(m.r, 0, bajoEncimera, 'bajo', t, null, [{ t0: 0, t1: 1, z0: 0, z1: ALTURAS.zocalo, color: 'zocalo' }].concat(detallesDe(frenteModulo(m.chaflan ? 'bajo' : m.tipo, w, ALTURAS.zocalo, bajoEncimera, { variante: varianteDe(m.dato, d), modulo: m.dato }), w)), fiDe(m));
     // Encimera del chaflán: la misma pieza, con 2 cm de vuelo en la diagonal.
     if (m.chaflan) {
@@ -214,8 +219,8 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null, colores = nu
   }));
   // Regletas y costados: del color de los frentes (tablero), cada uno a su altura
   (geo.remates || []).forEach(r => {
-    const tope = r.tope ? Math.min(r.tope, col) : col;
-    const [z0, z1] = r.fila === 'altos' ? [ALTURAS.altos_desde, arriba] : r.fila === 'columna' ? [r.tipo === 'regleta' ? ALTURAS.zocalo : 0, tope] : r.fila === 'sobre' ? [encimera, tope] : [r.tipo === 'regleta' ? ALTURAS.zocalo : 0, bajoEncimera];
+    const cp = colDe(r.pared), tope = r.tope ? Math.min(r.tope, cp) : cp;
+    const [z0, z1] = r.fila === 'altillos' ? [PUENTE.desde, cp] : r.fila === 'altos' ? [ALTURAS.altos_desde, Math.min(r.tope || arriba, arriba)] : r.fila === 'columna' ? [r.tipo === 'regleta' ? ALTURAS.zocalo : 0, tope] : r.fila === 'sobre' ? [encimera, tope] : [r.tipo === 'regleta' ? ALTURAS.zocalo : 0, bajoEncimera];
     if (z1 > z0) mueble(r.rect.map(P), z0, z1, 'tablero', '', 'tablero');   // también se cajean en los pilares
   });
   // Placas: la de cada mueble de placa y la de debajo de cada campana sin mueble de placa (placasPared), de su ancho
@@ -260,6 +265,7 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null, colores = nu
     for (let i = 0; i < n; i++) det.push(...frenteModulo('bajo', wi, ALTURAS.zocalo, bajoEncimera).map(f => ({ t0: (i * wi + f.x0) / w, t1: (i * wi + f.x1) / w, z0: f.z0, z1: f.z1, color: f.k })));
     caja(r, 0, bajoEncimera, 'isla', x.nombre, null, det);
     caja(q, bajoEncimera, encimera, 'encimera', '', 'encimera');
+    if (x.vuelo) caja(x.vuelo.map(P), bajoEncimera, encimera, 'encimera', '', 'encimera');   // vuelo para sentarse
   });
   geo.elementos.forEach(el => {
     if (el.tipo === 'pilar' && el.rect) return caja(el.rect.map(P), 0, techo, 'pilar', 'Pilar');

@@ -2,7 +2,7 @@
 // catálogo de allí (tipo · modelo · medida). Si se ha elegido una variante o una altura en la libreta, manda esa;
 // si no, la habitual. Lo que no tiene artículo claro va a «Revisar». La app de presupuestos lo comprueba otra vez
 // contra su catálogo y crea un presupuesto NUEVO en borrador (libreta.js de cocinas).
-import { situarMuebles, situarCuerpos, piezasInterior, esLibre, instalacionDe } from './modulos.js';
+import { situarMuebles, situarCuerpos, piezasInterior, esLibre, instalacionDe, PUENTE } from './modulos.js';
 import { textoMaterial, materialCocina } from './material.js';
 import { ALTURAS, desdeAlto } from './alzado.js';
 
@@ -21,7 +21,9 @@ export function variantesDe(m) {
   switch (m.tipo) {
     case 'bajo': return ['PUERTAS', '2 CACEROLEROS', '1 GAVETERO 2 CACEROLEROS', '2 GAVETEROS 1 CACEROLERO', '1 GAVETERO 1 PUERTA', '4 GAVETEROS', '5 GAVETEROS', 'ESPECIERO', 'PANERO', 'VITRINA'];
     case 'cajonero': return ['4 GAVETEROS', '5 GAVETEROS', '2 CACEROLEROS', '1 GAVETERO 2 CACEROLEROS', '2 GAVETEROS 1 CACEROLERO'];
-    case 'placa': return ['1 GAVETERO 2 CACEROLEROS', '2 CACEROLEROS', '2 GAVETEROS 1 CACEROLERO', 'PUERTAS', 'SOPORTE HORNO Y 1 GAVETERO', 'SOPORTE HORNO SIN CAJÓN'];
+    case 'placa': if (m.extractor === 'recirculacion') return ['2 CACEROLEROS'];   // con el filtro debajo: cajón ciego y 2 caceroleros
+      return ['1 GAVETERO 2 CACEROLEROS', '2 CACEROLEROS', '2 GAVETEROS 1 CACEROLERO', 'PUERTAS', 'SOPORTE HORNO Y 1 GAVETERO', 'SOPORTE HORNO SIN CAJÓN'];
+    case 'columna_desayuno': return ['PUERTAS', '2 CACEROLEROS', '1 GAVETERO 2 CACEROLEROS', '4 GAVETEROS'];
     case 'semicolumna': return ['PUERTAS', '4-5 CACEROLEROS', 'HORNO + 1 PUERTA', 'HORNO/MICROONDAS + 1 CACEROLERO'];
     case 'columna_hmo': return ['PUERTA + H/MO + 2 CACEROLEROS', 'PUERTA + H/MO + PUERTA', 'PUERTA + ELECTRODOMÉSTICO + 2 CACER', 'PUERTA + ELECTRODOMÉSTICO + PUERTA'];
     case 'escobero': case 'despensero': return ['PUERTAS', '1/4+3/4', 'VITRINA'];
@@ -32,13 +34,13 @@ export function variantesDe(m) {
   }
 }
 export const NOMBRE_VARIANTE = v => ({ PUERTAS: 'Puertas', '1/4+3/4': '1/4 + 3/4', 'HORNO/MICROONDAS + 1 CACEROLERO': 'Horno/micro + 1 cacerolero', 'SOPORTE HORNO Y 1 GAVETERO': 'Soporte horno con cajón' }[v] || v.charAt(0) + v.slice(1).toLowerCase());
-export const alturasDe = m => (['alto', 'alto_abierto', 'alto_campana'].includes(m.tipo) ? ALTURAS_ALTO : ['columna_hmo', 'columna_frigo', 'columna_electro', 'escobero', 'despensero'].includes(m.tipo) ? ALTURAS_COLUMNA : []);
+export const alturasDe = m => (['alto', 'alto_abierto', 'alto_campana'].includes(m.tipo) ? ALTURAS_ALTO : ['columna_hmo', 'columna_frigo', 'columna_electro', 'columna_desayuno', 'escobero', 'despensero'].includes(m.tipo) ? ALTURAS_COLUMNA : []);
 
 // La variante que va si no se ha elegido.
 export function varianteHabitual(m, d) {
   const cm = (m.ancho || 0) / 10;
   if (m.tipo === 'cajonero') return cm <= 60 ? '4 GAVETEROS' : '1 GAVETERO 2 CACEROLEROS';
-  if (m.tipo === 'placa') return m.horno ? 'SOPORTE HORNO Y 1 GAVETERO' : '1 GAVETERO 2 CACEROLEROS';
+  if (m.tipo === 'placa') return m.extractor === 'recirculacion' ? '2 CACEROLEROS' : m.horno ? 'SOPORTE HORNO Y 1 GAVETERO' : '1 GAVETERO 2 CACEROLEROS';
   if (m.tipo === 'columna_hmo') return 'PUERTA + H/MO + 2 CACEROLEROS';
   if (m.tipo === 'alto_campana') { const c = (d.electro || []).find(e => e.clave === 'campana'); return c && c.tipo === 'integrada' ? 'CAMPANA INTEGRABLE' : 'CAMPANA EXTRAÍBLE'; }
   if (m.tipo === 'rinconero') return 'RINCÓN EN L';
@@ -46,7 +48,10 @@ export function varianteHabitual(m, d) {
 }
 // El alto campana con placa de gas va más bajo (a 75 de la placa, a ras arriba con los altos): la altura que le toca.
 const alturaDeAlto = mm => (mm >= 850 ? 'ALTO 90-100' : mm >= 650 ? 'ALTO 70-80' : mm >= 550 ? 'ALTO 60' : mm >= 420 ? 'ALTO 45' : 'ALTO 35-40');
+// En la cocina puente, los altos de abajo llegan solo hasta los de arriba: más bajos.
+const enPuente = (m, d) => ((d && d.paredes) || []).some(p => p.puente && (p.altos || []).includes(m));
 export const alturaHabitual = (m, d) => (alturasDe(m) === ALTURAS_COLUMNA ? ((d.alto_techo || 2500) >= 2400 ? 'COLUMNA 220-240' : 'COLUMNA 200-215')
+  : alturasDe(m) === ALTURAS_ALTO && enPuente(m, d) ? alturaDeAlto(PUENTE.desde - ALTURAS.altos_desde)
   : m.tipo === 'alto_campana' && desdeAlto(m, d) > ALTURAS.altos_desde ? alturaDeAlto(ALTURAS.altos_hasta - desdeAlto(m, d)) : alturasDe(m).length ? ALTURAS_ALTO[0] : null);
 
 // El artículo del catálogo de un mueble: { m, mo, med, texto } o { revisar: '…' } si no hay uno claro.
@@ -69,6 +74,7 @@ export function articulo(m, d) {
     case 'columna_hmo': return r(alto, v);
     case 'semicolumna': return r('SEMICOLUMNA 135-145', v === 'PUERTAS' || !v ? puertas(cm, '1 PUERTA', '2 PUERTAS') : v);
     // En el catálogo no hay columna con un electrodoméstico abajo: a mano
+    case 'columna_desayuno': return { revisar: 'Columna desayunador de ' + med + ' (bajo ' + (v === 'PUERTAS' || !v ? 'de puertas' : v.toLowerCase()) + ', encimera, hueco de ' + ((m.hueco === 800 ? 80 : 70)) + ' y alto de fondo 60): no está en el catálogo, elegir a mano' };
     case 'columna_electro': return { revisar: 'Columna con ' + ((m.abajo || 'lavavajillas') === 'nevera' ? 'nevera bajo encimera' : m.abajo || 'lavavajillas') + ' abajo de ' + med + ': no está en el catálogo, elegir a mano' };
     case 'columna_frigo':
       if (esLibre(m, d)) return { revisar: 'Hueco para frigorífico ' + (instalacionDe(m, d) === 'americano' ? 'americano' : 'libre') + ' de ' + med + ' (sin mueble)' };
@@ -140,6 +146,8 @@ export function paquetePresupuesto(ficha, trabajo, ajustes) {
     const sit = situarMuebles(p, d);
     sit.bajos.forEach(b => { const a = articulo(b.m, d); if (!a) return; if (a.revisar) revisar.push('Pared ' + p.letra + ': ' + a.revisar); else bajos.push(Object.assign({ und: 1 }, a, { texto: 'Pared ' + p.letra + ': ' + a.texto })); });
     sit.altos.forEach(x => { const a = articulo(x.m, d); if (!a) return; if (a.revisar) revisar.push('Pared ' + p.letra + ': ' + a.revisar); else altos.push(Object.assign({ und: 1 }, a, { texto: 'Pared ' + p.letra + ': ' + a.texto })); });
+    // Altos de arriba de la cocina puente (fondo 60): el catálogo no los tiene a esa altura, a mano
+    (sit.altillos || []).forEach(x => { if (x.m.tipo !== 'hueco') revisar.push('Pared ' + p.letra + ': alto de arriba (puente, fondo 60) de ' + Math.round(x.m.ancho / 10) + ' cm: elegir a mano (ALTO PUENTE)'); });
     // Vestidor: un tramo por pared, con sus cuerpos.
     const sc = situarCuerpos(p, d);
     if (sc.cuerpos.length) {

@@ -2,7 +2,7 @@
 // ventanas, puertas, pilares, azulejo y las tomas en su punto, con la altura al lado.
 // Las alturas de los muebles son orientativas (las de una cocina normal); lo medido manda.
 import { camposDeElemento, extraPilar, pilarDeVecina } from './modelo.js';
-import { situarMuebles, situarCuerpos, paredesVecinas, esColumna, nombreModulo, medidasModulo, interioresDe, textoInteriores, piezasInterior, SEMICOLUMNA } from './modulos.js';
+import { situarMuebles, situarCuerpos, paredesVecinas, esColumna, nombreModulo, medidasModulo, interioresDe, textoInteriores, piezasInterior, SEMICOLUMNA, PUENTE, topePuente } from './modulos.js';
 import { verMedida } from './unidades.js';
 import { corta } from './plano-vista.js';
 import { encajarRotulo, textoRotulo, fondoRotulo } from './rotulos.js';
@@ -74,6 +74,9 @@ export function desdeAlto(m, d) {
 }
 // Hasta dónde llega una columna (la semicolumna, hasta 140).
 export const altoColumna = (m, col = ALTURAS.columna) => (m && m.tipo === 'semicolumna' ? Math.min(SEMICOLUMNA, col) : col);
+// Por pared: en la cocina puente los altos llegan hasta los de arriba (195) y las columnas, hasta el techo menos el cierre.
+export const hastaAltos = p => (p && p.puente ? PUENTE.desde : ALTURAS.altos_hasta);
+export const topeColumnas = (p, d) => (p && p.puente ? topePuente(d) : ALTURAS.columna);
 // Salidas de humos de las paredes de al lado (si en esta no hay ninguna): el tubo va por esta pared hasta la esquina y
 // sigue por la otra. x: donde quedaría si se desdoblara la esquina (antes del 0 o después del largo).
 function salidasVecinas(d, pared, L) {
@@ -221,7 +224,7 @@ export function geometriaAlzado(d, pared, ajustes = null) {
   const L = pared.largo;
   if (!hay(L) || L <= 0) return null;
   const techo = hay(d.alto_techo) && d.alto_techo > 0 ? d.alto_techo : ALTURAS.techo;
-  const arriba = Math.min(ALTURAS.altos_hasta, techo), col = Math.min(ALTURAS.columna, techo);
+  const arriba = Math.min(hastaAltos(pared), techo), col = Math.min(topeColumnas(pared, d), techo);
   const g = { letra: pared.letra, largo: L, techo, techoMedido: hay(d.alto_techo), piezas: [], puntos: [] };
   const pieza = (clase, x, y, w, h, texto, tipo) => { if (w > 0 && h > 0) g.piezas.push({ clase, tipo: tipo || clase, x, y, w, h, texto: texto || '' }); };
   // Puertas, cajones, tiradores y electrodomésticos de un mueble (frentes.js), en su sitio.
@@ -250,7 +253,7 @@ export function geometriaAlzado(d, pared, ajustes = null) {
     if (esColumna(m)) {
       const h = m.tipo === 'columna_frigo' && frigosConAlto.has(desde) ? Math.min(techoFrigo(d), col) : altoColumna(m, col);
       pieza('columna', desde, 0, hasta - desde, h, texto, m.tipo);
-      return frente(m.tipo === 'columna_frigo' && frigoLibre(d, m) ? frenteFrigoLibre(hasta - desde, frigoLibre(d, m) === 'americano') : frenteModulo(m.tipo, hasta - desde, 0, h, { columna: true, variante: varianteDe(m), zocalo: ALTURAS.zocalo, modulo: m }), desde);
+      return frente(m.tipo === 'columna_frigo' && frigoLibre(d, m) ? frenteFrigoLibre(hasta - desde, frigoLibre(d, m) === 'americano') : frenteModulo(m.tipo, hasta - desde, 0, h, { columna: true, variante: varianteDe(m), zocalo: ALTURAS.zocalo, modulo: m, encimera: ALTURAS.encimera, grueso: ALTURAS.grueso_encimera }), desde);
     }
     bajo(desde, hasta - desde, texto, m.tipo, varianteDe(m, d), m.tipo === 'rinconero' ? m : null, m);
   });
@@ -260,10 +263,16 @@ export function geometriaAlzado(d, pared, ajustes = null) {
     pieza('alto', desde, y0, hasta - desde, arriba - y0, nombreModulo(m) + ' ' + medidasModulo(m), m.tipo);
     frente(frenteModulo(m.tipo, hasta - desde, y0, arriba, { variante: varianteAlto(m, d), modulo: m }), desde, true);
   });
+  // Cocina puente: los altos de arriba (fondo 60), de los 195 hasta arriba de las columnas
+  (sit.altillos || []).forEach(({ m, desde, hasta }) => {
+    if (m.tipo === 'hueco') return;
+    pieza('alto', desde, PUENTE.desde, hasta - desde, col - PUENTE.desde, '', m.tipo);   // sin nombre: van encima de los altos y se pisarían
+    frente(frenteModulo(m.tipo, hasta - desde, PUENTE.desde, col, { modulo: m }), desde, true);
+  });
   // Regletas y costados (ocupan su sitio): del color de los frentes, finos
   (sit.remates || []).forEach(r => {
     const tope = r.tope ? Math.min(r.tope, col) : col;
-    const [y0, y1] = r.fila === 'altos' ? [ALTURAS.altos_desde, arriba] : r.fila === 'columna' ? [0, tope] : r.fila === 'sobre' ? [ALTURAS.encimera, tope] : [r.tipo === 'costado' ? 0 : ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera];
+    const [y0, y1] = r.fila === 'altillos' ? [PUENTE.desde, col] : r.fila === 'altos' ? [ALTURAS.altos_desde, arriba] : r.fila === 'columna' ? [0, tope] : r.fila === 'sobre' ? [ALTURAS.encimera, tope] : [r.tipo === 'costado' ? 0 : ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera];
     pieza('f_tablero', r.desde, y0, r.ancho, y1 - y0, '', r.tipo);
   });
   campanasPared(pared, d, sit).forEach(c => {
@@ -370,6 +379,7 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
     f_tablero: { fill: '#e2cdb5', stroke: '#92400e', 'stroke-width': s * 0.2 },
     f_hoja: { fill: '#fbf6f0', stroke: '#92400e', 'stroke-width': s * 0.25 },
     f_hoja_alto: { fill: '#dbeafe', stroke: '#1d4ed8', 'stroke-width': s * 0.25 },
+    f_hueco: { fill: '#f5f1ea', stroke: '#a8a29e', 'stroke-width': s * 0.25 },
     f_acero: { fill: '#e2e8f0', stroke: '#64748b', 'stroke-width': s * 0.3 },
     f_tirador: { fill: '#57534e', stroke: 'none' },
     f_electro: { fill: '#3f3f46', stroke: '#18181b', 'stroke-width': s * 0.25 },
@@ -380,7 +390,7 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
     ventana: { fill: '#e0f2fe', stroke: '#0284c7', 'stroke-width': s * 0.5 },
     puerta: { fill: '#fef3c7', stroke: '#92400e', 'stroke-width': s * 0.5 },
   };
-  const orden = ['azulejo', 'pilar', 'ventana', 'puerta', 'zocalo', 'bajo', 'encimera', 'columna', 'cuerpo', 'int_estante', 'int_zapato', 'int_cajon', 'int_pantalonero', 'int_barra', 'hueco', 'alto', 'f_zocalo', 'f_tablero', 'f_hoja', 'f_hoja_alto', 'f_acero', 'f_electro', 'f_cristal', 'f_campana', 'f_placa', 'f_tirador'];
+  const orden = ['azulejo', 'pilar', 'ventana', 'puerta', 'zocalo', 'bajo', 'encimera', 'columna', 'cuerpo', 'int_estante', 'int_zapato', 'int_cajon', 'int_pantalonero', 'int_barra', 'hueco', 'alto', 'f_zocalo', 'f_hueco', 'f_tablero', 'f_hoja', 'f_hoja_alto', 'f_acero', 'f_electro', 'f_cristal', 'f_campana', 'f_placa', 'f_tirador'];
   const rotulos = [];
   orden.forEach(clase => g.piezas.filter(p => p.clase === clase).forEach(p => {
     if (p.trap) svg.append(el('polygon', Object.assign({ points: [[p.x, p.y], [p.x + p.w, p.y], [p.x + (p.w + p.trap) / 2, p.y + p.h], [p.x + (p.w - p.trap) / 2, p.y + p.h]].map(([x, y]) => x + ',' + Y(y)).join(' '), 'data-pieza': p.clase }, ESTILO[clase])));

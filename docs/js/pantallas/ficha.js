@@ -6,7 +6,7 @@ import { nombrarPuerta, CORTO_ELEMENTO, HUMOS_DIAMETROS, HUMOS_RECTANGULARES, is
 import { duplicarFicha } from '../trabajos.js';
 import { campoMedida, campoEntero } from '../campos.js';
 import { verMedida } from '../unidades.js';
-import { ANCHOS_ELECTRO, ALTOS_ELECTRO, TIPOS_MODULO, GRUPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, medidasModulo, anchosDe, FORMAS_RINCONERO, LADOS_RINCONERO, paredesVecinas, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, FORMAS_RINCON_CUERPO, LADOS_RINCON_CUERPO, INTERIOR_RINCON, textoRincon, textoCuadre, lineaNueva, nombreLineal, nombreInterior, interioresDe, elegirInterior, textoInteriores, acabadosNuevos, MATERIALES_ENCIMERA, ELECTRO, datosElectro, electroNuevo, tieneInstalacion, instalacionDe, sincronizarElectros, COLORES_ELECTRO, colorElectroComun, altoHorno, ABAJO_COLUMNA, ARRIBA_COLUMNA, microLibre, MICRO_LIBRE } from '../modulos.js';
+import { ANCHOS_ELECTRO, ALTOS_ELECTRO, TIPOS_MODULO, GRUPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, medidasModulo, anchosDe, FORMAS_RINCONERO, LADOS_RINCONERO, paredesVecinas, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, FORMAS_RINCON_CUERPO, LADOS_RINCON_CUERPO, INTERIOR_RINCON, textoRincon, textoCuadre, lineaNueva, nombreLineal, nombreInterior, interioresDe, elegirInterior, textoInteriores, acabadosNuevos, MATERIALES_ENCIMERA, ELECTRO, datosElectro, electroNuevo, tieneInstalacion, instalacionDe, sincronizarElectros, COLORES_ELECTRO, colorElectroComun, altoHorno, ABAJO_COLUMNA, ARRIBA_COLUMNA, microLibre, MICRO_LIBRE, cuadreAltillos, HUECOS_DESAYUNO, huecoDesayuno, PUENTE, topePuente } from '../modulos.js';
 import { seccionAdjuntos } from './adjuntos.js';
 import { textoMaterial, textoRemates, TIPOS_REMATE, MATERIALES_REMATE, opcionRemate } from '../material.js';
 import { variantesDe, varianteHabitual, alturasDe, alturaHabitual, NOMBRE_VARIANTE, articulo, paquetePresupuesto, CLAVE_PASO } from '../presupuesto.js';
@@ -14,7 +14,7 @@ import { textoResumen, urlWhatsapp } from '../resumen.js';
 import { huella } from '../sincro.js';
 import { geometriaPlanta, svgPlanta, aplicarPlano, pilarEnParedes, pilaresEnParedes, pasarAPilar } from '../plano-vista.js';
 import { abrirPlano } from '../plano-editor.js';
-import { geometriaAlzado, svgAlzado, campanasPared, salidaCampana, textoHolgurasCampana, centrosCampana, textoCentroCampana, anchoPlaca, anchoCampana, textoTubo, fijarCocinaTipo, alturasCocina, CAMPOS_ALTURA, placaDeGas, SOBRE_GAS, MINIMO_GAS } from '../alzado.js';
+import { geometriaAlzado, svgAlzado, campanasPared, salidaCampana, textoHolgurasCampana, centrosCampana, textoCentroCampana, anchoPlaca, anchoCampana, textoTubo, fijarCocinaTipo, alturasCocina, CAMPOS_ALTURA, placaDeGas, SOBRE_GAS, MINIMO_GAS, ALTURAS } from '../alzado.js';
 import { puntuarCocina, mejorCocina } from '../puntuacion.js';
 import { TAPETAS } from '../pedido.js';
 import { airePlaca, textoAirePlaca } from '../consejos.js';
@@ -466,7 +466,7 @@ export async function pintarFicha(App, id) {
     const resPared = h('small', { class: 'res-pared' });
     const pintarRes = () => {
       const n = (l, uno, varios) => (l || []).length ? (l.length + ' ' + (l.length > 1 ? varios : uno)) : null;
-      resPared.textContent = [hay(p.largo) ? verMedida(p.largo, udPared) + ' ' + udPared : 'sin largo', n(p.bajos, 'bajo', 'bajos'), n(p.altos, 'alto', 'altos'),
+      resPared.textContent = [hay(p.largo) ? verMedida(p.largo, udPared) + ' ' + udPared : 'sin largo', n(p.bajos, 'bajo', 'bajos'), n(p.altos, 'alto', 'altos'), p.puente ? n(p.altillos, 'alto de arriba', 'altos de arriba') : null,
         n(p.cuerpos, 'cuerpo', 'cuerpos'), n((p.elementos || []).filter(e => e.tipo === 'pilar'), 'pilar', 'pilares'), n((p.elementos || []).filter(e => e.tipo !== 'pilar' && e.tipo !== 'zona'), 'toma/hueco', 'tomas/huecos')].filter(Boolean).join(' · ');
     };
     pintarRes(); refrescos.push(() => { if (resPared.isConnected) pintarRes(); });
@@ -518,6 +518,9 @@ export async function pintarFicha(App, id) {
         h('div', { class: 'dos' }, medida(x, 'largo', peninsula ? 'Largo (lo que sale)' : 'Largo', { aviso: null }), medida(x, 'fondo', 'Fondo', { aviso: null })),
         peninsula ? null : medida(x, 'separacion', 'Separación de la pared', { aviso: null }),
         medida(x, 'distancia', 'Distancia desde la esquina', { ref: x.ref, alCambiarRef: r => { x.ref = r; cambio(); }, aviso: null }),
+        h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Vuelo para sentarse'),
+          segmentado({ acc: 'isla-vuelo', opciones: [[250, '25'], [300, '30'], [400, '40']], valor: x.vuelo || null, permitirVacio: true, alCambiar: v => { x.vuelo = v || null; cambio(); repintar(); } }),
+          x.vuelo ? h('small', { class: 'ayuda', 'data-acc': 'vuelo-personas' }, 'La encimera sale ' + verMedida(x.vuelo, 'cm') + ' cm por el lado que no da a la cocina' + (x.largo ? ': caben ' + Math.floor(x.largo / 600) + ' personas (60 cm cada una).' : '.')) : null),
         h('small', { class: 'ayuda' }, peninsula ? 'Desde la esquina de la pared hasta el lado de la península.' : 'Desde la esquina de la pared hasta el lado de la isla, a lo largo de la pared.'));
     }
     const repintar = () => { zona.replaceChildren(...d.islas.map(tarjeta)); refrescarAvisos(); };
@@ -599,7 +602,12 @@ export async function pintarFicha(App, id) {
         // limpia y vuelve (recirculación) o sale a la calle con un tubo a ras de suelo, por detrás del zócalo.
         if (m.tipo === 'placa' && (!m.placa_tipo || m.placa_tipo === 'induccion' || m.extractor)) n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Placa con extractor (solo inducción)'),
           segmentado({ acc: 'placa-extractor', opciones: [['recirculacion', 'Recirculación'], ['exterior', 'Sale a la calle (a ras de suelo)']], valor: m.extractor ?? null, permitirVacio: true,
-            alCambiar: v => { m.extractor = v; if (v) m.placa_tipo = 'induccion'; cambio(); repintar(); } })));
+            alCambiar: v => {
+              m.extractor = v;
+              if (v) { m.placa_tipo = 'induccion'; p.altos = p.altos.filter(x => x.tipo !== 'alto_campana'); if (repintarFila.altos) repintarFila.altos(); }   // sin campana: fuera su mueble
+              if (v === 'recirculacion') { m.horno = null; m.variante = null; }   // el filtro va debajo: sin horno
+              cambio(); repintar(); } }),
+          m.extractor === 'recirculacion' ? h('small', { class: 'ayuda', 'data-acc': 'extractor-sin-horno' }, 'Con recirculación el filtro va debajo de la placa: sin horno; el cajón de arriba es ciego y abajo van dos caceroleros.') : null));
         // La campana va con la placa: vista (decorativa; en los altos se le deja el sitio, centrada con la placa) o un mueble
         // con el extractor dentro (el «Alto campana», que se pone solo en los altos, centrado con la placa).
         if (m.tipo === 'placa' && !m.extractor) {
@@ -634,6 +642,13 @@ export async function pintarFicha(App, id) {
         segmentado({ acc: 'micro-tipo', opciones: [['libre', 'Libre (mueble de 50)'], ['integrable', 'Integrable (mueble de 60)']], valor: m.ancho ? (microLibre(m) ? 'libre' : 'integrable') : null,
           alCambiar: v => { anotarMedida(m, 'ancho', v === 'libre' ? MICRO_LIBRE.mueble : 600); cambio(); repintar(); pintarCuadre(); } }),
         h('small', { class: 'ayuda' }, 'Libre: suelen medir de 44 a 48 de ancho y de 28 a 30 de alto (se cuenta 46 × 29).')));
+      // Columna desayunador: el hueco libre sobre la encimera (70 u 80); el alto de fondo 60 llega hasta arriba
+      if (m.tipo === 'columna_desayuno') {
+        const top = p.puente ? topePuente(d) : ALTURAS.columna, puertas = top - (ALTURAS.encimera + huecoDesayuno(m));
+        n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Hueco libre sobre la encimera'),
+          segmentado({ acc: 'hueco-desayuno', opciones: HUECOS_DESAYUNO.map(v => [v, String(v / 10)]), valor: huecoDesayuno(m), alCambiar: v => { m.hueco = v === 800 ? 800 : null; cambio(); repintar(); } })),
+          h('small', { class: 'ayuda' + (puertas > 900 ? ' aviso-tubo' : ''), 'data-acc': 'desayuno-alto' }, 'Arriba, alto de fondo 60 con puertas de ' + verMedida(puertas, 'cm') + ' cm' + (puertas > 900 ? ' ⚠ pasa de 90: mejor un hueco de 80 o partirlo en dos.' : '.') + ' Pon enchufes en el hueco (tostadora, cafetera).'));
+      }
       // Columna con un electrodoméstico abajo: qué va abajo y qué va arriba
       if (m.tipo === 'columna_electro') {
         n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Abajo'),
@@ -670,7 +685,7 @@ export async function pintarFicha(App, id) {
     function fila(nombre, titulo) {
       const zona = h('div', { class: 'modulos' }), cuadre = h('small', { class: 'cuadre', 'data-acc': 'cuadre-' + nombre });
       // Arriba solo se cuadra si hay altos: las columnas solas no son una fila de altos.
-      const pintarCuadre = () => { cuadre.textContent = nombre === 'altos' && !p.altos.length ? '' : textoCuadre(nombre === 'bajos' ? cuadreBajos(p, d) : cuadreAltos(p, d), 'cm'); };
+      const pintarCuadre = () => { cuadre.textContent = nombre !== 'bajos' && !p[nombre].length ? '' : textoCuadre(nombre === 'bajos' ? cuadreBajos(p, d) : nombre === 'altos' ? cuadreAltos(p, d) : cuadreAltillos(p, d), 'cm'); };
       const repintar = () => {
         zona.replaceChildren(...listaOrdenada({ lista: p[nombre], atributo: 'data-modulo', abierto: () => abiertos[nombre], alAbrir: idm => { abiertos[nombre] = idm; }, repintar,
           resumen: nombreModulo, detalle: m => (m.ancho ? ' · ' + medidasModulo(m) : ''),
@@ -687,7 +702,14 @@ export async function pintarFicha(App, id) {
             const m = moduloNuevo(t); p[nombre].push(m); abiertos[nombre] = m.id; cambio(); repintar();
           } }, CORTO_MODULO[t] || NOMBRE_MODULO[t]))))));
     }
-    caja.append(fila('bajos', 'Bajos y columnas'), fila('altos', 'Altos'));
+    // Cocina puente (cocinas altas): encima de los altos, otra fila de fondo 60 desde los 195 hasta el techo; las columnas, también
+    if (!p.altillos) p.altillos = [];
+    const zonaPuente = h('div', {});
+    const pintarPuente = () => zonaPuente.replaceChildren(...(p.puente ? [fila('altillos', 'Altos de arriba (fondo 60, de ' + verMedida(PUENTE.desde, 'cm') + ' cm hasta el techo menos ' + verMedida(PUENTE.cierre, 'cm') + ')')] : []));
+    const puente = h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Cocina puente (altos a dos alturas)'),
+      segmentado({ acc: 'puente', opciones: SI_NO, valor: !!p.puente, alCambiar: v => { p.puente = v || null; cambio(); pintarPuente(); refrescarAvisos(); refrescos.forEach(f => f()); } }));
+    pintarPuente();
+    caja.append(fila('bajos', 'Bajos y columnas'), fila('altos', 'Altos'), puente, zonaPuente);
     return caja;
   }
 

@@ -1,8 +1,8 @@
 // Material para pedir, sacado de lo medido: encimera (piezas, uniones en las esquinas y huecos), lineales en metros
 // y herrajes (bisagras, guías, tiradores, patas, barras…). Orientativo: lo medido y lo pedido mandan.
-import { situarMuebles, situarCuerpos, esColumna, piezasInterior, paredesVecinas, esLibre, cuadreBajos, cuadreAltos, REMATES } from './modulos.js';
+import { situarMuebles, situarCuerpos, esColumna, piezasInterior, paredesVecinas, esLibre, cuadreBajos, cuadreAltos, REMATES, PUENTE } from './modulos.js';
 import { frenteModulo, puertasCuerpo, varianteDe } from './frentes.js';
-import { ALTURAS, desdeAlto, altoColumna } from './alzado.js';
+import { ALTURAS, desdeAlto, altoColumna, hastaAltos, topeColumnas } from './alzado.js';
 import { verMedida } from './unidades.js';
 
 const hay = v => v !== null && v !== undefined;
@@ -118,11 +118,11 @@ export function piezasCascoCocina(d) {
   const piezas = [], C = CASCO, g2 = 2 * C.grueso, pz = apuntar(piezas);
   const bajoAlto = ALTURAS.encimera - ALTURAS.grueso_encimera - ALTURAS.zocalo, colAlto = ALTURAS.columna - ALTURAS.zocalo, altoAlto = ALTURAS.altos_hasta - ALTURAS.altos_desde;
   (d.paredes || []).filter(p => hay(p.largo)).forEach(p => {
-    const sit = situarMuebles(p, d);
+    const sit = situarMuebles(p, d), colTop = topeColumnas(p, d);
     sit.bajos.forEach(({ m, desde, hasta }) => {
       const w = hasta - desde;
       if (['hueco', 'otro', 'lavavajillas', 'lavadora'].includes(m.tipo) || (m.tipo === 'columna_frigo' && esLibre(m, d))) return;
-      if (esColumna(m)) { pz(C.fondo_bajo, altoColumna(m) - ALTURAS.zocalo, 2); pz(w - g2, C.fondo_bajo, 2); pz(w - g2 - 2, C.fondo_bajo - 20, m.tipo === 'columna_hmo' ? 1 : 2); return; }
+      if (esColumna(m)) { pz(C.fondo_bajo, altoColumna(m, colTop) - ALTURAS.zocalo, 2); pz(w - g2, C.fondo_bajo, 2); pz(w - g2 - 2, C.fondo_bajo - 20, m.tipo === 'columna_hmo' ? 1 : 2); return; }
       pz(C.fondo_bajo, bajoAlto, 2); pz(w - g2, C.fondo_bajo); pz(w - g2, C.travesano, 2);
       if (m.tipo === 'bajo' || m.tipo === 'fregadero') pz(w - g2 - 2, C.fondo_bajo - 20);
     });
@@ -130,9 +130,16 @@ export function piezasCascoCocina(d) {
       const w = hasta - desde;
       if (['hueco', 'otro', 'campana_deco'].includes(m.tipo)) return;
       // El de sobre frigo, del fondo de los bajos (como la columna); el de la campana con gas, más bajo (a ras arriba)
-      const h = m.tipo === 'alto_frigo' ? 400 : ALTURAS.altos_hasta - desdeAlto(m, d), f = m.tipo === 'alto_frigo' ? C.fondo_bajo : C.fondo_alto;
+      const h = m.tipo === 'alto_frigo' ? 400 : hastaAltos(p) - desdeAlto(m, d), f = m.tipo === 'alto_frigo' ? C.fondo_bajo : C.fondo_alto;
       pz(f, h, 2); pz(w - g2, f, 2);
       if (h > 500 && (m.tipo === 'alto' || m.tipo === 'alto_abierto')) pz(w - g2 - 2, C.fondo_alto - 20);
+    });
+    // Cocina puente: los altos de arriba, de fondo 60
+    (sit.altillos || []).forEach(({ m, desde, hasta }) => {
+      if (['hueco', 'otro'].includes(m.tipo)) return;
+      const w = hasta - desde, h = colTop - PUENTE.desde;
+      pz(C.fondo_bajo, h, 2); pz(w - g2, C.fondo_bajo, 2);
+      if (h > 500) pz(w - g2 - 2, C.fondo_bajo - 20);
     });
   });
   return piezas;
@@ -157,18 +164,21 @@ export function rematesCocina(d, { todos = false } = {}) {
   // Regletas y costados: los de la colocación de los muebles (ocupan su sitio en la pared). Costado: su alto × su fondo.
   const ALTO = { bajos: [frenteBajo, costadoBajo, CASCO.fondo_bajo + 20, false], columna: [ALTURAS.columna - ALTURAS.zocalo, ALTURAS.columna, CASCO.fondo_bajo + 20, true], altos: [altoAlto, altoAlto, CASCO.fondo_alto + 20, true],
     sobre: [ALTURAS.columna - ALTURAS.encimera, ALTURAS.columna - ALTURAS.encimera, CASCO.fondo_bajo + 20, true] };
-  const NOMBRE = { bajos: 'bajo', columna: 'columna', altos: 'alto', sobre: 'columna sobre la encimera' };
+  const NOMBRE = { bajos: 'bajo', columna: 'columna', altos: 'alto', sobre: 'columna sobre la encimera', altillos: 'alto de arriba' };
   (d.paredes || []).filter(p => hay(p.largo)).forEach(p => {
     const sit = situarMuebles(p, d);
     sit.remates.forEach(r => {
-      let [altoRegleta, altoCostado, fondo, deAltos] = ALTO[r.fila];
-      // Junto a una semicolumna, el costado llega hasta ella (140), no hasta arriba
-      if (r.tope && (r.fila === 'columna' || r.fila === 'sobre')) { const menos = ALTURAS.columna - Math.min(r.tope, ALTURAS.columna); altoRegleta -= menos; altoCostado -= menos; }
+      const altoArriba = topeColumnas(p, d) - PUENTE.desde;
+      let [altoRegleta, altoCostado, fondo, deAltos] = r.fila === 'altillos' ? [altoArriba, altoArriba, CASCO.fondo_bajo + 20, true] : ALTO[r.fila];
+      // Junto a una semicolumna, el costado llega hasta ella (140); en la cocina puente, hasta arriba (o hasta los de arriba)
+      if (r.tope && (r.fila === 'columna' || r.fila === 'sobre')) { const menos = ALTURAS.columna - r.tope; altoRegleta -= menos; altoCostado -= menos; }
+      if (r.tope && r.fila === 'altos') altoRegleta = altoCostado = r.tope - ALTURAS.altos_desde;
       if (r.tipo === 'regleta') poner('regletas', 'Regleta de ' + NOMBRE[r.fila], altoRegleta, r.ancho, p.letra, deAltos);
       else poner('costados', 'Costado de ' + NOMBRE[r.fila] + ' (' + Math.round(r.ancho / 10) + ' cm)', altoCostado, fondo, p.letra, deAltos);
     });
     // Cierre a techo: encima de altos y columnas, del alto que falte hasta el techo (en tiras de como mucho 2,70 m)
-    const arriba = sit.altos.concat(sit.bajos.filter(b => esColumna(b.m) && b.m.tipo !== 'semicolumna')), cierre = techo - ALTURAS.altos_hasta;
+    // (en la cocina puente, encima de los altos de arriba y de las columnas: el cierre que se deja hasta el techo)
+    const arriba = (p.puente ? sit.altillos : sit.altos).concat(sit.bajos.filter(b => esColumna(b.m) && b.m.tipo !== 'semicolumna')), cierre = p.puente ? PUENTE.cierre : techo - ALTURAS.altos_hasta;
     if (arriba.length && cierre >= CIERRE_MIN) {
       let largo = arriba.reduce((sm, a) => sm + (a.hasta - a.desde), 0) + sit.remates.filter(r => r.fila !== 'bajos').reduce((sm, r) => sm + r.ancho, 0);
       while (largo > 0) { const t = Math.min(largo, LARGO_TABLERO); poner('techo', 'Cierre a techo', cierre, t, p.letra, true); largo -= t; }
@@ -210,7 +220,10 @@ export function materialCocina(d) {
       t.muebles.forEach(m => { if (m.tipo === 'placa' || m.tipo === 'fregadero') huecos.push({ que: m.tipo, ancho: m.ancho, pared: p.letra }); });
     });
   });
-  (d.islas || []).forEach((x, i) => { if (hay(x.largo) && hay(x.fondo)) piezas.push({ pared: x.tipo === 'peninsula' ? 'península' : 'isla' + ((d.islas || []).length > 1 ? ' ' + (i + 1) : ''), largo: x.largo, fondo: x.fondo + 20, nota: '', larga: x.largo > ENCIMERA.largo_max }); });
+  // Islas y penínsulas: con el vuelo para sentarse, si lo llevan (la encimera sale más)
+  (d.islas || []).forEach((x, i) => { if (hay(x.largo) && hay(x.fondo)) piezas.push({ pared: x.tipo === 'peninsula' ? 'península' : 'isla' + ((d.islas || []).length > 1 ? ' ' + (i + 1) : ''), largo: x.largo, fondo: x.fondo + 20 + (x.vuelo > 0 ? x.vuelo : 0), nota: x.vuelo > 0 ? 'con vuelo de ' + Math.round(x.vuelo / 10) + ' cm para sentarse' : '', larga: x.largo > ENCIMERA.largo_max }); });
+  // Columna desayunador: su trozo de encimera, dentro de la columna
+  (d.paredes || []).filter(p => hay(p.largo)).forEach(p => situarMuebles(p, d).bajos.filter(b => b.m.tipo === 'columna_desayuno').forEach(b => piezas.push({ pared: p.letra, largo: b.hasta - b.desde - 32, fondo: ENCIMERA.fondo - 20, nota: 'desayunador (entre los costados)', larga: false })));
 
   // Lineales: cornisa y LED bajo los altos (cornisa también sobre columnas); el zócalo, por el frente de los muebles.
   let arriba = 0, bajoAltos = 0;
@@ -231,6 +244,7 @@ export function materialCocina(d) {
         if (q.k === 'tirador') h.tiradores++;
         if (q.k !== 'hoja') return;
         frentes.push({ an: Math.round(q.real ?? (q.x1 - q.x0)), al: Math.round(q.z1 - q.z0), cant: 1 });
+        if (q.ciego) return;   // frente ciego: fijo, sin herrajes
         if (tipo === 'lavavajillas' || tipo === 'lavadora') { h.lavavajillas++; return; }
         const t = f[i + 1], cajon = !q.soloCuenta && t && t.k === 'tirador' && t.x1 - t.x0 > t.z1 - t.z0;
         if (cajon) h.cajones++;
@@ -242,10 +256,11 @@ export function materialCocina(d) {
       const w = b.hasta - b.desde;
       h.patas += 4;
       if (b.m.tipo === 'columna_frigo' && esLibre(b.m, d)) return;   // frigorífico libre: sin mueble ni puertas
-      if (esColumna(b.m)) contar(b.m.tipo, w, 0, altoColumna(b.m), { columna: true, variante: varianteDe(b.m, d), zocalo: ALTURAS.zocalo, modulo: b.m });
+      if (esColumna(b.m)) contar(b.m.tipo, w, 0, altoColumna(b.m, topeColumnas(p, d)), { columna: true, variante: varianteDe(b.m, d), zocalo: ALTURAS.zocalo, modulo: b.m, encimera: ALTURAS.encimera, grueso: ALTURAS.grueso_encimera });
       else contar(b.m.tipo, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera, { variante: varianteDe(b.m, d), rincon: b.m.tipo === 'rinconero' ? b.m : null, modulo: b.m });
     });
-    sit.altos.forEach(a => { if (a.m.tipo !== 'hueco') contar(a.m.tipo, a.hasta - a.desde, desdeAlto(a.m, d), ALTURAS.altos_hasta, { modulo: a.m }); });
+    sit.altos.forEach(a => { if (a.m.tipo !== 'hueco') contar(a.m.tipo, a.hasta - a.desde, desdeAlto(a.m, d), hastaAltos(p), { modulo: a.m }); });
+    (sit.altillos || []).forEach(a => { if (a.m.tipo !== 'hueco') contar(a.m.tipo, a.hasta - a.desde, PUENTE.desde, topeColumnas(p, d), { modulo: a.m }); });
   });
   // Los remates no cuentan como frentes ni como cascos (el presupuesto los cuenta aparte), pero sí en sus tableros.
   const cascos = piezasCascoCocina(d), remates = rematesCocina(d), rematesFrentes = [], rematesCasco = [], otros = [];

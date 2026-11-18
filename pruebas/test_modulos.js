@@ -10,7 +10,7 @@ const mod = (tipo, ancho, o) => Object.assign(moduloNuevo(tipo), { ancho }, o);
 const cerca = (a, b) => Math.abs(a - b) <= 0.5;
 
 prueba('tipos de módulo por fila y anchos rápidos', () => {
-  igual(TIPOS_MODULO.bajos, ['bajo', 'fregadero', 'placa', 'cajonero', 'lavavajillas', 'lavadora', 'rinconero', 'columna_hmo', 'columna_frigo', 'columna_electro', 'escobero', 'despensero', 'semicolumna', 'hueco', 'otro']);
+  igual(TIPOS_MODULO.bajos, ['bajo', 'fregadero', 'placa', 'cajonero', 'lavavajillas', 'lavadora', 'rinconero', 'columna_hmo', 'columna_frigo', 'columna_electro', 'columna_desayuno', 'escobero', 'despensero', 'semicolumna', 'hueco', 'otro']);
   igual(TIPOS_MODULO.altos, ['alto', 'alto_abierto', 'alto_campana', 'campana_deco', 'alto_micro', 'alto_frigo', 'hueco', 'otro']);
   igual(AJUSTES_FABRICA.modulo_anchos, [300, 400, 450, 500, 600, 800, 900, 1000, 1200]);
   igual(nombreLineal({ tipo: 'led' }, AJUSTES_FABRICA), 'Tira LED'); igual(nombreLineal({ tipo: 'otro', nombre: 'Copete' }, AJUSTES_FABRICA), 'Copete');

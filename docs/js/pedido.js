@@ -3,9 +3,9 @@
 // - frentes (para el proveedor): puertas, cajones y frentes de electrodoméstico con alto × ancho y su acabado;
 // - juntos (mueble completo, por si se piden hechos): cada mueble con su casco y sus frentes en la misma fila.
 // Medidas en mm. Las alturas son las de cada cocina (Ajustes o lo cambiado en su ficha): se fijan antes de cada una.
-import { situarMuebles, esColumna, esLibre, nombreModulo } from './modulos.js';
+import { situarMuebles, esColumna, esLibre, nombreModulo, PUENTE } from './modulos.js';
 import { frenteModulo, varianteDe } from './frentes.js';
-import { ALTURAS, fijarCocinaTipo, alturasCocina, desdeAlto, altoColumna } from './alzado.js';
+import { ALTURAS, fijarCocinaTipo, alturasCocina, desdeAlto, altoColumna, hastaAltos, topeColumnas } from './alzado.js';
 import { CASCO, rematesCocina } from './material.js';
 import { tituloFicha } from './util.js';
 import { normalizarFicha, anchoPuerta } from './modelo.js';
@@ -37,7 +37,7 @@ function mueblesDe(d, etiqueta) {
     f.forEach((q, i) => {
       if (q.k !== 'hoja') return;
       const t = f[i + 1], cajon = !q.soloCuenta && t && t.k === 'tirador' && t.x1 - t.x0 > t.z1 - t.z0;
-      r.push({ pieza: m.tipo === 'lavavajillas' || m.tipo === 'lavadora' ? 'Frente de ' + nombreModulo(m).toLowerCase() : cajon ? 'Cajón' : m.tipo === 'rinconero' ? 'Puerta de rincón' : 'Puerta', alto: Math.round(q.z1 - q.z0), ancho: Math.round(q.real ?? (q.x1 - q.x0)), acabado: acabadoFrente(d, deAltos) });
+      r.push({ pieza: q.ciego ? 'Frente ciego' : m.tipo === 'lavavajillas' || m.tipo === 'lavadora' ? 'Frente de ' + nombreModulo(m).toLowerCase() : cajon ? 'Cajón' : m.tipo === 'rinconero' ? 'Puerta de rincón' : 'Puerta', alto: Math.round(q.z1 - q.z0), ancho: Math.round(q.real ?? (q.x1 - q.x0)), acabado: acabadoFrente(d, deAltos) });
     });
     return r;
   };
@@ -47,14 +47,20 @@ function mueblesDe(d, etiqueta) {
       if (m.tipo === 'hueco' || (m.tipo === 'columna_frigo' && esLibre(m, d))) return;
       const w = Math.round(hasta - desde), c = esColumna(m), sinCasco = ['lavavajillas', 'lavadora'].includes(m.tipo);
       const libre = (m.tipo === 'lavavajillas' || m.tipo === 'lavadora') && esLibre(m, d);
-      lista.push({ grupo: c ? 'Columnas' : 'Bajos', mueble: nombreModulo(m), donde, casco: sinCasco ? null : { ancho: w, alto: c ? altoColumna(m) - ALTURAS.zocalo : bajo, fondo: CASCO.fondo_bajo, color: casco },
-        frentes: libre ? [] : c ? frentesDe(m, w, 0, altoColumna(m), { columna: true, variante: varianteDe(m, d), zocalo: ALTURAS.zocalo, modulo: m }, true) : frentesDe(m, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera, { variante: varianteDe(m, d), rincon: m.tipo === 'rinconero' ? m : null, modulo: m }, false) });
+      lista.push({ grupo: c ? 'Columnas' : 'Bajos', mueble: nombreModulo(m), donde, casco: sinCasco ? null : { ancho: w, alto: c ? altoColumna(m, topeColumnas(p, d)) - ALTURAS.zocalo : bajo, fondo: CASCO.fondo_bajo, color: casco },
+        frentes: libre ? [] : c ? frentesDe(m, w, 0, altoColumna(m, topeColumnas(p, d)), { columna: true, variante: varianteDe(m, d), zocalo: ALTURAS.zocalo, modulo: m, encimera: ALTURAS.encimera, grueso: ALTURAS.grueso_encimera }, true) : frentesDe(m, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera, { variante: varianteDe(m, d), rincon: m.tipo === 'rinconero' ? m : null, modulo: m }, false) });
     });
     sit.altos.forEach(({ m, desde, hasta }) => {
       if (m.tipo === 'hueco') return;
       const w = Math.round(hasta - desde);
-      lista.push({ grupo: 'Altos', mueble: nombreModulo(m), donde, casco: m.tipo === 'campana_deco' ? null : { ancho: w, alto: m.tipo === 'alto_frigo' ? 400 : ALTURAS.altos_hasta - desdeAlto(m, d), fondo: m.tipo === 'alto_frigo' ? CASCO.fondo_bajo : CASCO.fondo_alto, color: casco },
-        frentes: frentesDe(m, w, desdeAlto(m, d), ALTURAS.altos_hasta, { modulo: m }, true) });
+      lista.push({ grupo: 'Altos', mueble: nombreModulo(m), donde, casco: m.tipo === 'campana_deco' ? null : { ancho: w, alto: m.tipo === 'alto_frigo' ? 400 : hastaAltos(p) - desdeAlto(m, d), fondo: m.tipo === 'alto_frigo' ? CASCO.fondo_bajo : CASCO.fondo_alto, color: casco },
+        frentes: frentesDe(m, w, desdeAlto(m, d), hastaAltos(p), { modulo: m }, true) });
+    });
+    // Cocina puente: los altos de arriba (fondo 60)
+    (sit.altillos || []).forEach(({ m, desde, hasta }) => {
+      if (m.tipo === 'hueco') return;
+      const w = Math.round(hasta - desde), top = topeColumnas(p, d);
+      lista.push({ grupo: 'Altos de arriba', mueble: nombreModulo(m), donde, casco: { ancho: w, alto: top - PUENTE.desde, fondo: CASCO.fondo_bajo, color: casco }, frentes: frentesDe(m, w, PUENTE.desde, top, { modulo: m }, true) });
     });
   });
   // Remates (costados vistos, regletas y cierres a techo), con el material elegido: como el casco van con los cascos

@@ -107,6 +107,8 @@ export function geometriaPlanta(d, { margen = 10, unidad = 'cm' } = {}) {
       if (sit.entran.der && hay(L)) geo.modulos.push({ tipo: 'rinconero', nombre: '', ancho: sit.entran.der, columna: false, pared: letra, dentro, sinTexto: true, rect: caja(L - sit.entran.der, L, FONDO_MODULO) });
       for (const b of sit.bajos) geo.modulos.push({ tipo: b.m.tipo, nombre: nombreModulo(b.m), medidas: medidasModulo(b.m), ancho: b.m.ancho, columna: esColumna(b.m), pared: letra, dentro, dato: b.m, rect: caja(b.desde, b.hasta, FONDO_MODULO) });
       for (const a of sit.altos) geo.modulos.push({ tipo: a.m.tipo, nombre: nombreModulo(a.m), medidas: medidasModulo(a.m), ancho: a.m.ancho, alto: true, columna: false, pared: letra, dentro, dato: a.m, rect: caja(a.desde, a.hasta, a.m.tipo === 'alto_frigo' ? FONDO_MODULO : FONDO_ALTO) });   // el de sobre frigo, del fondo de los bajos
+      // Cocina puente: los altos de arriba (fondo 60), para la perspectiva (en la planta no se dibujan: taparían los otros)
+      for (const a of sit.altillos || []) if (a.m.tipo !== 'hueco') geo.modulos.push({ tipo: a.m.tipo, nombre: nombreModulo(a.m), medidas: medidasModulo(a.m), ancho: a.m.ancho, alto: true, altillo: true, columna: false, pared: letra, dentro, dato: a.m, rect: caja(a.desde, a.hasta, FONDO_MODULO) });
       // Placas sobre la encimera: la del mueble de placa y la de debajo de cada campana sin mueble de placa (de 60 si no se dice).
       placasPared(pared, d, sit).forEach(q => geo.placas.push({ pared: letra, ancho: q.ancho, dato: q.mueble || q.campana, bajoCampana: !!q.campana, rect: caja(q.desde, q.hasta, FONDO_MODULO) }));
       // Regletas y costados (para la perspectiva): el costado, todo el fondo del mueble; la regleta, una tira de 2 cm por delante.
@@ -139,7 +141,16 @@ export function geometriaPlanta(d, { margen = 10, unidad = 'cm' } = {}) {
     if (x.distancia > 0) cotas.push({ a: mas(e.en(esquina), D, fondoMedio), b: mas(e.en(lado), D, fondoMedio), texto: verMedida(x.distancia, unidad) });
     // Separación de la pared (solo islas): de la pared al borde, por el centro.
     if (x.tipo !== 'peninsula' && sep > 0) cotas.push({ a: e.en(s0 + ancho / 2), b: mas(e.en(s0 + ancho / 2), D, sep * k), texto: verMedida(sep, unidad) });
-    geo.islas.push({ tipo: x.tipo, nombre: nombre + (medidas ? ' ' + medidas : ''), rect, cotas, pared: x.pared });
+    // Vuelo para sentarse: la encimera sale por el lado que no da a la cocina (la isla, por detrás; la península, por el
+    // lado largo contrario a sus frentes)
+    let vuelo = null;
+    if (x.vuelo > 0) {
+      const v = x.vuelo * k;
+      if (x.tipo === 'peninsula') { const u = { x: p1.x - p0.x, y: p1.y - p0.y }, l = Math.hypot(u.x, u.y) || 1, w = { x: -u.x / l, y: -u.y / l };
+        vuelo = [mas(rect[0], w, v), rect[0], rect[3], mas(rect[3], w, v)]; }
+      else vuelo = [rect[3], rect[2], mas(rect[2], D, v), mas(rect[3], D, v)];
+    }
+    geo.islas.push({ tipo: x.tipo, nombre: nombre + (medidas ? ' ' + medidas : ''), rect, cotas, pared: x.pared, vuelo, dato: x });
   });
 
   // Rincón en chaflán: el mueble y su trozo en la pared de al lado son una sola pieza de cinco lados, con el frente en diagonal
@@ -267,7 +278,7 @@ function unPilar(d, c) {
 // Dibujo SVG de la planta. Solo en el navegador.
 export function svgPlanta(geo) {
   const NS = 'http://www.w3.org/2000/svg', el = (t, a, txt) => { const e = document.createElementNS(NS, t); Object.entries(a).forEach(([k, v]) => e.setAttribute(k, v)); if (txt !== undefined) e.textContent = txt; return e; };
-  const todos = geo.paredes.flatMap(p => [p.a, p.b]).concat(geo.elementos.flatMap(e => e.rect || (e.punto ? [e.punto] : [e.a, e.b])), geo.modulos.flatMap(m => m.rect), (geo.islas || []).flatMap(x => x.rect));
+  const todos = geo.paredes.flatMap(p => [p.a, p.b]).concat(geo.elementos.flatMap(e => e.rect || (e.punto ? [e.punto] : [e.a, e.b])), geo.modulos.flatMap(m => m.rect), (geo.islas || []).flatMap(x => x.rect.concat(x.vuelo || [])));
   const xs = todos.map(p => p.x), ys = todos.map(p => p.y);
   const x0 = Math.min(...xs), y0 = Math.min(...ys), w = Math.max(...xs) - x0 || 1, h = Math.max(...ys) - y0 || 1, s = Math.max(w, h) / 120, pad = s * 14;
   const svg = el('svg', { class: 'planta', role: 'img', 'aria-label': 'Planta de la habitación', 'data-acc': 'planta' });
@@ -347,10 +358,11 @@ export function svgPlanta(geo) {
   };
   geo.modulos.filter(m => !m.alto).forEach(dibujarModulo);
   (geo.placas || []).forEach(q => simbolo(Object.assign({ tipo: 'placa' }, q)));
-  geo.modulos.filter(m => m.alto).forEach(dibujarModulo);
+  geo.modulos.filter(m => m.alto && !m.altillo).forEach(dibujarModulo);
   // Islas y penínsulas (amarillo) y sus cotas al suelo (raya de puntos con la medida en medio).
   (geo.islas || []).forEach(x => {
     svg.append(el('polygon', { points: x.rect.map(p => p.x + ',' + p.y).join(' '), fill: '#fef3c7', stroke: '#b45309', 'stroke-width': s * 0.6, 'data-isla': x.tipo }));
+    if (x.vuelo) svg.append(el('polygon', { points: x.vuelo.map(p => p.x + ',' + p.y).join(' '), fill: '#e5e7eb', stroke: '#6b7280', 'stroke-width': s * 0.4, 'stroke-dasharray': s * 1.2 + ' ' + s * 0.7, 'data-vuelo': '' }));
     const c = { x: (x.rect[0].x + x.rect[2].x) / 2, y: (x.rect[0].y + x.rect[2].y) / 2 };
     nombres.push(() => texto(c.x, c.y, x.nombre, { 'font-size': s * 2.8, fill: '#92400e', 'font-weight': 700 })); puestos.push(cajaTexto(c.x, c.y, x.nombre, 2.8));
     x.cotas.forEach(q => {
