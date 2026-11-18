@@ -5,6 +5,7 @@
 // Todas las medidas de referencia están en MEDIDAS: la guía (pantallas/guia.js) las enseña tal cual.
 import { geometriaAlzado, ALTURAS, campanasPared, placasPared, CAMPANA, TUBO } from './alzado.js';
 import { paredesVecinas } from './modulos.js';
+import { geometriaPlanta } from './plano-vista.js';
 import { verMedida } from './unidades.js';
 
 const hay = v => v !== null && v !== undefined;
@@ -282,9 +283,15 @@ export function consejosDiseno(ficha) {
   }
   // ── Pasos: encimeras enfrentadas (la pared de enfrente es la vecina de la vecina) y hasta la isla ──
   const vistas = new Set(), porquePaso = 'Lo mínimo es ' + cm(M.pasillo) + ' para abrir el lavavajillas y los cajones y pasar; si cocinan dos, ' + cm(M.pasillo_bien) + '.';
+  // Solo si de verdad están enfrentadas (en U): con la planta dibujada, las dos paredes van en sentidos contrarios.
+  // En un escalón (la del medio corta y las otras dos seguidas) no hay pasillo entre ellas.
+  let planta = null;
+  try { planta = geometriaPlanta(d); } catch (e) { planta = null; }
+  const sentido = l => { const w = planta && planta.paredes.find(x => x.letra === l); if (!w) return null; const dx = w.b.x - w.a.x, dy = w.b.y - w.a.y, n = Math.hypot(dx, dy); return n ? { x: dx / n, y: dy / n } : null; };
+  const enfrentadas = (p, r) => { const a = sentido(p.letra), b = sentido(r.letra); return !a || !b || a.x * b.x + a.y * b.y < -0.7; };
   (d.paredes || []).forEach(p => {
     const q = paredesVecinas(d, p).der, r = q && paredesVecinas(d, q).der;
-    if (!q || !r || r === p || !hay(q.largo) || !tieneBajos(p) || !tieneBajos(r)) return;
+    if (!q || !r || r === p || !hay(q.largo) || !tieneBajos(p) || !tieneBajos(r) || !enfrentadas(p, r)) return;
     const clave = [p.letra, r.letra].sort().join('');
     if (vistas.has(clave)) return; vistas.add(clave);
     const paso = q.largo - 2 * M.fondo_encimera;

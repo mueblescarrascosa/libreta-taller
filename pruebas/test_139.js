@@ -7,6 +7,7 @@ import { articulo, articuloPuente } from '../docs/js/presupuesto.js';
 import { geometriaPlanta } from '../docs/js/plano-vista.js';
 import { abrir, entrar, crearTrabajo } from './arnes.js';
 import { rematesCocina } from '../docs/js/material.js';
+import { consejosDiseno } from '../docs/js/consejos.js';
 
 const mod = (tipo, ancho, x = {}) => Object.assign(moduloNuevo(tipo), { ancho }, x);
 const pared = (letra, largo, bajos) => Object.assign(paredNueva([]), { letra, largo, elementos: [], bajos, altos: [] });
@@ -43,6 +44,15 @@ prueba('costado de 1,6: su grueso de verdad en el material', () => {
   const p = pared('A', 3000, [mod('bajo', 600)]);
   const r = rematesCocina({ paredes: [p], remates: { costado_mm: 16 } }).filter(x => x.tipo === 'costados');
   afirma(r.length && r.every(x => /\(1,6 cm\)/.test(x.pieza)), JSON.stringify(r.map(x => x.pieza)));
+});
+
+prueba('paso entre encimeras: solo si están enfrentadas (en un escalón no hay pasillo)', () => {
+  const f = fichaNueva('cocina', null, 't'), d = f.datos;
+  d.paredes = [pared('A', 2600, []), pared('B', 2050, []), pared('C', 2600, [mod('bajo', 600)]), pared('D', 250, []), pared('E', 3000, [mod('bajo', 600)])];
+  // La planta de la cocina del usuario: C baja, D va a la derecha 25 cm y E vuelve a bajar
+  d.plano = { cerrada: false, vertices: [{ x: 231, y: 545 }, { x: 231, y: 171.5 }, { x: 685, y: 171.5 }, { x: 685, y: 534.5 }, { x: 824.5, y: 534.5 }, { x: 824.5, y: 740 }],
+    esquinas: Array(6).fill(0).map(() => ({ en: 1000, mm: null, estado: 'escuadra', sentido: null })), diagonales: [] };
+  afirma(!consejosDiseno(f).some(c => /de paso/.test(c.texto)), JSON.stringify(consejosDiseno(f).map(c => c.texto)));
 });
 
 const con = fn => async () => { const a = await abrir({ ancho: 390, tactil: true }); try { await entrar(a); await fn(a); igual(a.errores, [], 'errores de página'); } finally { await a.cerrar(); } };
