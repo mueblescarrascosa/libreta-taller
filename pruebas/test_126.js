@@ -32,7 +32,8 @@ prueba('campana piramidal sobre la placa sin alto encima y alto abierto sin puer
   const g = geometriaAlzado(f.datos, A);
   afirma(g.piezas.some(p => p.tipo === 'campana' && p.trap), 'la pirámide en el alzado');
   A.altos[1] = mod('alto', 800);
-  igual(campanasPared(A, f.datos), [], 'con un alto encima, no');
+  // 1.31: un alto no puede pisar la campana de la placa: la campana sigue y se avisa de lo que la pisa.
+  igual(campanasPared(A, f.datos).map(x => [x.desde, x.hasta, x.pisan.length]), [[700, 1300, 1]], 'con un alto encima: la campana sigue y el alto la pisa');
   A.altos[1] = mod('hueco', 800); f.datos.electro = [{ id: 'e', clave: 'campana', tipo: 'extraible', ancho: 600 }];
   igual(campanasPared(A, f.datos), [], 'extraíble: va en el alto de campana');
   f.datos.electro[0].tipo = 'decorativa';

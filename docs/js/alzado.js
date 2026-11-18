@@ -78,20 +78,24 @@ export function campanasPared(pared, d, sit = situarMuebles(pared, d)) {
   // En el mueble se puede elegir el tamaño de la campana (60, 90, 120) y su tipo (piramidal o recta).
   const anchoEn = (hueco, m) => Math.min(anchoCampana(m, d), hueco);
   const puestas = sit.altos.filter(a => a.m.tipo === 'campana_deco').map(a => { const w = anchoEn(a.hasta - a.desde, a.m), x = (a.desde + a.hasta - w) / 2; return { alto: a.m, desde: x, hasta: x + w, ancho: w, hueco: a.hasta - a.desde, tipo: a.m.campana_tipo || 'piramidal' }; });
-  const sobrePlaca = c && c.tipo && c.tipo !== 'decorativa' ? [] : sit.bajos.filter(({ m, desde, hasta }) => m.tipo === 'placa' && !m.extractor && !sit.altos.some(a => a.m.tipo !== 'hueco' && a.desde < hasta - 50 && a.hasta > desde + 50))
+  const sobrePlaca = c && c.tipo && c.tipo !== 'decorativa' ? [] : sit.bajos.filter(({ m, desde, hasta }) => m.tipo === 'placa' && !m.extractor && !sit.altos.some(a => (a.m.tipo === 'campana_deco' || a.m.tipo === 'alto_campana') && a.desde < hasta - 50 && a.hasta > desde + 50))
     .map(({ m, desde, hasta }) => { const w = anchoCampana(m, d), x = (desde + hasta - w) / 2; return { placa: m, desde: x, hasta: x + w, ancho: w, tipo: 'piramidal' }; });
-  // Lo que queda a cada lado hasta el siguiente alto o columna (o la pared).
+  // Lo que queda a cada lado hasta el siguiente alto o columna (o la pared). Negativo: ese mueble pisa la campana.
+  // «pisan»: los altos o columnas que se meten en el sitio de la campana (no puede haber ninguno).
   const L = hay(pared.largo) ? pared.largo : Infinity, ocupan = sit.altos.filter(a => a.m.tipo !== 'hueco' && a.m.tipo !== 'campana_deco').concat(sit.bajos.filter(b => esColumna(b.m)));
   return puestas.concat(sobrePlaca).map(x => {
-    const izq = ocupan.filter(o => o.hasta <= x.desde + 1).reduce((m, o) => Math.max(m, o.hasta), 0), der = ocupan.filter(o => o.desde >= x.hasta - 1).reduce((m, o) => Math.min(m, o.desde), L);
-    return Object.assign(x, { izq: Math.round(x.desde - izq), der: isFinite(der) ? Math.round(der - x.hasta) : null, izqPared: !ocupan.some(o => o.hasta <= x.desde + 1), derPared: !ocupan.some(o => o.desde >= x.hasta - 1) });
+    const aIzq = ocupan.filter(o => o.desde < x.desde - 1), aDer = ocupan.filter(o => o.hasta > x.hasta + 1);
+    const izq = aIzq.reduce((m, o) => Math.max(m, o.hasta), 0), der = aDer.reduce((m, o) => Math.min(m, o.desde), L);
+    const pisan = ocupan.filter(o => o.desde < x.hasta - 1 && o.hasta > x.desde + 1).map(o => o.m);
+    return Object.assign(x, { izq: Math.round(x.desde - izq), der: isFinite(der) ? Math.round(der - x.hasta) : null, izqPared: !aIzq.length, derPared: !aDer.length, pisan });
   });
 }
 // Texto para la ficha: «Campana de 60 en un hueco de 90: quedan 15 cm a la izquierda y 15 cm a la derecha».
 export function textoHolgurasCampana(x) {
-  const cm = mm => Math.round(mm / 10) + ' cm', lado = (v, pared, t) => (v === null ? '' : (!pared && v < CAMPANA.margen_min ? '⚠ ' : '') + cm(v) + ' a la ' + t + (pared ? ' hasta la pared' : ' hasta el mueble'));
-  return 'Campana ' + (x.tipo === 'recta' ? 'recta' : 'piramidal') + ' de ' + cm(x.ancho) + (x.hueco ? ' en un hueco de ' + cm(x.hueco) : ' encima de la placa') + ': quedan '
+  const cm = mm => Math.round(mm / 10) + ' cm', lado = (v, pared, t) => (v === null ? '' : v < 0 ? '⚠ el mueble de la ' + t + ' la pisa ' + cm(-v) : (!pared && v < CAMPANA.margen_min ? '⚠ ' : '') + cm(v) + ' a la ' + t + (pared ? ' hasta la pared' : ' hasta el mueble'));
+  const t = 'Campana ' + (x.tipo === 'recta' ? 'recta' : 'piramidal') + ' de ' + cm(x.ancho) + (x.hueco ? ' en un hueco de ' + cm(x.hueco) : ' encima de la placa') + ': quedan '
     + [lado(x.izq, x.izqPared, 'izquierda'), lado(x.der, x.derPared, 'derecha')].filter(Boolean).join(' y ') + '.';
+  return (x.pisan || []).length ? t + ' ⚠ Hay muebles encima de la placa: deja en los altos un hueco de ' + cm(x.ancho + 2 * CAMPANA.margen_bien) + ' (la campana y ' + cm(CAMPANA.margen_bien) + ' a cada lado).' : t;
 }
 
 // Cuánto tubo y cuántos codos hacen falta desde el aparato (x, z0: donde empieza el tubo) hasta la salida de humos más

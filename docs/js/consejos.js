@@ -65,6 +65,51 @@ function aparatos(d) {
   };
 }
 
+// Placas de una pared (la del mueble de placa y la puesta bajo una campana) y la encimera libre a cada lado del aparato:
+// lo que el propio mueble de placa deja a los lados (un bajo de 80 con placa de 60: 10 cm por lado) más los bajos de trabajo
+// seguidos hasta un corte (columna, fregadero, hueco o el final). El tamaño de la placa del mueble manda sobre Electrodomésticos.
+function airePlacas(d, p, g, ap = aparatos(d), anchoPlaca = ap.placa || MEDIDAS.placa) {
+    const base = g.piezas.filter(q => BASE.includes(q.clase)), placas = base.filter(q => q.tipo === 'placa');
+    // Lo que el propio mueble de placa deja a cada lado del aparato (un bajo de 80 con placa de 60: 10 cm por lado).
+    // El tamaño de la placa elegido en el propio mueble manda sobre el de Electrodomésticos.
+    const sobre = placasPared(p, d), deMueble = pl => sobre.find(q => q.mueble && Math.abs((q.desde + q.hasta) / 2 - (pl.x + pl.w / 2)) < 1);
+    const placaDicha = pl => { const q = deMueble(pl); return q && hay(q.mueble.placa_ancho) ? q.ancho : ap.placa; };
+    const margen = pl => (pl.suelta ? 0 : Math.max(0, (pl.w - (placaDicha(pl) || anchoPlaca)) / 2));
+    // La placa puesta bajo una campana sin mueble de placa (encima de dos cajoneras…) cuenta como las demás.
+    const sueltas = sobre.filter(q => q.campana).map(q => ({ x: q.desde, w: q.ancho, tipo: 'placa', clase: 'bajo', suelta: true }));
+    const todasPlacas = placas.concat(sueltas);
+    // Encimera libre a un lado de la placa: la suelta empieza dentro de un bajo (lo que queda de él cuenta).
+    const libreDe = (pl, lado) => {
+      if (!pl.suelta) { const r = libreHacia(base, pl, lado); return { total: r.total, tope: r.tope, libre: r.total + margen(pl) }; }
+      const e = lado < 0 ? pl.x : pl.x + pl.w, b = base.find(q => (lado < 0 ? q.x < e && q.x + q.w >= e : q.x <= e && q.x + q.w > e));
+      if (!b) return { total: 0, tope: 'fin', libre: 0 };
+      if (b.clase !== 'bajo' || !ENCIMERA.includes(b.tipo)) return { total: 0, tope: b, libre: 0 };
+      const r = libreHacia(base, b, lado), parte = lado < 0 ? e - b.x : b.x + b.w - e;
+      return { total: parte + r.total, tope: r.tope, libre: parte + r.total };
+    };
+
+    return { sobre, placaDicha, margen, todasPlacas, libreDe };
+}
+
+// Para la ficha: cuánta encimera queda a cada lado de cada placa de la pared, hasta el siguiente mueble.
+// [{ mueble (el de placa o el alto de la campana), ancho (placa), izq: { libre, hasta }, der: { libre, hasta } }]
+export function airePlaca(d, p) {
+  const g = geometriaAlzado(d, p);
+  if (!g) return [];
+  const { sobre, todasPlacas, libreDe } = airePlacas(d, p, g);
+  const hasta = r => (r.tope === 'fin' ? 'la pared' : r.tope.tipo === 'fregadero' ? 'el fregadero' : 'la ' + nombre(r.tope).toLowerCase());
+  return todasPlacas.map(pl => {
+    const q = pl.suelta ? sobre.find(s => s.campana && Math.abs(s.desde - pl.x) < 1) : sobre.find(s => s.mueble && Math.abs((s.desde + s.hasta) / 2 - (pl.x + pl.w / 2)) < 1);
+    const lado = l => { const r = libreDe(pl, l); return { libre: Math.round(r.libre), hasta: r.tope === 'fin' && r.total === 0 && r.libre === 0 ? 'la pared' : hasta(r) }; };
+    return { mueble: q ? q.mueble || q.campana : null, ancho: q ? q.ancho : pl.w, izq: lado(-1), der: lado(1) };
+  });
+}
+// «Placa de 60: 30 cm de encimera a la izquierda (hasta la columna) y 70 cm a la derecha (hasta el fregadero)».
+export function textoAirePlaca(x) {
+  const lado = (r, t) => (r.libre < MEDIDAS.lado_placa ? '⚠ ' : '') + cm(r.libre) + ' a la ' + t + ' (hasta ' + r.hasta + ')';
+  return 'Placa de ' + cm(x.ancho) + ': encimera libre ' + lado(x.izq, 'izquierda') + ' y ' + lado(x.der, 'derecha') + '. Para apoyar ollas: al menos ' + cm(MEDIDAS.lado_placa) + ', mejor ' + cm(MEDIDAS.lado_placa_bien) + ' por lado.';
+}
+
 // Vestidor: paso entre cuerpos enfrentados (mínimo 80, cómodo 100) y barras de más de 100 cm sin apoyo.
 export const VESTIDOR = { fondo: 600, paso: 800, paso_bien: 1000, paso_un_lado: 700, barra_max: 1000 };
 function consejosVestidor(d) {
@@ -123,24 +168,7 @@ export function consejosDiseno(ficha) {
     const campo = 'pared.' + p.id, en = ' (pared ' + p.letra + ')';
     const base = g.piezas.filter(q => BASE.includes(q.clase));
     const placas = base.filter(q => q.tipo === 'placa'), fregs = base.filter(q => q.tipo === 'fregadero');
-    // Lo que el propio mueble de placa deja a cada lado del aparato (un bajo de 80 con placa de 60: 10 cm por lado).
-    // El tamaño de la placa elegido en el propio mueble manda sobre el de Electrodomésticos.
-    const sobre = placasPared(p, d), deMueble = pl => sobre.find(q => q.mueble && Math.abs((q.desde + q.hasta) / 2 - (pl.x + pl.w / 2)) < 1);
-    const placaDicha = pl => { const q = deMueble(pl); return q && hay(q.mueble.placa_ancho) ? q.ancho : ap.placa; };
-    const margen = pl => (pl.suelta ? 0 : Math.max(0, (pl.w - (placaDicha(pl) || anchoPlaca)) / 2));
-    // La placa puesta bajo una campana sin mueble de placa (encima de dos cajoneras…) cuenta como las demás.
-    const sueltas = sobre.filter(q => q.campana).map(q => ({ x: q.desde, w: q.ancho, tipo: 'placa', clase: 'bajo', suelta: true }));
-    const todasPlacas = placas.concat(sueltas);
-    // Encimera libre a un lado de la placa: la suelta empieza dentro de un bajo (lo que queda de él cuenta).
-    const libreDe = (pl, lado) => {
-      if (!pl.suelta) { const r = libreHacia(base, pl, lado); return { total: r.total, tope: r.tope, libre: r.total + margen(pl) }; }
-      const e = lado < 0 ? pl.x : pl.x + pl.w, b = base.find(q => (lado < 0 ? q.x < e && q.x + q.w >= e : q.x <= e && q.x + q.w > e));
-      if (!b) return { total: 0, tope: 'fin', libre: 0 };
-      if (b.clase !== 'bajo' || !ENCIMERA.includes(b.tipo)) return { total: 0, tope: b, libre: 0 };
-      const r = libreHacia(base, b, lado), parte = lado < 0 ? e - b.x : b.x + b.w - e;
-      return { total: parte + r.total, tope: r.tope, libre: parte + r.total };
-    };
-
+    const { sobre, placaDicha, margen, todasPlacas, libreDe } = airePlacas(d, p, g, ap, anchoPlaca);
     // ── Placa y campana ──
     todasPlacas.forEach(pl => {
       [[-1, 'izquierda'], [1, 'derecha']].forEach(([lado, txt]) => {
@@ -269,6 +297,11 @@ export function consejosDiseno(ficha) {
   // Campana decorativa: separación con los altos o columnas de al lado (mínimo 5 cm, mejor 10) para montarla, limpiarla y
   // que el vapor y el calor no estropeen los muebles. Contra la pared no cuenta.
   (d.paredes || []).filter(p => hay(p.largo)).forEach(p => campanasPared(p, d).forEach(x => {
+    if ((x.pisan || []).length) {
+      poner('placa', 'pared.' + p.id, 'Hay muebles encima de la placa de la pared ' + p.letra + ': pisan la campana',
+        'Encima de la placa va la campana (salvo que la placa lleve el extractor): deja en los altos un hueco de al menos ' + cm(x.ancho + 2 * CAMPANA.margen_min) + ' (mejor ' + cm(x.ancho + 2 * CAMPANA.margen_bien) + '), la campana y su margen a cada lado. O pon un «Alto campana» con la campana dentro, o una placa con extractor.');
+      return;
+    }
     [['izquierda', x.izq, x.izqPared], ['derecha', x.der, x.derPared]].forEach(([t, v, pared]) => {
       if (v === null || pared || v >= CAMPANA.margen_min) return;
       poner('placa', 'pared.' + p.id, 'La campana de la pared ' + p.letra + ' queda a ' + cm(Math.max(0, v)) + ' del mueble de la ' + t,

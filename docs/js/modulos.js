@@ -294,7 +294,7 @@ export const ELECTRO = [
   ['otro', 'Otro', []],
 ];
 // Medidas habituales (mm, estándar europeo): anchos y altos del aparato o de su hueco.
-export const ANCHOS_ELECTRO = { frigo: [600, 700, 910], horno: [600], microondas: [600, 500], placa: [600, 700, 800, 900], campana: [600, 900, 1200], lavavajillas: [450, 600], lavadora: [600] };
+export const ANCHOS_ELECTRO = { frigo: [600, 700, 920], horno: [600], microondas: [600, 500], placa: [300, 600, 700, 800, 900], campana: [600, 900, 1200], lavavajillas: [450, 600], lavadora: [600] };
 export const ALTOS_ELECTRO = { frigo: [1220, 1400, 1580, 1780, 1940, 1850, 2010], horno: [600, 450], microondas: [380, 450], lavavajillas: [820, 865] };
 export const datosElectro = clave => ELECTRO.find(e => e[0] === clave) || ['otro', 'Otro', []];
 export const electroNuevo = clave => ({ id: id(), clave, tipo: null, ancho: null, alto: null, modelo: '', nombre: '' });
