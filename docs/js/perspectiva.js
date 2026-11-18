@@ -2,7 +2,7 @@
 // Dibujo sencillo de cajas de colores (como los alzados), hecho a mano: funciona sin conexión y sale en el PDF.
 // Todo va en mm: x e y como en la planta (y hacia abajo), z hacia arriba desde el suelo.
 import { geometriaPlanta } from './plano-vista.js';
-import { ALTURAS, frigoLibre, techoFrigo, campanasPared, CAMPANA } from './alzado.js';
+import { ALTURAS, frigoLibre, techoFrigo, campanasPared, CAMPANA, sobreCampana, desdeAlto, altoColumna } from './alzado.js';
 import { piezasInterior, textoInteriores } from './modulos.js';
 import { frenteModulo, frenteCuerpo, puertasCuerpo, frenteFrigoLibre, varianteDe, varianteAlto } from './frentes.js';
 
@@ -138,8 +138,8 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null, colores = nu
   mods.filter(m => m.r).forEach(m => {
     const t = m.sinTexto ? '' : [m.nombre, m.medidas].filter(Boolean).join(' ');
     if (m.alto) { if (m.tipo === 'campana_deco') return;   // sin mueble: la campana va aparte
-      const y0 = m.tipo === 'alto_frigo' ? techoFrigo(d) : ALTURAS.altos_desde, w = ancho(m.r);
-      return mueble(m.r, y0, arriba, 'alto', t, null, detallesDe(frenteModulo(m.tipo, w, y0, arriba, { variante: varianteAlto(m.dato, d) }), w, true)); }
+      const y0 = desdeAlto(m.dato || m, d), w = ancho(m.r);
+      return mueble(m.r, y0, arriba, 'alto', t, null, detallesDe(frenteModulo(m.tipo, w, y0, arriba, { variante: varianteAlto(m.dato, d), modulo: m.dato }), w, true)); }
     // La columna del frigo con un alto encima llega hasta el frigo; el alto va encima.
     const conAlto = m.tipo === 'columna_frigo' && geo.modulos.some(a => a.alto && a.tipo === 'alto_frigo' && a.pared === m.pared && Math.hypot(a.rect[0].x - m.rect[0].x, a.rect[0].y - m.rect[0].y) < 1e-6 + 0.01 * Math.hypot(m.rect[1].x - m.rect[0].x, m.rect[1].y - m.rect[0].y));
     if (m.tipo === 'cuerpo') {
@@ -153,10 +153,10 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null, colores = nu
       return mueble(m.r, 0, col, 'cuerpo', m.sinTexto ? '' : m.nombre.replace('Cuerpo ', 'C') + (m.rincon ? ' rincón' : '') + (ti ? ' ' + ti : ''), null, (m.dato && m.dato.puertas ? [] : det).concat(detallesDe(frenteCuerpo(ancho, col).concat(puertasCuerpo(ancho, col, m.dato && m.dato.puertas)), ancho)), fiDe(m));
     }
     const w = ancho(m.r);
-    if (m.columna) { const top = conAlto ? Math.min(techoFrigo(d), techo) : col;
+    if (m.columna) { const top = conAlto ? Math.min(techoFrigo(d), techo) : altoColumna(m.dato || m, col);
       const fl = m.tipo === 'columna_frigo' && frigoLibre(d, m.dato);
-      return mueble(m.r, 0, top, 'columna', t, null, detallesDe(fl ? frenteFrigoLibre(w, fl === 'americano') : frenteModulo(m.tipo, w, 0, top, { columna: true, variante: varianteDe(m.dato), zocalo: ALTURAS.zocalo }), w, false, true)); }
-    mueble(m.r, 0, bajoEncimera, 'bajo', t, null, [{ t0: 0, t1: 1, z0: 0, z1: ALTURAS.zocalo, color: 'zocalo' }].concat(detallesDe(frenteModulo(m.chaflan ? 'bajo' : m.tipo, w, ALTURAS.zocalo, bajoEncimera, { variante: varianteDe(m.dato, d) }), w)), fiDe(m));
+      return mueble(m.r, 0, top, 'columna', t, null, detallesDe(fl ? frenteFrigoLibre(w, fl === 'americano') : frenteModulo(m.tipo, w, 0, top, { columna: true, variante: varianteDe(m.dato), zocalo: ALTURAS.zocalo, modulo: m.dato }), w, false, true)); }
+    mueble(m.r, 0, bajoEncimera, 'bajo', t, null, [{ t0: 0, t1: 1, z0: 0, z1: ALTURAS.zocalo, color: 'zocalo' }].concat(detallesDe(frenteModulo(m.chaflan ? 'bajo' : m.tipo, w, ALTURAS.zocalo, bajoEncimera, { variante: varianteDe(m.dato, d), modulo: m.dato }), w)), fiDe(m));
     // Encimera del chaflán: la misma pieza, con 2 cm de vuelo en la diagonal.
     if (m.chaflan) {
       const [a, b] = [m.r[1], m.r[2]], dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1, c = m.r.reduce((s, p) => ({ x: s.x + p.x / 5, y: s.y + p.y / 5 }), { x: 0, y: 0 });
@@ -197,7 +197,7 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null, colores = nu
   (d.paredes || []).forEach(pa => campanasPared(pa, d).forEach(cp => {
     const de = cp.placa || cp.alto, m = mods.find(x => x.dato && x.dato.id === de.id && x.r && !!x.alto === !cp.placa);
     if (!m || pilares.some(pi => !separadas(m.r, pi))) return;
-    const { L } = encima(m.r, 0, 0, 0, 0), s0 = (L - cp.ancho) / 2, s1 = s0 + cp.ancho, F = CAMPANA.fondo, z = encimera + CAMPANA.sobre, zp = z + CAMPANA.base, zc = zp + CAMPANA.piramide;
+    const { L } = encima(m.r, 0, 0, 0, 0), s0 = (L - cp.ancho) / 2, s1 = s0 + cp.ancho, F = CAMPANA.fondo, z = encimera + sobreCampana(d), zp = z + CAMPANA.base, zc = zp + CAMPANA.piramide;
     caja(encima(m.r, s0, s1, 0, F).rect, z, zp, 'campana', '', 'campana');
     if (cp.tipo === 'recta') { caja(encima(m.r, s0, s1, 0, F).rect, zp, zc, 'campana', '', 'campana'); const cs0r = (L - CAMPANA.chimenea) / 2; if (techo > zc) caja(encima(m.r, cs0r, cs0r + CAMPANA.chimenea, 0, CAMPANA.fondo_chimenea).rect, zc, techo, 'campana', '', 'campana'); return; }
     const cs0 = (L - CAMPANA.chimenea) / 2, cs1 = cs0 + CAMPANA.chimenea, cf = CAMPANA.fondo_chimenea;
@@ -214,7 +214,8 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null, colores = nu
   }));
   // Regletas y costados: del color de los frentes (tablero), cada uno a su altura
   (geo.remates || []).forEach(r => {
-    const [z0, z1] = r.fila === 'altos' ? [ALTURAS.altos_desde, arriba] : r.fila === 'columna' ? [r.tipo === 'regleta' ? ALTURAS.zocalo : 0, col] : r.fila === 'sobre' ? [encimera, col] : [r.tipo === 'regleta' ? ALTURAS.zocalo : 0, bajoEncimera];
+    const tope = r.tope ? Math.min(r.tope, col) : col;
+    const [z0, z1] = r.fila === 'altos' ? [ALTURAS.altos_desde, arriba] : r.fila === 'columna' ? [r.tipo === 'regleta' ? ALTURAS.zocalo : 0, tope] : r.fila === 'sobre' ? [encimera, tope] : [r.tipo === 'regleta' ? ALTURAS.zocalo : 0, bajoEncimera];
     if (z1 > z0) mueble(r.rect.map(P), z0, z1, 'tablero', '', 'tablero');   // también se cajean en los pilares
   });
   // Placas: la de cada mueble de placa y la de debajo de cada campana sin mueble de placa (placasPared), de su ancho

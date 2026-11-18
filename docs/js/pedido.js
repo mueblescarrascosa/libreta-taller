@@ -5,7 +5,7 @@
 // Medidas en mm. Las alturas son las de cada cocina (Ajustes o lo cambiado en su ficha): se fijan antes de cada una.
 import { situarMuebles, esColumna, esLibre, nombreModulo } from './modulos.js';
 import { frenteModulo, varianteDe } from './frentes.js';
-import { ALTURAS, fijarCocinaTipo, alturasCocina } from './alzado.js';
+import { ALTURAS, fijarCocinaTipo, alturasCocina, desdeAlto, altoColumna } from './alzado.js';
 import { CASCO, rematesCocina } from './material.js';
 import { tituloFicha } from './util.js';
 import { normalizarFicha, anchoPuerta } from './modelo.js';
@@ -47,14 +47,14 @@ function mueblesDe(d, etiqueta) {
       if (m.tipo === 'hueco' || (m.tipo === 'columna_frigo' && esLibre(m, d))) return;
       const w = Math.round(hasta - desde), c = esColumna(m), sinCasco = ['lavavajillas', 'lavadora'].includes(m.tipo);
       const libre = (m.tipo === 'lavavajillas' || m.tipo === 'lavadora') && esLibre(m, d);
-      lista.push({ grupo: c ? 'Columnas' : 'Bajos', mueble: nombreModulo(m), donde, casco: sinCasco ? null : { ancho: w, alto: c ? col : bajo, fondo: CASCO.fondo_bajo, color: casco },
-        frentes: libre ? [] : c ? frentesDe(m, w, 0, ALTURAS.columna, { columna: true, variante: varianteDe(m, d), zocalo: ALTURAS.zocalo }, true) : frentesDe(m, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera, { variante: varianteDe(m, d), rincon: m.tipo === 'rinconero' ? m : null }, false) });
+      lista.push({ grupo: c ? 'Columnas' : 'Bajos', mueble: nombreModulo(m), donde, casco: sinCasco ? null : { ancho: w, alto: c ? altoColumna(m) - ALTURAS.zocalo : bajo, fondo: CASCO.fondo_bajo, color: casco },
+        frentes: libre ? [] : c ? frentesDe(m, w, 0, altoColumna(m), { columna: true, variante: varianteDe(m, d), zocalo: ALTURAS.zocalo, modulo: m }, true) : frentesDe(m, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera, { variante: varianteDe(m, d), rincon: m.tipo === 'rinconero' ? m : null, modulo: m }, false) });
     });
     sit.altos.forEach(({ m, desde, hasta }) => {
       if (m.tipo === 'hueco') return;
       const w = Math.round(hasta - desde);
-      lista.push({ grupo: 'Altos', mueble: nombreModulo(m), donde, casco: m.tipo === 'campana_deco' ? null : { ancho: w, alto: m.tipo === 'alto_frigo' ? 400 : alto, fondo: CASCO.fondo_alto, color: casco },
-        frentes: frentesDe(m, w, ALTURAS.altos_desde, ALTURAS.altos_hasta, {}, true) });
+      lista.push({ grupo: 'Altos', mueble: nombreModulo(m), donde, casco: m.tipo === 'campana_deco' ? null : { ancho: w, alto: m.tipo === 'alto_frigo' ? 400 : ALTURAS.altos_hasta - desdeAlto(m, d), fondo: m.tipo === 'alto_frigo' ? CASCO.fondo_bajo : CASCO.fondo_alto, color: casco },
+        frentes: frentesDe(m, w, desdeAlto(m, d), ALTURAS.altos_hasta, { modulo: m }, true) });
     });
   });
   // Remates (costados vistos, regletas y cierres a techo), con el material elegido: como el casco van con los cascos

@@ -69,7 +69,7 @@ prueba('app: altos desde el suelo rellena «de la encimera a los altos»; grupos
   await a.page.click('[data-acc="anadir-pared"]');
   await a.page.fill('[data-pared="A"] > .fila-largo [data-c="largo"] input', '3'); await a.page.keyboard.press('Tab');
   // Grupos: bajos, columnas y otros; los altos aparte
-  igual(await a.page.$$eval('[data-pared="A"] [data-fila="bajos"] .et-grupo', l => l.map(x => x.textContent)), ['Bajos', 'Columnas', 'Otros']);
+  igual(await a.page.$$eval('[data-pared="A"] [data-fila="bajos"] .et-grupo', l => l.map(x => x.textContent)), ['Bajos', 'Columnas', 'Semicolumnas', 'Otros']);
   afirma(await a.page.$('.fila-muebles.fila-altos'), 'los altos, separados');
   // Alturas: abrir Acabados si está plegado y poner «Altos desde el suelo»
   const desde = await a.page.$('input[data-acc="altura-desde"]');

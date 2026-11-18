@@ -18,17 +18,18 @@ export function botonRef(ref, alCambiar) {
 // Si lo tecleado no es válido, se marca y la medida queda vacía: alCambiar(null, texto).
 // Así nunca se guarda un trozo de lo que se estaba escribiendo (por ejemplo, 1 de «1.500»).
 // rapidos: medidas habituales (en mm) como botones; el campo sigue admitiendo cualquier otra.
-export function campoMedida({ etiqueta, acc, valor, mal, unidad, alCambiar, ref, alCambiarRef, aviso, rapidos }) {
+// enLinea: los rápidos van en la misma línea que el cuadro (más pequeño), sin ocupar otra fila; libre: texto del cuadro vacío.
+export function campoMedida({ etiqueta, acc, valor, mal, unidad, alCambiar, ref, alCambiarRef, aviso, rapidos, enLinea = false, libre = null }) {
   const msg = h('div', { class: 'msg-error' }), res = h('small', { class: 'resultado', 'data-acc': 'resultado' });
-  const input = h('input', { 'data-acc': acc, inputmode: unidad === 'mm' ? 'numeric' : 'decimal', autocomplete: 'off', enterkeyhint: 'next', value: mal || verMedida(valor, unidad) });
+  const input = h('input', { 'data-acc': acc, inputmode: unidad === 'mm' ? 'numeric' : 'decimal', autocomplete: 'off', enterkeyhint: 'next', value: mal || verMedida(valor, unidad), placeholder: libre || undefined });
   const botones = (rapidos || []).map(mm => h('button', { type: 'button', 'data-acc': 'rapido', 'data-v': String(mm), onclick: () => {
     input.value = verMedida(mm, unidad);
     aplicar();
   } }, verMedida(mm, unidad)));
   const caja = h('div', { class: 'campo', 'data-c': acc },
     etiqueta ? h('label', { class: 'et' }, etiqueta) : null,
-    botones.length ? h('div', { class: 'chips rapidos' }, botones) : null,
-    h('div', { class: 'med' }, ref ? botonRef(ref, alCambiarRef) : null, input,
+    botones.length && !enLinea ? h('div', { class: 'chips rapidos' }, botones) : null,
+    h('div', { class: 'med' + (enLinea ? ' en-linea' : '') }, ref ? botonRef(ref, alCambiarRef) : null, enLinea && botones.length ? h('div', { class: 'rapidos rapidos-linea' }, botones) : null, input,
       // «+» para sumar: el teclado numérico del móvil no lo trae. Solo se ve mientras se escribe en el campo.
       h('button', { type: 'button', class: 'mas', 'data-acc': 'mas', tabindex: '-1', 'aria-label': 'Sumar', onpointerdown: ev => ev.preventDefault(), onmousedown: ev => ev.preventDefault(),
         onclick: () => { input.value += '+'; input.focus(); aplicar(); } }, '+'),

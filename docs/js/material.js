@@ -2,7 +2,7 @@
 // y herrajes (bisagras, guías, tiradores, patas, barras…). Orientativo: lo medido y lo pedido mandan.
 import { situarMuebles, situarCuerpos, esColumna, piezasInterior, paredesVecinas, esLibre, cuadreBajos, cuadreAltos, REMATES } from './modulos.js';
 import { frenteModulo, puertasCuerpo, varianteDe } from './frentes.js';
-import { ALTURAS } from './alzado.js';
+import { ALTURAS, desdeAlto, altoColumna } from './alzado.js';
 import { verMedida } from './unidades.js';
 
 const hay = v => v !== null && v !== undefined;
@@ -122,15 +122,16 @@ export function piezasCascoCocina(d) {
     sit.bajos.forEach(({ m, desde, hasta }) => {
       const w = hasta - desde;
       if (['hueco', 'otro', 'lavavajillas', 'lavadora'].includes(m.tipo) || (m.tipo === 'columna_frigo' && esLibre(m, d))) return;
-      if (esColumna(m)) { pz(C.fondo_bajo, colAlto, 2); pz(w - g2, C.fondo_bajo, 2); pz(w - g2 - 2, C.fondo_bajo - 20, m.tipo === 'columna_hmo' ? 1 : 2); return; }
+      if (esColumna(m)) { pz(C.fondo_bajo, altoColumna(m) - ALTURAS.zocalo, 2); pz(w - g2, C.fondo_bajo, 2); pz(w - g2 - 2, C.fondo_bajo - 20, m.tipo === 'columna_hmo' ? 1 : 2); return; }
       pz(C.fondo_bajo, bajoAlto, 2); pz(w - g2, C.fondo_bajo); pz(w - g2, C.travesano, 2);
       if (m.tipo === 'bajo' || m.tipo === 'fregadero') pz(w - g2 - 2, C.fondo_bajo - 20);
     });
     sit.altos.forEach(({ m, desde, hasta }) => {
       const w = hasta - desde;
       if (['hueco', 'otro', 'campana_deco'].includes(m.tipo)) return;
-      const h = m.tipo === 'alto_frigo' ? 400 : altoAlto;
-      pz(C.fondo_alto, h, 2); pz(w - g2, C.fondo_alto, 2);
+      // El de sobre frigo, del fondo de los bajos (como la columna); el de la campana con gas, más bajo (a ras arriba)
+      const h = m.tipo === 'alto_frigo' ? 400 : ALTURAS.altos_hasta - desdeAlto(m, d), f = m.tipo === 'alto_frigo' ? C.fondo_bajo : C.fondo_alto;
+      pz(f, h, 2); pz(w - g2, f, 2);
       if (h > 500 && (m.tipo === 'alto' || m.tipo === 'alto_abierto')) pz(w - g2 - 2, C.fondo_alto - 20);
     });
   });
@@ -160,12 +161,14 @@ export function rematesCocina(d, { todos = false } = {}) {
   (d.paredes || []).filter(p => hay(p.largo)).forEach(p => {
     const sit = situarMuebles(p, d);
     sit.remates.forEach(r => {
-      const [altoRegleta, altoCostado, fondo, deAltos] = ALTO[r.fila];
+      let [altoRegleta, altoCostado, fondo, deAltos] = ALTO[r.fila];
+      // Junto a una semicolumna, el costado llega hasta ella (140), no hasta arriba
+      if (r.tope && (r.fila === 'columna' || r.fila === 'sobre')) { const menos = ALTURAS.columna - Math.min(r.tope, ALTURAS.columna); altoRegleta -= menos; altoCostado -= menos; }
       if (r.tipo === 'regleta') poner('regletas', 'Regleta de ' + NOMBRE[r.fila], altoRegleta, r.ancho, p.letra, deAltos);
       else poner('costados', 'Costado de ' + NOMBRE[r.fila] + ' (' + Math.round(r.ancho / 10) + ' cm)', altoCostado, fondo, p.letra, deAltos);
     });
     // Cierre a techo: encima de altos y columnas, del alto que falte hasta el techo (en tiras de como mucho 2,70 m)
-    const arriba = sit.altos.concat(sit.bajos.filter(b => esColumna(b.m))), cierre = techo - ALTURAS.altos_hasta;
+    const arriba = sit.altos.concat(sit.bajos.filter(b => esColumna(b.m) && b.m.tipo !== 'semicolumna')), cierre = techo - ALTURAS.altos_hasta;
     if (arriba.length && cierre >= CIERRE_MIN) {
       let largo = arriba.reduce((sm, a) => sm + (a.hasta - a.desde), 0) + sit.remates.filter(r => r.fila !== 'bajos').reduce((sm, r) => sm + r.ancho, 0);
       while (largo > 0) { const t = Math.min(largo, LARGO_TABLERO); poner('techo', 'Cierre a techo', cierre, t, p.letra, true); largo -= t; }
@@ -239,10 +242,10 @@ export function materialCocina(d) {
       const w = b.hasta - b.desde;
       h.patas += 4;
       if (b.m.tipo === 'columna_frigo' && esLibre(b.m, d)) return;   // frigorífico libre: sin mueble ni puertas
-      if (esColumna(b.m)) contar(b.m.tipo, w, 0, ALTURAS.columna, { columna: true, variante: varianteDe(b.m, d), zocalo: ALTURAS.zocalo });
-      else contar(b.m.tipo, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera, { variante: varianteDe(b.m, d), rincon: b.m.tipo === 'rinconero' ? b.m : null });
+      if (esColumna(b.m)) contar(b.m.tipo, w, 0, altoColumna(b.m), { columna: true, variante: varianteDe(b.m, d), zocalo: ALTURAS.zocalo, modulo: b.m });
+      else contar(b.m.tipo, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera, { variante: varianteDe(b.m, d), rincon: b.m.tipo === 'rinconero' ? b.m : null, modulo: b.m });
     });
-    sit.altos.forEach(a => { if (a.m.tipo !== 'hueco') contar(a.m.tipo, a.hasta - a.desde, ALTURAS.altos_desde, ALTURAS.altos_hasta); });
+    sit.altos.forEach(a => { if (a.m.tipo !== 'hueco') contar(a.m.tipo, a.hasta - a.desde, desdeAlto(a.m, d), ALTURAS.altos_hasta, { modulo: a.m }); });
   });
   // Los remates no cuentan como frentes ni como cascos (el presupuesto los cuenta aparte), pero sí en sus tableros.
   const cascos = piezasCascoCocina(d), remates = rematesCocina(d), rematesFrentes = [], rematesCasco = [], otros = [];

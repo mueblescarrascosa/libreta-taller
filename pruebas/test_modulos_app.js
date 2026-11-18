@@ -51,7 +51,7 @@ prueba('acabados de cocina: bitono, cascos, encimera y lineales', con({}, async 
   await a.page.click('[data-acc="casco-rapido"][data-v="antracita"]');
   igual(await a.page.$$eval('[data-acc="encimera-material"]', b => b.map(x => x.textContent)), ['Hidrófuga Egger', 'Egger Perfsense', 'Egger Porsinc', 'Hidrófuga 19 mm', 'Topform', 'Silestone', 'Porcelánico', 'Granito', 'Madera']);
   await a.page.click('[data-acc="encimera-material"][data-v="Silestone"]'); await a.page.fill('[data-acc="encimera-modelo"]', 'Blanco Zeus');
-  await a.page.click('[data-c="encimera-grueso"] [data-acc="rapido"][data-v="20"]');
+  await a.page.click('[data-c="altura-grueso"] [data-acc="rapido"][data-v="20"]');
   await a.page.click('[data-acc="anadir-lineal"][data-v="zocalo"]'); await a.page.fill('[data-lineal] [data-acc="lineal-modelo"]', 'Aluminio');
   await recargar(a); const ac = (await ficha(a)).datos.acabados;
   igual([ac.bitono, ac.modelo_altos, ac.color_bajos, ac.casco, ac.encimera.material, ac.encimera.modelo, ac.encimera.grueso], [true, 'Alpha', 'Roble', 'Antracita', 'Silestone', 'Blanco Zeus', 20]);

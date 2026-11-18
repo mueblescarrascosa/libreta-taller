@@ -9,8 +9,8 @@ const MUEBLES = ['bajo', 'columna', 'alto', 'cuerpo'];
 // Cuánto puede separarse una instalación de su mueble (mm, en horizontal) antes de avisar.
 export const CERCA = { agua: 600, humos: 150, enchufe: 600 };
 // Enchufes: de qué mueble son (tipos de módulo que les valen).
-const ENCHUFE_DE = { hmo: ['columna_hmo'], placa: ['placa'], campana: ['alto_campana', 'placa'], frigo: ['columna_frigo', 'alto_frigo'], lavavajillas: ['lavavajillas'] };
-const NOMBRE_DE = { columna_hmo: 'la columna H/MO', placa: 'la placa', alto_campana: 'el alto de la campana', columna_frigo: 'la columna del frigo', alto_frigo: 'el alto sobre frigo', lavavajillas: 'el lavavajillas' };
+const ENCHUFE_DE = { hmo: ['columna_hmo', 'semicolumna', 'columna_electro'], placa: ['placa'], campana: ['alto_campana', 'placa'], frigo: ['columna_frigo', 'alto_frigo'], lavavajillas: ['lavavajillas', 'columna_electro'] };
+const NOMBRE_DE = { columna_hmo: 'la columna H/MO', semicolumna: 'la semicolumna', columna_electro: 'la columna del electrodoméstico', placa: 'la placa', alto_campana: 'el alto de la campana', columna_frigo: 'la columna del frigo', alto_frigo: 'el alto sobre frigo', lavavajillas: 'el lavavajillas' };
 
 const pisan = (a, b, h = 10) => a.x < b.x + b.w - h && b.x < a.x + a.w - h && a.y < b.y + b.h - h && b.y < a.y + a.h - h;
 // Distancia en horizontal de un punto a un mueble (0 si cae dentro de su ancho).

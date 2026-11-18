@@ -2,7 +2,7 @@
 // Todo en mm: x de 0 al ancho del mueble (de izquierda a derecha, mirándolo) y z desde el suelo.
 // Cada trozo: { k, x0, x1, z0, z1 } con k = hoja (puerta o cajón), tirador, electro (horno, micro), cristal, campana, zocalo, tablero.
 // Medidas orientativas: lo medido manda.
-import { esLibre } from './modulos.js';
+import { esLibre, altoHorno, LAVAVAJILLAS_ALTO, MICRO_LIBRE } from './modulos.js';
 export const RINCON_FONDO = 600;   // lo que tapa del rincón el mueble de la otra pared
 export const FRENTE = { zocalo: 100, holgura: 3, dos_puertas: 700, hmo_desde: 660, hmo_alto: 1000, horno: 600, cajones: 4 };
 
@@ -37,10 +37,21 @@ function cajones(r, x0, x1, z0, z1, n) {
 // Cajones de cada modelo del catálogo de presupuestos (de abajo arriba).
 const CAJONES_DE = { '4 GAVETEROS': 4, '5 GAVETEROS': 5, '2 CACEROLEROS': [1, 1], '1 GAVETERO 2 CACEROLEROS': [2, 2, 1], '2 GAVETEROS 1 CACEROLERO': [2, 1, 1] };
 
+// Horno (con su cristal) y microondas (con su ventana) en un hueco de x 0-ancho, de z0 a z1.
+function horno(r, ancho, z0, z1) {
+  const m = 25;
+  r.push({ k: 'electro', x0: m, x1: ancho - m, z0: z0 + 5, z1: z1 - 5 }, { k: 'cristal', x0: m + 60, x1: ancho - m - 60, z0: z0 + 60, z1: Math.max(z0 + 80, z1 - 140) });
+}
+function micro(r, ancho, z0, z1) {
+  const m = 25;
+  r.push({ k: 'electro', x0: m, x1: ancho - m, z0: z0 + 5, z1: z1 - 5 }, { k: 'cristal', x0: m + 40, x1: ancho * 0.62, z0: z0 + 50, z1: z1 - 50 });
+}
+const ALTO_MICRO = 400;
 // El frente de un mueble de cocina (tipo de módulo) de ancho «ancho», que va de z0 a z1 (con el zócalo ya fuera en los bajos).
 // columna: si es una columna (empieza en el suelo y lleva su zócalo).
 // variante: el modelo elegido para el presupuesto (cajones, especiero, soporte de horno, H/MO con puerta…), si lo hay.
-export function frenteModulo(tipo, ancho, z0, z1, { columna = false, variante = null, rincon = null, zocalo = FRENTE.zocalo } = {}) {
+// modulo: el mueble, para lo que no va en la variante (alto del horno, qué electrodoméstico lleva la columna abajo y arriba).
+export function frenteModulo(tipo, ancho, z0, z1, { columna = false, variante = null, rincon = null, zocalo = FRENTE.zocalo, modulo = null } = {}) {
   const r = [];
   if (!(ancho > 0) || !(z1 > z0) || tipo === 'hueco' || tipo === 'otro') return r;
   let base = z0;
@@ -52,7 +63,8 @@ export function frenteModulo(tipo, ancho, z0, z1, { columna = false, variante = 
     if (variante === '1 GAVETERO 1 PUERTA') { const c = base + (z1 - base) * 0.78; puertas(r, 0, ancho, base, c, 'arriba'); cajones(r, 0, ancho, c, z1, 1); return r; }
     if (variante === 'ESPECIERO' || variante === 'PANERO') { puertas(r, 0, ancho, base, z1, 'medio'); return r; }
     if (variante.startsWith('SOPORTE HORNO')) {
-      const e0 = variante.includes('GAVETERO') ? base + 140 : base;
+      // Con cajón: el horno (de 45 o 60) arriba y el cajón llena lo que queda debajo
+      const e0 = variante.includes('GAVETERO') ? Math.max(base + 60, z1 - altoHorno(modulo) - 10) : base;
       if (e0 > base) cajones(r, 0, ancho, base, e0, 1);
       r.push({ k: 'electro', x0: 25, x1: ancho - 25, z0: e0 + 5, z1: z1 - 5 }, { k: 'cristal', x0: 85, x1: ancho - 85, z0: e0 + 60, z1: z1 - 140 });
       return r;
@@ -74,17 +86,47 @@ export function frenteModulo(tipo, ancho, z0, z1, { columna = false, variante = 
       break;
     }
     case 'columna_hmo': {
-      // Horno y micro: un conjunto desde los 66 cm, de 1 m de alto (horno abajo, micro encima); puertas debajo y encima.
-      const e0 = Math.max(base, FRENTE.hmo_desde), e1 = Math.min(z1, e0 + FRENTE.hmo_alto), hz = Math.min(e1, e0 + FRENTE.horno);
+      // Horno y micro: un conjunto desde los 66 cm (horno de 45 o 60 abajo, micro encima); puertas debajo y encima.
+      // «Puerta + electrodoméstico + …»: un solo aparato (el horno).
+      const solo = (variante || '').includes('ELECTRODOM'), e0 = Math.max(base, FRENTE.hmo_desde), hz = Math.min(z1, e0 + altoHorno(modulo)), e1 = solo ? hz : Math.min(z1, hz + ALTO_MICRO);
       if (e0 > base + 50) { if (variante && variante.endsWith('+ PUERTA')) puertas(r, 0, ancho, base, e0, 'arriba'); else cajones(r, 0, ancho, base, e0, 2); }
-      const m = 25;
-      r.push({ k: 'electro', x0: m, x1: ancho - m, z0: e0 + 5, z1: hz - 5 });
-      r.push({ k: 'cristal', x0: m + 60, x1: ancho - m - 60, z0: e0 + 60, z1: hz - 140 });
-      if (e1 > hz + 50) {
-        r.push({ k: 'electro', x0: m, x1: ancho - m, z0: hz + 5, z1: e1 - 5 });
-        r.push({ k: 'cristal', x0: m + 40, x1: ancho * 0.62, z0: hz + 50, z1: e1 - 50 });
-      }
+      horno(r, ancho, e0, hz);
+      if (e1 > hz + 50) micro(r, ancho, hz, e1);
       if (z1 > e1 + 50) puertas(r, 0, ancho, e1, z1, 'abajo');
+      break;
+    }
+    case 'columna_electro': {
+      // Abajo el electrodoméstico: el lavavajillas subido (frente fijo hasta los 28 cm y 85 de hueco); lo demás desde el
+      // zócalo, del alto de un bajo. Arriba: horno y micro, uno de los dos con puerta encima, o solo puertas.
+      const abajo = (modulo && modulo.abajo) || 'lavavajillas', arriba = (modulo && modulo.arriba) || 'puertas', g = FRENTE.holgura;
+      let e = base;
+      if (abajo === 'lavavajillas') {
+        const a = Math.max(base + 50, LAVAVAJILLAS_ALTO.desde);
+        r.push({ k: 'hoja', x0: g, x1: ancho - g, z0: base + g, z1: a - g });
+        e = Math.min(z1, a + LAVAVAJILLAS_ALTO.hueco);
+      } else e = Math.min(z1, base + 720);
+      if (abajo === 'vinoteca') r.push({ k: 'electro', x0: 15, x1: ancho - 15, z0: base + 5, z1: e - 5 }, { k: 'cristal', x0: 60, x1: ancho - 60, z0: base + 60, z1: e - 90 });
+      else {
+        const a = abajo === 'lavavajillas' ? Math.max(base + 50, LAVAVAJILLAS_ALTO.desde) : base;
+        r.push({ k: 'hoja', x0: g, x1: ancho - g, z0: a + g, z1: e - g });
+        r.push({ k: 'tirador', x0: ancho / 2 - TIRADOR * 0.75, x1: ancho / 2 + TIRADOR * 0.75, z0: e - g - 40 - GRUESO_T, z1: e - g - 40 });
+      }
+      let s = e;
+      if (arriba === 'hmo' || arriba === 'horno') { const hz = Math.min(z1, s + altoHorno(modulo)); horno(r, ancho, s, hz); s = hz; }
+      if ((arriba === 'hmo' || arriba === 'micro') && z1 > s + 200) { const mz = Math.min(z1, s + ALTO_MICRO); micro(r, ancho, s, mz); s = mz; }
+      if (z1 > s + 50) puertas(r, 0, ancho, s, z1, 'abajo');
+      break;
+    }
+    case 'semicolumna': {
+      // Semicolumna de 140: puertas, caceroleros, horno arriba con puerta debajo, o horno y micro con un cacerolero debajo.
+      const v = variante || 'PUERTAS', h = altoHorno(modulo);
+      if (v === '4-5 CACEROLEROS') { cajones(r, 0, ancho, base, z1, 4); break; }
+      if (v === 'HORNO + 1 PUERTA') { const e0 = Math.max(base + 50, z1 - h - 10); horno(r, ancho, e0, z1 - 10); puertas(r, 0, ancho, base, e0, 'arriba'); break; }
+      if (v === 'HORNO/MICROONDAS + 1 CACEROLERO') {
+        const m0 = Math.max(base + 100, z1 - ALTO_MICRO - 10), e0 = Math.max(base + 50, m0 - h);
+        micro(r, ancho, m0, z1 - 10); horno(r, ancho, e0, m0); cajones(r, 0, ancho, base, e0, 1); break;
+      }
+      puertas(r, 0, ancho, base, z1, 'medio');
       break;
     }
     case 'columna_frigo': {
@@ -117,6 +159,13 @@ export function frenteModulo(tipo, ancho, z0, z1, { columna = false, variante = 
     case 'campana_deco': break;   // sin mueble: la pirámide la dibujan el alzado y la perspectiva
     case 'alto_micro': {
       const c = Math.min(380, (z1 - z0) * 0.6);
+      if (ancho <= 550) {
+        // De 50: hueco abierto con el microondas de libre instalación (46 × 29) dentro, y la puerta encima
+        const w = Math.min(MICRO_LIBRE.ancho, ancho - 30), x0 = (ancho - w) / 2, a = Math.min(MICRO_LIBRE.alto, c - 30);
+        r.push({ k: 'acero', x0, x1: x0 + w, z0: z0 + 15, z1: z0 + 15 + a }, { k: 'cristal', x0: x0 + 25, x1: x0 + w * 0.65, z0: z0 + 45, z1: z0 + a - 15 });
+        if (z1 > z0 + c + 50) puertas(r, 0, ancho, z0 + c, z1, 'abajo');
+        break;
+      }
       r.push({ k: 'electro', x0: 25, x1: ancho - 25, z0: z0 + 5, z1: z0 + c - 5 });
       r.push({ k: 'cristal', x0: 65, x1: ancho * 0.62, z0: z0 + 50, z1: z0 + c - 50 });
       if (z1 > z0 + c + 50) puertas(r, 0, ancho, z0 + c, z1, 'abajo');

@@ -5,21 +5,43 @@ const id = () => crypto.randomUUID();
 const hay = v => v !== null && v !== undefined;
 
 export const TIPOS_MODULO = {
-  bajos: ['bajo', 'fregadero', 'placa', 'cajonero', 'lavavajillas', 'lavadora', 'rinconero', 'columna_hmo', 'columna_frigo', 'escobero', 'despensero', 'hueco', 'otro'],
+  bajos: ['bajo', 'fregadero', 'placa', 'cajonero', 'lavavajillas', 'lavadora', 'rinconero', 'columna_hmo', 'columna_frigo', 'columna_electro', 'escobero', 'despensero', 'semicolumna', 'hueco', 'otro'],
   altos: ['alto', 'alto_abierto', 'alto_campana', 'campana_deco', 'alto_micro', 'alto_frigo', 'hueco', 'otro'],
 };
 // Para elegir: en grupos (bajos, columnas y lo demás; los altos aparte)
 export const GRUPOS_MODULO = {
-  bajos: [['Bajos', ['bajo', 'fregadero', 'placa', 'cajonero', 'lavavajillas', 'lavadora', 'rinconero']], ['Columnas', ['columna_hmo', 'columna_frigo', 'escobero', 'despensero']], ['Otros', ['hueco', 'otro']]],
+  bajos: [['Bajos', ['bajo', 'fregadero', 'placa', 'cajonero', 'lavavajillas', 'lavadora', 'rinconero']], ['Columnas', ['columna_hmo', 'columna_frigo', 'columna_electro', 'escobero', 'despensero']], ['Semicolumnas', ['semicolumna']], ['Otros', ['hueco', 'otro']]],
   altos: [['Altos', ['alto', 'alto_abierto', 'alto_campana', 'campana_deco', 'alto_micro', 'alto_frigo']], ['Otros', ['hueco', 'otro']]],
 };
 export const NOMBRE_MODULO = {
   bajo: 'Bajo', fregadero: 'Fregadero', placa: 'Placa', cajonero: 'Cajonero', lavavajillas: 'Lavavajillas', lavadora: 'Lavadora', rinconero: 'Rinconero',
-  columna_hmo: 'Columna H/MO', columna_frigo: 'Columna frigo', escobero: 'Escobero', despensero: 'Despensero', hueco: 'Hueco',
+  columna_hmo: 'Columna H/MO', columna_frigo: 'Columna frigo', columna_electro: 'Columna electro abajo', escobero: 'Escobero', despensero: 'Despensero', semicolumna: 'Semicolumna', hueco: 'Hueco',
   alto: 'Alto', alto_abierto: 'Alto abierto', alto_campana: 'Alto campana', campana_deco: 'Campana decorativa', alto_micro: 'Alto micro', alto_frigo: 'Alto sobre frigo', otro: 'Otro',
 };
-const COLUMNAS = ['columna_hmo', 'columna_frigo', 'escobero', 'despensero'];
+const COLUMNAS = ['columna_hmo', 'columna_frigo', 'columna_electro', 'escobero', 'despensero', 'semicolumna'];
 export const esColumna = m => COLUMNAS.includes(m.tipo);
+// Semicolumna: desde el suelo hasta 140 y encima nada (los altos la saltan, como a una columna).
+export const SEMICOLUMNA = 1400;
+// Columna con un electrodoméstico abajo y, arriba, horno y micro, uno de los dos con puerta encima, o solo puertas.
+// El lavavajillas va subido (a unos 28 cm del suelo, 85 de hueco): más cómodo; lo demás, desde el zócalo, como bajo encimera.
+export const ABAJO_COLUMNA = [['lavavajillas', 'Lavavajillas'], ['lavadora', 'Lavadora'], ['secadora', 'Secadora'], ['vinoteca', 'Vinoteca'], ['nevera', 'Nevera bajo encimera']];
+export const ARRIBA_COLUMNA = [['hmo', 'Horno y micro'], ['horno', 'Horno + puerta'], ['micro', 'Micro + puerta'], ['puertas', 'Solo puertas']];
+export const LAVAVAJILLAS_ALTO = { desde: 280, hueco: 850 };
+// Alto micro de 50: el microondas es de libre instalación (suelen medir de 44 a 48 de ancho y de 28 a 30 de alto: 46 × 29);
+// de 60, integrable.
+export const MICRO_LIBRE = { ancho: 460, alto: 290, mueble: 500 };
+export const microLibre = m => !!m && m.tipo === 'alto_micro' && m.ancho > 0 && m.ancho <= 550;
+// Alto del horno (45 compacto o 60): el elegido en el mueble; si no, 60.
+export const altoHorno = m => (m && m.horno_alto === 450 ? 450 : 600);
+// Placa con horno debajo: lo dice el frente elegido (soporte de horno); en fichas antiguas, la marca «Horno debajo».
+export const placaConHorno = m => !!m && m.tipo === 'placa' && (m.variante ? m.variante.startsWith('SOPORTE HORNO') : !!m.horno);
+// Lo que lleva arriba cada columna con electrodomésticos: horno (y su alto), micro.
+export function electrosColumna(m) {
+  if (m.tipo === 'columna_hmo') return { horno: true, micro: !(m.variante || '').includes('ELECTRODOM') };
+  if (m.tipo === 'semicolumna') return { horno: /HORNO/.test(m.variante || ''), micro: /MICROONDAS/.test(m.variante || '') };
+  if (m.tipo === 'columna_electro') { const a = m.arriba || 'puertas'; return { horno: a === 'hmo' || a === 'horno', micro: a === 'hmo' || a === 'micro' }; }
+  return { horno: false, micro: false };
+}
 // Lavavajillas, lavadora y frigorífico: integrable (con la puerta del mueble) o de libre instalación (sin puerta).
 // Lo que diga el mueble; si no se ha contestado, lo de Electrodomésticos; si tampoco, null (se cuenta como integrable).
 const CLAVE_INSTALACION = { lavavajillas: 'lavavajillas', lavadora: 'lavadora', columna_frigo: 'frigo' };
@@ -33,12 +55,12 @@ export function instalacionDe(m, d) {
 }
 export const esLibre = (m, d) => ['libre', 'americano'].includes(instalacionDe(m, d));
 // Nombre corto para los botones (en el resumen y la planta sigue el completo).
-export const CORTO_MODULO = { alto_abierto: 'Abierto', campana_deco: 'Campana deco.', columna_hmo: 'Col. H/MO', columna_frigo: 'Col. frigo', escobero: 'Escobero', despensero: 'Despensero', lavavajillas: 'Lavavaj.', alto_campana: 'Alto campana', alto_micro: 'Alto micro', alto_frigo: 'Alto s/frigo' };
+export const CORTO_MODULO = { alto_abierto: 'Abierto', campana_deco: 'Campana deco.', columna_hmo: 'Col. H/MO', columna_frigo: 'Col. frigo', columna_electro: 'Col. electro abajo', semicolumna: 'Semicolumna', escobero: 'Escobero', despensero: 'Despensero', lavavajillas: 'Lavavaj.', alto_campana: 'Alto campana', alto_micro: 'Alto micro', alto_frigo: 'Alto s/frigo' };
 
 // Anchos habituales en España (mm) por tipo de mueble; los demás usan la lista general de Ajustes. Siempre se puede escribir otro.
 const ANCHOS_TIPO = {
   fregadero: [500, 600, 800, 900, 1000, 1200], placa: [600, 800, 900, 1000, 1200], cajonero: [400, 450, 500, 600, 800, 900, 1000, 1200],
-  lavavajillas: [450, 600], lavadora: [600], columna_hmo: [600], columna_frigo: [600, 700, 920], escobero: [300, 400, 450, 500, 600], despensero: [300, 400, 450, 500, 600],
+  lavavajillas: [450, 600], lavadora: [600], columna_hmo: [600], columna_frigo: [600, 700, 920], escobero: [300, 400, 450, 500, 600], despensero: [300, 400, 450, 500, 600], columna_electro: [450, 600], semicolumna: [300, 400, 450, 500, 600, 700, 800, 900, 1000],
   alto_campana: [600, 900], campana_deco: [600, 900, 1200], alto_micro: [500, 600], alto_frigo: [600, 700, 920],
 };
 // Rinconero: en L o chaflán, de 93 a 103 por lado; recto, de 90, 100 o 120 de largo y 60 de fondo.
@@ -57,8 +79,9 @@ export const lineaNueva = tipo => ({ id: id(), tipo, modelo: '', nombre: '' });
 export function nombreModulo(m) {
   if (m.tipo === 'otro') return m.nombre || 'Otro';
   if (m.tipo === 'rinconero') return m.forma === 'recto' ? 'Rinconero recto' : m.forma === 'chaflan' ? 'Rinconero chaflán' : 'Rinconero en L';
-  if (m.tipo === 'placa' && m.extractor) return m.horno ? 'Placa extractora con horno' : 'Placa extractora';
-  if (m.tipo === 'placa' && m.horno) return 'Placa con horno';
+  if (m.tipo === 'placa' && m.extractor) return placaConHorno(m) ? 'Placa extractora con horno' : 'Placa extractora';
+  if (m.tipo === 'placa' && placaConHorno(m)) return 'Placa con horno';
+  if (m.tipo === 'columna_electro') return 'Columna ' + (ABAJO_COLUMNA.find(x => x[0] === (m.abajo || 'lavavajillas')) || ['', 'electro'])[1].toLowerCase();
   return NOMBRE_MODULO[m.tipo] || m.tipo;
 }
 // Las medidas de un módulo para listas y textos: «60», «100×95» en rinconeros en L o chaflán.
@@ -184,7 +207,7 @@ export function cuadreAltos(p, datos) {
   // Arriba también ocupan las regletas y costados de las columnas (llegan hasta arriba)
   const fin2 = Math.max(fin, ...sit.bajos.filter(b => esColumna(b.m)).map(b => b.hasta));
   const fijos = sit.remates.filter(r => (r.fila === 'altos' || r.fila === 'columna' || r.fila === 'sobre') && r.desde < fin2 - 1).reduce((a, r) => a + r.ancho, 0);
-  const zonas = (sit.zonas || []).filter(z => z.der || sit.altos.some(a => a.desde >= z.hasta - 1)).reduce((a, z) => a + (z.hasta - z.desde), 0);
+  const zonas = (sit.zonas || []).filter(z => !z.mueble && (z.der || sit.altos.some(a => a.desde >= z.hasta - 1))).reduce((a, z) => a + (z.hasta - z.desde), 0);
   const s = sit.altos.filter(a => a.m.tipo !== 'alto_frigo').reduce((a, b) => a + (b.hasta - b.desde), 0) + suma((p.bajos || []).filter(esColumna)) + fijos + zonas;
   const c = { suma: s, resto: resto(p.largo, s) }, rg = medidasRemates(datos || {}).regleta;
   if (fijos) c.remates = fijos;
@@ -210,10 +233,14 @@ export function medidasRemates(datos) {
 // campana (la del mueble, la de Electrodomésticos o 60) y 10 cm más a cada lado. No si la campana es extraíble o
 // integrada, ni si en los altos ya hay una «Campana decorativa» o un «Alto campana» (manda lo puesto a mano).
 export const MARGEN_CAMPANA = 100;
+// Con un «Alto campana» (mueble con el extractor dentro), el mueble va centrado con la placa, pegado a los altos de al lado.
 function zonasCampana(bajos, altos, datos) {
   const c = ((datos && datos.electro) || []).find(e => e.clave === 'campana');
-  if (!altos.length || (c && c.tipo && c.tipo !== 'decorativa') || altos.some(m => m.tipo === 'campana_deco' || m.tipo === 'alto_campana')) return [];
-  return bajos.filter(b => b.m.tipo === 'placa' && !b.m.extractor).map(b => {
+  if (!altos.length || altos.some(m => m.tipo === 'campana_deco')) return [];
+  const placas = bajos.filter(b => b.m.tipo === 'placa' && !b.m.extractor), muebles = altos.filter(m => m.tipo === 'alto_campana');
+  if (muebles.length) return placas.slice(0, muebles.length).map((b, i) => { const x = (b.desde + b.hasta) / 2, w = muebles[i].ancho; return { desde: x - w / 2, hasta: x + w / 2, placa: b.m, mueble: muebles[i] }; });
+  if (c && c.tipo && c.tipo !== 'decorativa') return [];
+  return placas.map(b => {
     const w = hay(b.m.campana_ancho) ? b.m.campana_ancho : c && hay(c.ancho) ? c.ancho : 600, x = (b.desde + b.hasta) / 2;
     return { desde: x - w / 2 - MARGEN_CAMPANA, hasta: x + w / 2 + MARGEN_CAMPANA, placa: b.m };
   });
@@ -227,10 +254,10 @@ export const FONDO_ALTO_VISTO = 350;
 export function situarMuebles(p, datos) {
   const e = rinconerosQueEntran(datos, p), bajos = [], altos = [], columnas = [], remates = [], R = medidasRemates(datos);
   const L = hay(p.largo) ? p.largo : null, lista = (p.bajos || []).filter(m => hay(m.ancho)), filaDe = m => (esColumna(m) ? 'columna' : 'bajos');
-  const poner = (tipo, fila, desde, ancho) => { if (ancho > 0) remates.push({ tipo, fila, desde, hasta: desde + ancho, ancho }); };
+  const poner = (tipo, fila, desde, ancho, col = null) => { if (ancho > 0) remates.push(Object.assign({ tipo, fila, desde, hasta: desde + ancho, ancho }, col && col.tipo === 'semicolumna' ? { tope: SEMICOLUMNA } : {})); };
   let s = e.izq;
   // Regleta a la pared de la izquierda (no si entra un rinconero de la pared de al lado ni si empieza con el rinconero)
-  if (lista.length && !e.izq && R.regleta && lista[0].tipo !== 'rinconero') { poner('regleta', filaDe(lista[0]), s, R.regleta); s += R.regleta; }
+  if (lista.length && !e.izq && R.regleta && lista[0].tipo !== 'rinconero') { poner('regleta', filaDe(lista[0]), s, R.regleta, lista[0]); s += R.regleta; }
   const inicio = s;
   lista.forEach((m, i) => {
     // Costado entre una columna y un bajo: del lado de la columna que se ve sobre la encimera
@@ -238,8 +265,9 @@ export function situarMuebles(p, datos) {
     // (el costado llega hasta arriba: los altos de al lado empiezan después de él)
     let antes = 0;
     if (ant && R.costado && esColumna(m) !== esColumna(ant) && ant.tipo !== 'hueco' && m.tipo !== 'hueco') {
-      if (R.columnaSobre) poner('costado', 'sobre', esColumna(ant) ? s : s - R.costado, R.costado);
-      else { poner('costado', 'columna', s, R.costado); s += R.costado; }
+      const col = esColumna(ant) ? ant : m;
+      if (R.columnaSobre) poner('costado', 'sobre', esColumna(ant) ? s : s - R.costado, R.costado, col);
+      else { poner('costado', 'columna', s, R.costado, col); s += R.costado; }
       if (esColumna(ant) && columnas.length) columnas[columnas.length - 1].ocupaHasta += R.costado; else antes = R.costado;
     }
     bajos.push({ m, desde: s, hasta: s + m.ancho });
@@ -250,8 +278,8 @@ export function situarMuebles(p, datos) {
   const ultimo = lista[lista.length - 1];
   if (ultimo && L !== null && ultimo.tipo !== 'rinconero' && ultimo.tipo !== 'hueco') {
     const queda = L - e.der - s;
-    if (queda > 0 && queda <= REGLETA_HASTA && R.regleta) poner('regleta', filaDe(ultimo), s, queda);
-    else if (queda > REGLETA_HASTA && R.costado) poner('costado', filaDe(ultimo), s, R.costado);
+    if (queda > 0 && queda <= REGLETA_HASTA && R.regleta) poner('regleta', filaDe(ultimo), s, queda, ultimo);
+    else if (queda > REGLETA_HASTA && R.costado) poner('costado', filaDe(ultimo), s, R.costado, ultimo);
   }
   // Altos: también con su regleta a la pared si no empieza una columna en ese lado
   s = 0;
@@ -266,10 +294,11 @@ export function situarMuebles(p, datos) {
   // altos hay un «Campana decorativa» o un «Alto campana», manda lo puesto a mano.
   const zonas = zonasCampana(bajos, listaA, datos);
   const enZona = (a, b) => zonas.some(z => a < z.hasta && b > z.desde);
-  const obstaculos = columnas.concat(zonas.map(z => ({ ocupaDesde: z.desde - R.costado, ocupaHasta: z.hasta + R.costado, zona: z })));
+  const obstaculos = columnas.concat(zonas.map(z => (z.mueble ? { ocupaDesde: z.desde, ocupaHasta: z.hasta, zona: z } : { ocupaDesde: z.desde - R.costado, ocupaHasta: z.hasta + R.costado, zona: z })));
   let previo = null;
   for (const m of p.altos || []) {
     if (!hay(m.ancho)) break;
+    if (zonas.some(z => z.mueble === m)) continue;   // el alto campana va en su sitio, centrado con la placa
     if (m.tipo === 'hueco' && enZona(s, s + m.ancho)) continue;
     if (previo && R.costado && previo.hasta === s && abiertoArriba(previo.m) !== abiertoArriba(m) && m.tipo !== 'alto_frigo') {
       const hueco = abiertoArriba(m) ? [s, s + m.ancho, m] : [previo.desde, previo.hasta, previo.m];
@@ -282,23 +311,47 @@ export function situarMuebles(p, datos) {
       if (c) { c.usada = true; altos.push(previo = { m, desde: c.desde, hasta: c.desde + m.ancho }); s = Math.max(s, c.desde + m.ancho); continue; }
     }
     let choca;
-    const s0 = s;
+    const s0 = s, saltadas = [];
     while ((choca = obstaculos.find(c => s < c.ocupaHasta && s + m.ancho > c.ocupaDesde))) {
-      if (choca.zona && R.costado && previo && !abiertoArriba(previo.m) && previo.hasta <= choca.zona.desde) choca.zona.izq = previo;
+      if (choca.zona) saltadas.push(choca.zona);
       s = choca.ocupaHasta;
-      if (choca.zona) choca.zona.der = true;
     }
     // Si saltando la columna se sale de la pared, no cabe: se queda donde iba (el cuadre dice cuánto te pasas)
     if (L !== null && s !== s0 && s + m.ancho > L + 1) s = s0;
+    // La campana saltada: el alto de antes queda a su izquierda (con su costado) y hay altos a su derecha
+    else saltadas.forEach(z => {
+      if (!z.mueble && R.costado && previo && !abiertoArriba(previo.m) && previo.hasta <= z.desde && !z.izq) z.izq = previo;
+      z.der = true;
+    });
     altos.push(previo = { m, desde: s, hasta: s + m.ancho });
     s += m.ancho;
   }
-  // Costados a los lados de la campana: el del alto de la izquierda (pegado a él) y el de la derecha (antes del alto)
-  zonas.forEach(z => {
-    const izq = z.izq || [...altos].reverse().find(a => a.hasta <= z.desde + 1 && a.hasta > z.desde - 600);
+  zonas.filter(z => z.mueble).forEach(z => altos.push({ m: z.mueble, desde: z.desde, hasta: z.hasta }));
+  altos.sort((a, b) => a.desde - b.desde);
+  zonas.filter(z => !z.mueble).forEach(z => {
+    // Los altos de después de la campana van pegados a lo que venga detrás (la pared, con su regleta, o una columna):
+    // lo que sobre se queda junto a la campana, no en un hueco suelto al final.
+    const tras = [];
+    let fin = z.hasta;
+    for (const a of altos.filter(x => x.desde >= z.hasta - 1)) {
+      if (a.m.tipo === 'alto_frigo' || obstaculos.some(o => o.zona !== z && o.ocupaDesde >= fin - 1 && o.ocupaDesde < a.desde - 1)) break;
+      tras.push(a); fin = a.hasta;
+    }
+    if (tras.length) {
+      const sig = obstaculos.filter(o => o.zona !== z && o.ocupaDesde >= fin - 1).reduce((x, o) => Math.min(x, o.ocupaDesde), Infinity);
+      const tope = Math.min(sig, L !== null ? L - R.regleta : Infinity), mover = tope - fin;
+      if (isFinite(tope) && mover > 0) {
+        remates.filter(r => r.fila === 'altos' && r.desde >= tras[0].desde - 1 && r.desde < fin).forEach(r => { r.desde += mover; r.hasta += mover; });
+        tras.forEach(a => { a.desde += mover; a.hasta += mover; });
+      }
+    }
+    // Costados a los lados de la campana: el del alto de la izquierda (pegado a él, también si se mete en el margen
+    // porque no cabe más: la ficha avisa de cuánto) y el de la derecha (pegado al alto de después)
+    const izq = z.izq || [...altos].reverse().find(a => a.desde < z.desde && a.hasta < z.hasta && a.hasta > z.desde - 600);
     // (si es el último alto, ya lleva el costado de final de fila)
     if (izq && R.costado && !abiertoArriba(izq.m) && izq !== altos[altos.length - 1]) poner('costado', 'altos', izq.hasta, R.costado);
-    if (z.der && R.costado && altos.some(a => a.desde >= z.hasta - 1)) poner('costado', 'altos', z.hasta, R.costado);
+    const despues = altos.find(a => a.desde >= z.hasta - 1);
+    if (z.der && R.costado && despues) poner('costado', 'altos', despues.desde - R.costado, R.costado);
   });
   const finAlto = altos.length ? altos[altos.length - 1].hasta : 0, columnaDetras = columnas.some(c => c.ocupaHasta >= finAlto - 1);
   if (altos.length && L !== null && !columnaDetras && !abiertoArriba(altos[altos.length - 1].m)) {
@@ -409,8 +462,8 @@ export const ELECTRO = [
   ['otro', 'Otro', []],
 ];
 // Medidas habituales (mm, estándar europeo): anchos y altos del aparato o de su hueco.
-export const ANCHOS_ELECTRO = { frigo: [600, 700, 920], horno: [600], microondas: [600, 500], placa: [300, 600, 700, 800, 900], campana: [600, 900, 1200], lavavajillas: [450, 600], lavadora: [600] };
-export const ALTOS_ELECTRO = { frigo: [1220, 1400, 1580, 1780, 1940, 1850, 2010], horno: [600, 450], microondas: [380, 450], lavavajillas: [820, 865] };
+export const ANCHOS_ELECTRO = { frigo: [600, 700, 920], horno: [600], microondas: [600, 500, 460], placa: [300, 600, 700, 800, 900], campana: [600, 900, 1200], lavavajillas: [450, 600], lavadora: [600] };
+export const ALTOS_ELECTRO = { frigo: [1220, 1400, 1580, 1780, 1940, 1850, 2010], horno: [600, 450], microondas: [380, 450, 290], lavavajillas: [820, 865] };
 export const datosElectro = clave => ELECTRO.find(e => e[0] === clave) || ['otro', 'Otro', []];
 export const electroNuevo = clave => ({ id: id(), clave, tipo: null, ancho: null, alto: null, modelo: '', nombre: '' });
 export const nombreElectro = e => (e.clave === 'otro' ? e.nombre || 'Otro' : datosElectro(e.clave)[1]);
@@ -434,13 +487,19 @@ export function electrosDeMuebles(d) {
     if (m.tipo === 'placa') {
       poner('placa', { tipo: m.placa_tipo || null, ancho: m.placa_ancho || null });
       if (!m.extractor) poner('campana', { tipo: todos.some(x => x.tipo === 'alto_campana') ? 'extraible' : 'decorativa', ancho: m.campana_ancho || null });
-      if (m.horno) poner('horno', { tipo: 'bajo' });
+      if (placaConHorno(m)) poner('horno', { tipo: 'bajo', alto: m.variante === 'SOPORTE HORNO Y 1 GAVETERO' ? altoHorno(m) : 600 });
     }
     if (m.tipo === 'campana_deco') poner('campana', { tipo: 'decorativa', ancho: m.campana_ancho || null });
     if ((m.tipo === 'campana_deco' || m.tipo === 'alto_campana') && !todos.some(x => x.tipo === 'placa')) poner('placa', { tipo: m.placa_tipo || null, ancho: m.placa_ancho || null });
     if (m.tipo === 'alto_campana') poner('campana', { tipo: 'extraible' });
-    if (m.tipo === 'columna_hmo') { poner('horno', { tipo: 'columna' }); poner('microondas', { tipo: 'integrable' }); }
-    if (m.tipo === 'alto_micro') poner('microondas', { tipo: 'integrable' });
+    if (['columna_hmo', 'semicolumna', 'columna_electro'].includes(m.tipo)) {
+      const x = electrosColumna(m);
+      if (x.horno) poner('horno', { tipo: 'columna', alto: altoHorno(m) });
+      if (x.micro) poner('microondas', { tipo: 'integrable' });
+    }
+    if (m.tipo === 'columna_electro' && (m.abajo || 'lavavajillas') === 'lavavajillas') poner('lavavajillas', { tipo: 'integrable', ancho: m.ancho || null });
+    if (m.tipo === 'columna_electro' && m.abajo === 'lavadora') poner('lavadora', { tipo: 'integrable' });
+    if (m.tipo === 'alto_micro') poner('microondas', microLibre(m) ? { tipo: 'libre', ancho: MICRO_LIBRE.ancho, alto: MICRO_LIBRE.alto } : { tipo: 'integrable' });
     if (m.tipo === 'columna_frigo') poner('frigo', { tipo: m.instalacion || null, ancho: m.instalacion === 'americano' ? 920 : null });
     if (m.tipo === 'lavavajillas') poner('lavavajillas', { tipo: m.instalacion || null, ancho: m.ancho || null });
     if (m.tipo === 'lavadora') poner('lavadora', { tipo: m.instalacion || null });

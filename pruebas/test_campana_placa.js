@@ -111,7 +111,7 @@ prueba('tubo de humos: metros y codos hasta la salida, cajear si queda a un lado
   A.elementos = [humos(900, { humos_sale: 'techo', altura: null })];
   igual(textoTubo(tubos()[0]), 'Tubo de la campana: unos 0,7 m y sin codos (sale por el techo).');
   A.elementos = [];
-  igual(textoTubo(tubos()[0]), 'Tubo de la campana: falta apuntar la salida de humos en esta pared.');
+  igual(textoTubo(tubos()[0]), 'Tubo de la campana: falta apuntar la salida de humos (en esta pared o en las de al lado).');
   afirma(geometriaAlzado(f.datos, A).piezas.filter(p => p.clase === 'f_placa').length === 1, 'la placa en el alzado');
   // Placa extractora a la calle: sin campana; el tubo a ras de suelo hasta la salida.
   A.bajos[1].extractor = 'exterior'; A.elementos = [humos(1500, { altura: 100 })];

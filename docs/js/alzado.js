@@ -2,7 +2,7 @@
 // ventanas, puertas, pilares, azulejo y las tomas en su punto, con la altura al lado.
 // Las alturas de los muebles son orientativas (las de una cocina normal); lo medido manda.
 import { camposDeElemento, extraPilar, pilarDeVecina } from './modelo.js';
-import { situarMuebles, situarCuerpos, paredesVecinas, esColumna, nombreModulo, medidasModulo, interioresDe, textoInteriores, piezasInterior } from './modulos.js';
+import { situarMuebles, situarCuerpos, paredesVecinas, esColumna, nombreModulo, medidasModulo, interioresDe, textoInteriores, piezasInterior, SEMICOLUMNA } from './modulos.js';
 import { verMedida } from './unidades.js';
 import { corta } from './plano-vista.js';
 import { encajarRotulo, textoRotulo, fondoRotulo } from './rotulos.js';
@@ -29,6 +29,9 @@ export const SEPARACION_COMODA = [540, 620], REDONDEO_COLUMNA = 50;
 export function alturasCocina(d, ajustes) {
   const base = Object.assign({}, (ajustes && ajustes.cocina_tipo) || { zocalo: 150, mueble: 700, grueso: 40, alto_alto: 700, separacion: 560 });
   const propias = (d && d.alturas) || {}, dicho = k => Number.isFinite(propias[k]) && propias[k] > 0;
+  // El grueso de la encimera se apunta una vez (en las alturas); en fichas antiguas puede estar solo en la encimera
+  const ge = d && d.acabados && d.acabados.encimera && d.acabados.encimera.grueso;
+  if (!dicho('grueso') && Number.isFinite(ge) && ge > 0) base.grueso = ge;
   CAMPOS_ALTURA.forEach(([k]) => { if (k !== 'desde' && dicho(k)) base[k] = propias[k]; });
   const encimera = base.zocalo + base.mueble + base.grueso;
   base.redondeada = false;
@@ -57,6 +60,34 @@ export const CAMPANA = { sobre: 650, base: 70, piramide: 330, chimenea: 260, fon
 // a más de 10 cm a un lado del centro, el tubo no sube derecho: lleva codos y hay que cajearlo. La placa extractora con
 // salida a la calle lleva el tubo a ras de suelo, por detrás del zócalo, con unos 30 cm hasta la pared.
 export const TUBO = { hasta_tubo: 300, tolera: 100, suelo: 75, fondo_placa: 300, alta_placa: 400 };
+// Placa de gas: la campana (vista o el mueble con el extractor) a 75 cm de la placa como poco (65 es el mínimo); el mueble
+// se queda a ras por arriba con los altos y es más bajo. Con inducción o vitro, la campana vista a 65 y el mueble, como los altos.
+export const SOBRE_GAS = 750, MINIMO_GAS = 650;
+export const placaDeGas = d => ((d && d.paredes) || []).some(p => (p.bajos || []).concat(p.altos || []).some(m => m.placa_tipo === 'gas'))
+  || ((d && d.electro) || []).some(e => e.clave === 'placa' && e.tipo === 'gas');
+export const sobreCampana = d => (placaDeGas(d) ? SOBRE_GAS : CAMPANA.sobre);
+// Desde dónde va un alto: el de sobre frigo, encima del frigo; el de la campana con gas, a 75 de la placa; los demás, a su altura.
+export function desdeAlto(m, d) {
+  if (m && m.tipo === 'alto_frigo') return techoFrigo(d);
+  if (m && m.tipo === 'alto_campana' && placaDeGas(d)) return Math.min(ALTURAS.altos_hasta - 200, Math.max(ALTURAS.altos_desde, ALTURAS.encimera + SOBRE_GAS));
+  return ALTURAS.altos_desde;
+}
+// Hasta dónde llega una columna (la semicolumna, hasta 140).
+export const altoColumna = (m, col = ALTURAS.columna) => (m && m.tipo === 'semicolumna' ? Math.min(SEMICOLUMNA, col) : col);
+// Salidas de humos de las paredes de al lado (si en esta no hay ninguna): el tubo va por esta pared hasta la esquina y
+// sigue por la otra. x: donde quedaría si se desdoblara la esquina (antes del 0 o después del largo).
+function salidasVecinas(d, pared, L) {
+  const r = [], v = paredesVecinas(d, pared);
+  ['izq', 'der'].forEach(lado => {
+    const q = v[lado];
+    if (!q || q === pared || !hay(q.largo)) return;
+    (q.elementos || []).filter(e => e.tipo === 'humos' && e.humos_forma !== 'recirculacion' && hay(e.distancia)).forEach(e => {
+      const dist = e.distancia + extraPilar(d, q, e), xq = e.ref === 'der' ? q.largo - dist : dist, va = lado === 'izq' ? q.largo - xq : xq;
+      r.push({ tipo: 'humos', x: lado === 'izq' ? -va : L + va, y: e.humos_sale === 'techo' ? null : hay(e.altura) ? e.altura : null, techo: e.humos_sale === 'techo', otraPared: q.letra || '?', esquina: lado === 'izq' ? 0 : L, dato: e });
+    });
+  });
+  return r;
+}
 // Tamaño de la placa y de la campana: el elegido en el mueble; si no, el de Electrodomésticos; si no, 60.
 export const ANCHO_PLACA = 600, ANCHO_CAMPANA = 600;
 const electroDe = (d, clave) => ((d && d.electro) || []).find(e => e.clave === clave);
@@ -118,7 +149,9 @@ export function campanasPared(pared, d, sit = situarMuebles(pared, d)) {
     .map(({ m, desde, hasta }) => { const w = anchoCampana(m, d), x = (desde + hasta - w) / 2; return { placa: m, desde: x, hasta: x + w, ancho: w, tipo: m.campana_tipo || 'piramidal' }; });
   // Lo que queda a cada lado hasta el siguiente alto o columna (o la pared). Negativo: ese mueble pisa la campana.
   // «pisan»: los altos o columnas que se meten en el sitio de la campana (no puede haber ninguno).
-  const L = hay(pared.largo) ? pared.largo : Infinity, ocupan = sit.altos.filter(a => a.m.tipo !== 'hueco' && a.m.tipo !== 'campana_deco').concat(sit.bajos.filter(b => esColumna(b.m)));
+  // (también los costados de los altos: ocupan su sitio)
+  const L = hay(pared.largo) ? pared.largo : Infinity, ocupan = sit.altos.filter(a => a.m.tipo !== 'hueco' && a.m.tipo !== 'campana_deco').concat(sit.bajos.filter(b => esColumna(b.m)))
+    .concat((sit.remates || []).filter(r => r.fila === 'altos' && r.tipo === 'costado').map(r => ({ desde: r.desde, hasta: r.hasta, m: { tipo: 'costado' } })));
   return puestas.concat(sobrePlaca).map(x => {
     const aIzq = ocupan.filter(o => o.desde < x.desde - 1), aDer = ocupan.filter(o => o.hasta > x.hasta + 1);
     const izq = aIzq.reduce((m, o) => Math.max(m, o.hasta), 0), der = aDer.reduce((m, o) => Math.min(m, o.desde), L);
@@ -128,7 +161,9 @@ export function campanasPared(pared, d, sit = situarMuebles(pared, d)) {
 }
 // Texto para la ficha: «Campana de 60 en un hueco de 90: quedan 15 cm a la izquierda y 15 cm a la derecha».
 export function textoHolgurasCampana(x) {
-  const cm = mm => Math.round(mm / 10) + ' cm', lado = (v, pared, t) => (v === null ? '' : v < 0 ? '⚠ el mueble de la ' + t + ' la pisa ' + cm(-v) : (!pared && v < CAMPANA.margen_min ? '⚠ ' : '') + cm(v) + ' a la ' + t + (pared ? ' hasta la pared' : ' hasta el mueble'));
+  // Menos de 10 cm hasta el mueble: pisa el margen (y cuánto); menos de 0, pisa la campana
+  const cm = mm => Math.round(mm / 10) + ' cm', lado = (v, pared, t) => (v === null ? '' : v < 0 ? '⚠ el mueble de la ' + t + ' la pisa ' + cm(-v) : (!pared && v < CAMPANA.margen_min ? '⚠ ' : '') + cm(v) + ' a la ' + t + (pared ? ' hasta la pared' : ' hasta el mueble')
+    + (!pared && v < CAMPANA.margen_bien ? ' (pisa ' + cm(CAMPANA.margen_bien - v) + ' el margen de ' + cm(CAMPANA.margen_bien) + ')' : ''));
   const pisa = (x.pisan || []).length > 0;
   const t = 'Campana ' + (x.tipo === 'recta' ? 'recta' : 'piramidal') + ' de ' + cm(x.ancho) + (x.hueco ? ' en un hueco de ' + cm(x.hueco) : ' encima de la placa') + ': ' + (pisa ? '' : 'quedan ')
     + [lado(x.izq, x.izqPared, 'izquierda'), lado(x.der, x.derPared, 'derecha')].filter(Boolean).join(' y ') + '.';
@@ -156,15 +191,18 @@ export function tuboHumos(a, salidas, techo) {
     r.codos = (lado ? 2 : 0) + (sube > 100 ? (lado ? 1 : 2) : 0);
     r.camino = [[a.x, ALTURAS.encimera - 100], [a.x, a.z0], [s.x, a.z0]].concat(sube > 100 ? [[s.x, y]] : []);
   }
+  // En otra pared: un codo más al doblar la esquina; en el dibujo de esta pared, el tubo llega hasta la esquina
+  if (s.otraPared) { r.codos += 1; r.camino = r.camino.map(([x, z]) => [s.esquina === 0 ? Math.max(0, x) : Math.min(s.esquina, x), z]); }
   return r;
 }
 // «Tubo de la campana: unos 1,2 m y 2 codos. Hay que cajearlo: la salida queda 40 cm a la derecha del centro.»
 export function textoTubo(t) {
   const quien = t.de === 'campana' ? 'Tubo de la campana' : 'Tubo de la placa extractora (a ras de suelo, por detrás del zócalo)';
-  if (!t.salida) return quien + ': falta apuntar la salida de humos en esta pared.';
+  if (!t.salida) return quien + ': falta apuntar la salida de humos (en esta pared o en las de al lado).';
   const m = Math.ceil(t.tubo / 100) * 100, codos = t.codos === 0 ? 'sin codos' : t.codos + (t.codos === 1 ? ' codo' : ' codos');
   let x = quien + ': unos ' + verMedida(m, 'm') + ' m y ' + codos + (t.salida.techo ? ' (sale por el techo)' : '') + '.';
-  if (t.cajear) x += ' ' + (t.de === 'campana' ? 'Hay que cajearlo: l' : 'L') + 'a salida queda ' + verMedida(Math.abs(t.dx), 'cm') + ' cm a la ' + (t.dx < 0 ? 'izquierda' : 'derecha') + ' del centro.';
+  if (t.salida.otraPared) x += ' La salida está en la pared ' + t.salida.otraPared + ': ' + (t.de === 'campana' ? 'hay que cajearlo hasta la esquina y seguir por esa pared' : 'va por detrás del zócalo hasta la esquina y sigue por esa pared') + ' (' + verMedida(Math.abs(t.dx), 'cm') + ' cm desde el centro, doblando la esquina).';
+  else if (t.cajear) x += ' ' + (t.de === 'campana' ? 'Hay que cajearlo: l' : 'L') + 'a salida queda ' + verMedida(Math.abs(t.dx), 'cm') + ' cm a la ' + (t.dx < 0 ? 'izquierda' : 'derecha') + ' del centro.';
   if (t.baja) x += ' ⚠ La salida está más baja que donde empieza el tubo.';
   if (t.alta) x += ' ⚠ La salida está alta para una placa extractora: suele ir a ras de suelo.';
   if (t.sinAltura) x += ' (Sin la altura de la salida: falta lo que sube o baja.)';
@@ -198,10 +236,10 @@ export function geometriaAlzado(d, pared, ajustes = null) {
 
   // Muebles: bajos con zócalo y encimera; columnas hasta arriba (la de frigo, hasta su alto si lo lleva); altos.
   const sit = situarMuebles(pared, d), frigosConAlto = new Set(sit.altos.filter(a => a.m.tipo === 'alto_frigo').map(a => a.desde));
-  const bajo = (x, w, texto, tipo, variante, rincon = null) => {
+  const bajo = (x, w, texto, tipo, variante, rincon = null, modulo = null) => {
     pieza('zocalo', x, 0, w, ALTURAS.zocalo);
     pieza('bajo', x, ALTURAS.zocalo, w, ALTURAS.encimera - ALTURAS.grueso_encimera - ALTURAS.zocalo, texto, tipo);
-    frente(frenteModulo(tipo, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera, { variante, rincon }), x);
+    frente(frenteModulo(tipo, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera, { variante, rincon, modulo }), x);
     pieza('encimera', x, ALTURAS.encimera - ALTURAS.grueso_encimera, w, ALTURAS.grueso_encimera);
   };
   if (sit.entran.izq) bajo(0, sit.entran.izq, '', 'rinconero');
@@ -210,25 +248,26 @@ export function geometriaAlzado(d, pared, ajustes = null) {
     const texto = (m.tipo === 'rinconero' ? 'Rinc.' : nombreModulo(m)) + ' ' + medidasModulo(m);
     if (m.tipo === 'hueco') return pieza('hueco', desde, 0, hasta - desde, ALTURAS.encimera, texto);
     if (esColumna(m)) {
-      const h = m.tipo === 'columna_frigo' && frigosConAlto.has(desde) ? Math.min(techoFrigo(d), col) : col;
+      const h = m.tipo === 'columna_frigo' && frigosConAlto.has(desde) ? Math.min(techoFrigo(d), col) : altoColumna(m, col);
       pieza('columna', desde, 0, hasta - desde, h, texto, m.tipo);
-      return frente(m.tipo === 'columna_frigo' && frigoLibre(d, m) ? frenteFrigoLibre(hasta - desde, frigoLibre(d, m) === 'americano') : frenteModulo(m.tipo, hasta - desde, 0, h, { columna: true, variante: varianteDe(m), zocalo: ALTURAS.zocalo }), desde);
+      return frente(m.tipo === 'columna_frigo' && frigoLibre(d, m) ? frenteFrigoLibre(hasta - desde, frigoLibre(d, m) === 'americano') : frenteModulo(m.tipo, hasta - desde, 0, h, { columna: true, variante: varianteDe(m), zocalo: ALTURAS.zocalo, modulo: m }), desde);
     }
-    bajo(desde, hasta - desde, texto, m.tipo, varianteDe(m, d), m.tipo === 'rinconero' ? m : null);
+    bajo(desde, hasta - desde, texto, m.tipo, varianteDe(m, d), m.tipo === 'rinconero' ? m : null, m);
   });
   sit.altos.forEach(({ m, desde, hasta }) => {
     if (m.tipo === 'hueco' || m.tipo === 'campana_deco') return;
-    const y0 = m.tipo === 'alto_frigo' ? techoFrigo(d) : ALTURAS.altos_desde;
+    const y0 = desdeAlto(m, d);
     pieza('alto', desde, y0, hasta - desde, arriba - y0, nombreModulo(m) + ' ' + medidasModulo(m), m.tipo);
-    frente(frenteModulo(m.tipo, hasta - desde, y0, arriba, { variante: varianteAlto(m, d) }), desde, true);
+    frente(frenteModulo(m.tipo, hasta - desde, y0, arriba, { variante: varianteAlto(m, d), modulo: m }), desde, true);
   });
   // Regletas y costados (ocupan su sitio): del color de los frentes, finos
   (sit.remates || []).forEach(r => {
-    const [y0, y1] = r.fila === 'altos' ? [ALTURAS.altos_desde, arriba] : r.fila === 'columna' ? [0, col] : r.fila === 'sobre' ? [ALTURAS.encimera, col] : [r.tipo === 'costado' ? 0 : ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera];
+    const tope = r.tope ? Math.min(r.tope, col) : col;
+    const [y0, y1] = r.fila === 'altos' ? [ALTURAS.altos_desde, arriba] : r.fila === 'columna' ? [0, tope] : r.fila === 'sobre' ? [ALTURAS.encimera, tope] : [r.tipo === 'costado' ? 0 : ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera];
     pieza('f_tablero', r.desde, y0, r.ancho, y1 - y0, '', r.tipo);
   });
   campanasPared(pared, d, sit).forEach(c => {
-    const z = ALTURAS.encimera + CAMPANA.sobre, zp = z + CAMPANA.base, zc = zp + CAMPANA.piramide;
+    const z = ALTURAS.encimera + sobreCampana(d), zp = z + CAMPANA.base, zc = zp + CAMPANA.piramide;
     pieza('f_campana', c.desde, z, c.ancho, CAMPANA.base, '', 'campana');
     if (c.tipo === 'recta') pieza('f_campana', c.desde, zp, c.ancho, CAMPANA.piramide, '', 'campana');
     else g.piezas.push({ clase: 'f_campana', tipo: 'campana', x: c.desde, y: zp, w: c.ancho, h: CAMPANA.piramide, trap: CAMPANA.chimenea, texto: '' });
@@ -238,7 +277,7 @@ export function geometriaAlzado(d, pared, ajustes = null) {
   // Placas: una franja oscura sobre la encimera, de su ancho (también la de debajo de la campana, sobre cajoneras).
   placasPared(pared, d, sit).forEach(q => pieza('f_placa', q.desde, ALTURAS.encimera, q.ancho, 25, '', 'placa'));
   // Centro de cada campana: raya de ejes y cota desde la punta de la pared más cercana, a media altura entre la encimera y la campana.
-  g.centrosCampana = centrosCampana(pared, d, sit).map(c => ({ x: c.x, desde: c.lado === 'der' ? L : 0, y: ALTURAS.encimera + CAMPANA.sobre / 2, texto: 'centro a ' + verMedida(c.dist, 'cm') + (c.letra ? ' de ' + c.letra : ''), dist: c.dist, mueble: c.mueble }));
+  g.centrosCampana = centrosCampana(pared, d, sit).map(c => ({ x: c.x, desde: c.lado === 'der' ? L : 0, y: ALTURAS.encimera + sobreCampana(d) / 2, zc: c.mueble && c.mueble.tipo === 'alto_campana' ? desdeAlto(c.mueble, d) : ALTURAS.encimera + sobreCampana(d), texto: 'centro a ' + verMedida(c.dist, 'cm') + (c.letra ? ' de ' + c.letra : ''), dist: c.dist, mueble: c.mueble }));
   const placasExtractoras = sit.bajos.filter(b => b.m.tipo === 'placa' && b.m.extractor === 'exterior').map(b => ({ x: (b.desde + b.hasta) / 2, mueble: b.m }));
 
   // Cuerpos del vestidor, de izquierda a derecha, con su interior dibujado (barras, estantes, cajones…);
@@ -286,8 +325,8 @@ export function geometriaAlzado(d, pared, ajustes = null) {
     if (v) pieza('pilar', lado === 'izq' ? 0 : L - v.fondo, 0, v.fondo, techo, 'Pilar ' + v.de, 'pilar_vecino');
   });
   // Tubo de humos de cada campana y de cada placa extractora con salida a la calle, hasta la salida más cercana.
-  const salidas = g.puntos.filter(q => q.tipo === 'humos' && !(q.dato && q.dato.humos_forma === 'recirculacion'));
-  g.tubos = g.centrosCampana.filter(c => salidaCampana(c.mueble, pared, d) !== 'recirculacion').map(c => tuboHumos({ de: 'campana', x: c.x, z0: (c.mueble && c.mueble.tipo === 'alto_campana' ? ALTURAS.altos_desde : ALTURAS.encimera + CAMPANA.sobre) + TUBO.hasta_tubo, mueble: c.mueble }, salidas, techo))
+  const propias = g.puntos.filter(q => q.tipo === 'humos' && !(q.dato && q.dato.humos_forma === 'recirculacion')), salidas = propias.length ? propias : salidasVecinas(d, pared, L);
+  g.tubos = g.centrosCampana.filter(c => salidaCampana(c.mueble, pared, d) !== 'recirculacion').map(c => tuboHumos({ de: 'campana', x: c.x, z0: c.zc + TUBO.hasta_tubo, mueble: c.mueble }, salidas, techo))
     .concat(placasExtractoras.map(c => tuboHumos({ de: 'placa', x: c.x, z0: TUBO.suelo, mueble: c.mueble }, salidas, techo)));
   return g;
 }
@@ -404,7 +443,7 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
   (g.tubos || []).filter(t => t.camino).forEach(t => svg.append(el('polyline', { points: t.camino.map(([x, z]) => x + ',' + Y(z)).join(' '), fill: 'none', stroke: '#57534e', 'stroke-width': s * 0.6, 'stroke-dasharray': s * 1.2 + ' ' + s * 0.7, 'stroke-linejoin': 'round', 'data-tubo': t.de })));
   // Centro de la campana: eje de puntos de la encimera a la campana y la cota desde la pared más cercana.
   (g.centrosCampana || []).forEach(c => {
-    const col = '#7c3aed', y = Y(c.y), z0 = Y(ALTURAS.encimera), z1 = Y(ALTURAS.encimera + CAMPANA.sobre), t = s * 1.2;
+    const col = '#7c3aed', y = Y(c.y), z0 = Y(ALTURAS.encimera), z1 = Y(c.zc || ALTURAS.encimera + CAMPANA.sobre), t = s * 1.2;
     svg.append(el('line', { x1: c.x, y1: z0, x2: c.x, y2: z1, stroke: col, 'stroke-width': s * 0.3, 'stroke-dasharray': s * 1.5 + ' ' + s * 0.8, 'data-eje-campana': '' }));
     svg.append(el('line', { x1: c.desde, y1: y, x2: c.x, y2: y, stroke: col, 'stroke-width': s * 0.35 }));
     [c.desde, c.x].forEach(x => svg.append(el('line', { x1: x, y1: y - t, x2: x, y2: y + t, stroke: col, 'stroke-width': s * 0.35 })));

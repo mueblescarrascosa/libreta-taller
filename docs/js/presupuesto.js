@@ -4,7 +4,7 @@
 // contra su catálogo y crea un presupuesto NUEVO en borrador (libreta.js de cocinas).
 import { situarMuebles, situarCuerpos, piezasInterior, esLibre, instalacionDe } from './modulos.js';
 import { textoMaterial, materialCocina } from './material.js';
-import { ALTURAS } from './alzado.js';
+import { ALTURAS, desdeAlto } from './alzado.js';
 
 const hay = v => v !== null && v !== undefined;
 export const CLAVE_PASO = 'libreta_a_presupuesto';
@@ -22,6 +22,7 @@ export function variantesDe(m) {
     case 'bajo': return ['PUERTAS', '2 CACEROLEROS', '1 GAVETERO 2 CACEROLEROS', '2 GAVETEROS 1 CACEROLERO', '1 GAVETERO 1 PUERTA', '4 GAVETEROS', '5 GAVETEROS', 'ESPECIERO', 'PANERO', 'VITRINA'];
     case 'cajonero': return ['4 GAVETEROS', '5 GAVETEROS', '2 CACEROLEROS', '1 GAVETERO 2 CACEROLEROS', '2 GAVETEROS 1 CACEROLERO'];
     case 'placa': return ['1 GAVETERO 2 CACEROLEROS', '2 CACEROLEROS', '2 GAVETEROS 1 CACEROLERO', 'PUERTAS', 'SOPORTE HORNO Y 1 GAVETERO', 'SOPORTE HORNO SIN CAJÓN'];
+    case 'semicolumna': return ['PUERTAS', '4-5 CACEROLEROS', 'HORNO + 1 PUERTA', 'HORNO/MICROONDAS + 1 CACEROLERO'];
     case 'columna_hmo': return ['PUERTA + H/MO + 2 CACEROLEROS', 'PUERTA + H/MO + PUERTA', 'PUERTA + ELECTRODOMÉSTICO + 2 CACER', 'PUERTA + ELECTRODOMÉSTICO + PUERTA'];
     case 'escobero': case 'despensero': return ['PUERTAS', '1/4+3/4', 'VITRINA'];
     case 'alto': return ['PUERTAS', 'VITRINA', 'BOTELLERO DECORATIVO', '2 ESTANTES DECORATIVO', 'ABATIBLE'];
@@ -30,8 +31,8 @@ export function variantesDe(m) {
     default: return [];
   }
 }
-export const NOMBRE_VARIANTE = v => ({ PUERTAS: 'Puertas', '1/4+3/4': '1/4 + 3/4' }[v] || v.charAt(0) + v.slice(1).toLowerCase());
-export const alturasDe = m => (['alto', 'alto_abierto', 'alto_campana'].includes(m.tipo) ? ALTURAS_ALTO : ['columna_hmo', 'columna_frigo', 'escobero', 'despensero'].includes(m.tipo) ? ALTURAS_COLUMNA : []);
+export const NOMBRE_VARIANTE = v => ({ PUERTAS: 'Puertas', '1/4+3/4': '1/4 + 3/4', 'HORNO/MICROONDAS + 1 CACEROLERO': 'Horno/micro + 1 cacerolero', 'SOPORTE HORNO Y 1 GAVETERO': 'Soporte horno con cajón' }[v] || v.charAt(0) + v.slice(1).toLowerCase());
+export const alturasDe = m => (['alto', 'alto_abierto', 'alto_campana'].includes(m.tipo) ? ALTURAS_ALTO : ['columna_hmo', 'columna_frigo', 'columna_electro', 'escobero', 'despensero'].includes(m.tipo) ? ALTURAS_COLUMNA : []);
 
 // La variante que va si no se ha elegido.
 export function varianteHabitual(m, d) {
@@ -43,7 +44,10 @@ export function varianteHabitual(m, d) {
   if (m.tipo === 'rinconero') return 'RINCÓN EN L';
   return variantesDe(m)[0] || null;
 }
-export const alturaHabitual = (m, d) => (alturasDe(m) === ALTURAS_COLUMNA ? ((d.alto_techo || 2500) >= 2400 ? 'COLUMNA 220-240' : 'COLUMNA 200-215') : alturasDe(m).length ? ALTURAS_ALTO[0] : null);
+// El alto campana con placa de gas va más bajo (a 75 de la placa, a ras arriba con los altos): la altura que le toca.
+const alturaDeAlto = mm => (mm >= 850 ? 'ALTO 90-100' : mm >= 650 ? 'ALTO 70-80' : mm >= 550 ? 'ALTO 60' : mm >= 420 ? 'ALTO 45' : 'ALTO 35-40');
+export const alturaHabitual = (m, d) => (alturasDe(m) === ALTURAS_COLUMNA ? ((d.alto_techo || 2500) >= 2400 ? 'COLUMNA 220-240' : 'COLUMNA 200-215')
+  : m.tipo === 'alto_campana' && desdeAlto(m, d) > ALTURAS.altos_desde ? alturaDeAlto(ALTURAS.altos_hasta - desdeAlto(m, d)) : alturasDe(m).length ? ALTURAS_ALTO[0] : null);
 
 // El artículo del catálogo de un mueble: { m, mo, med, texto } o { revisar: '…' } si no hay uno claro.
 export function articulo(m, d) {
@@ -63,6 +67,9 @@ export function articulo(m, d) {
       if (m.forma === 'chaflan') return { revisar: 'Rinconero en chaflán de ' + med + ': no hay bajo en chaflán en el catálogo' };
       return r('BAJO', 'RINCÓN EN L');
     case 'columna_hmo': return r(alto, v);
+    case 'semicolumna': return r('SEMICOLUMNA 135-145', v === 'PUERTAS' || !v ? puertas(cm, '1 PUERTA', '2 PUERTAS') : v);
+    // En el catálogo no hay columna con un electrodoméstico abajo: a mano
+    case 'columna_electro': return { revisar: 'Columna con ' + ((m.abajo || 'lavavajillas') === 'nevera' ? 'nevera bajo encimera' : m.abajo || 'lavavajillas') + ' abajo de ' + med + ': no está en el catálogo, elegir a mano' };
     case 'columna_frigo':
       if (esLibre(m, d)) return { revisar: 'Hueco para frigorífico ' + (instalacionDe(m, d) === 'americano' ? 'americano' : 'libre') + ' de ' + med + ' (sin mueble)' };
       return r(alto, 'FRIGORÍFICO INTEGRADO');

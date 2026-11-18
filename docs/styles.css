@@ -149,6 +149,11 @@ button.mini { min-height: 36px; padding: 4px 10px; font-size: 14px; }
 .campo { display: grid; gap: 4px; }
 .med { display: flex; gap: 6px; align-items: center; }
 .med input { flex: 1 1 0; min-width: 0; }
+/* Rápidos en la misma línea que el cuadro (alturas de la cocina): botones pequeños y el cuadro más estrecho */
+.med.en-linea { gap: 4px; }
+.med.en-linea .rapidos-linea { display: flex; gap: 4px; flex: 0 0 auto; }
+.med.en-linea .rapidos-linea button { min-width: 38px; padding: 6px 4px; }
+.med.en-linea input { flex: 1 1 48px; min-width: 44px; }
 .med .ud { color: var(--tenue); font-size: 13px; }
 .med .ref { min-width: 52px; font-family: ui-monospace, Consolas, monospace; font-weight: 700; background: var(--oscuro); color: #fff; border-color: var(--oscuro); }
 .campo.error input { border-color: var(--rojo); }

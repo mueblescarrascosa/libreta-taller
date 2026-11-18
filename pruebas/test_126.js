@@ -150,8 +150,8 @@ prueba('campana: tipo y tamaño en el mueble que hace de hueco, y lo que queda a
   A.altos[1].campana_tipo = 'recta';
   afirma(!geometriaAlzado(f.datos, A).piezas.some(p => p.trap) && geometriaAlzado(f.datos, A).piezas.filter(p => p.tipo === 'campana').length === 3, 'recta: sin pirámide');
   A.altos = [mod('alto', 600)]; A.bajos[1].campana_ancho = 900;
-  // 1.36: el alto que pisaría la campana se aparta (10 cm de holgura a cada lado)
-  igual(textoHolgurasCampana(campanasPared(A, f.datos)[0]), 'Campana piramidal de 90 cm encima de la placa: quedan 60 cm a la izquierda hasta la pared y 10 cm a la derecha hasta el mueble.');
+  // 1.36: el alto que pisaría la campana se aparta; 1.37: y va pegado a la pared (lo que sobra, junto a la campana)
+  igual(textoHolgurasCampana(campanasPared(A, f.datos)[0]), 'Campana piramidal de 90 cm encima de la placa: quedan 60 cm a la izquierda hasta la pared y 150 cm a la derecha hasta el mueble.');
   const { consejosDiseno } = await import('../docs/js/consejos.js');
   afirma(!consejosDiseno(f).some(c => /La campana de la pared A queda a/.test(c.texto)), 'con el alto apartado ya no hay que avisar del margen: ' + consejosDiseno(f).map(c => c.texto).join(' | '));
   A.altos = [mod('alto', 600), mod('campana_deco', 900, { campana_ancho: 600 })];

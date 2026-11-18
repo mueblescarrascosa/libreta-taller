@@ -2,7 +2,7 @@
 // Almacenaje: «metros útiles» de cada mueble (un metro de cajones guarda más que uno de puertas; una despensa, mucho más),
 // repartidos entre los metros de cocina. Usabilidad: parte de 100 y resta por cada consejo de diseño de placa, agua,
 // frío, encimera y pasos (lo que funcionaría mal al usarla). Es orientativa: sirve para comparar propuestas.
-import { situarMuebles, esColumna, cuadreAltos, moduloNuevo, nombreModulo } from './modulos.js';
+import { situarMuebles, esColumna, cuadreAltos, moduloNuevo, nombreModulo, placaConHorno } from './modulos.js';
 import { consejosDiseno } from './consejos.js';
 import { varianteDe } from './frentes.js';
 import { avisosObra } from './avisos-obra.js';
@@ -15,7 +15,7 @@ const hay = v => v !== null && v !== undefined && v !== '';
 // Metros útiles por metro de ancho de cada mueble
 export const UTIL = {
   cajonero: 1.3, bajo: 1.0, fregadero: 0.5, placa: 0.8, rinconero: 0.9, lavavajillas: 0, lavadora: 0, hueco: 0, otro: 0.5,
-  despensero: 3.0, escobero: 2.0, columna_hmo: 0.8, columna_frigo: 0.3,
+  despensero: 3.0, escobero: 2.0, columna_hmo: 0.8, columna_frigo: 0.3, columna_electro: 0.6, semicolumna: 1.6,
   alto: 0.8, alto_abierto: 0.5, alto_micro: 0.3, alto_campana: 0.3, alto_frigo: 0.3, campana_deco: 0,
 };
 const CON_CAJONES = /GAVETERO|CACEROLERO/;
@@ -25,7 +25,7 @@ const GRUPOS_USO = ['placa', 'agua', 'frio', 'encimera', 'paso'];
 const m1 = v => Math.round(v / 100) / 10;   // mm → metros con un decimal
 
 function utilDe(m, ancho, d) {
-  if (m.tipo === 'placa' && m.horno) return 0.2 * ancho;
+  if (placaConHorno(m)) return 0.2 * ancho;
   if (m.tipo === 'rinconero') return (m.forma === 'recto' ? 0.5 : 0.9) * ancho;
   const v = varianteDe(m, d);
   if (v && CON_CAJONES.test(v) && ['bajo', 'placa', 'fregadero', 'cajonero'].includes(m.tipo)) return 1.3 * ancho;

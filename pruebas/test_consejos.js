@@ -43,7 +43,8 @@ prueba('placa pegada a la pared, poca encimera entre fregadero y placa, campana 
   const t = textos(f);
   afirma(t.includes('Placa junto a la pared por la izquierda: nada de encimera (pared A)'), t.join(' | '));
   afirma(t.includes('Solo 40 cm de encimera entre el fregadero y la placa (pared A)'), t.join(' | '));
-  afirma(t.includes('El alto de la campana no está encima de la placa (pared A)'), t.join(' | '));
+  // 1.37: el alto campana se pone solo centrado con la placa: ya no puede quedar fuera
+  afirma(!t.includes('El alto de la campana no está encima de la placa (pared A)'), t.join(' | '));
 });
 prueba('lavavajillas: lejos del fregadero, en otra pared o pegado al rincón', () => {
   let t = textos(cocina([pared('A', 3600, { bajos: [mod('fregadero', 800), mod('bajo', 600), mod('bajo', 600), mod('lavavajillas', 600)] })]));
