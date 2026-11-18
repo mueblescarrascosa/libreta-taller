@@ -1,5 +1,5 @@
 // Un trabajo con sus fichas. Sin id, son las notas sueltas.
-import { h, segmentado, tituloFicha, vivos, icono, NOMBRE_TIPO, NOMBRE_SUBTIPO } from '../util.js';
+import { h, reemplazar, segmentado, tituloFicha, vivos, icono, NOMBRE_TIPO, NOMBRE_SUBTIPO } from '../util.js';
 import { textoResumen, urlWhatsapp } from '../resumen.js';
 import { fichaNueva, avisos, normalizarFicha } from '../modelo.js';
 import { unidadDe } from '../unidades.js';
@@ -32,11 +32,11 @@ function selectorFicha(App, trabajoId) {
     await App.guardarFila('fichas', f);
     App.ir('#/ficha/' + f.id);
   };
-  const inicial = () => zona.replaceChildren(...['puerta', 'cocina', 'armario', 'nota'].map(t =>
+  const inicial = () => reemplazar(zona, ...['puerta', 'cocina', 'armario', 'nota'].map(t =>
     h('button', { type: 'button', 'data-acc': 'tipo', 'data-v': t, onclick: () => t === 'armario' ? subtipos() : crear(t, null) }, NOMBRE_TIPO[t])));
   // Armario: qué clase es, con lo que significa cada una, y vuelta atrás a los demás tipos.
   const AYUDA_SUBTIPO = { vestidor: 'Paredes con cuerpos, como una cocina', corredera: 'Hueco con puertas correderas', abatible: 'Hueco con puertas que abren' };
-  const subtipos = () => zona.replaceChildren(
+  const subtipos = () => reemplazar(zona, 
     h('p', { class: 'pregunta-tipo', 'data-acc': 'pregunta-armario' }, '¿Qué armario es?'),
     ...Object.keys(NOMBRE_SUBTIPO).map(s =>
       h('button', { type: 'button', 'data-acc': 'subtipo', 'data-v': s, onclick: () => crear('armario', s) }, NOMBRE_SUBTIPO[s], AYUDA_SUBTIPO[s] ? h('small', {}, AYUDA_SUBTIPO[s]) : null)),
@@ -55,7 +55,7 @@ export async function pintarTrabajo(App, id) {
   async function cargar() {
     const fichas = ordenFichas(vivos(await App.almacen.todos('fichas')).filter(f => f.trabajo_id === id));
     const unidad = unidadDe(trabajo, AJ);
-    lista.replaceChildren(...(fichas.length
+    reemplazar(lista, ...(fichas.length
       ? fichas.map(f => {
         const n = normalizarFicha(f), sin = faltan(n), av = avisos(n, unidad, { margen: AJ.margen }).length;
         // Lo que falta, con nombre (en el móvil no se ve el «title»): hasta 3 y «y N más».

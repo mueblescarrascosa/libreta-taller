@@ -1,5 +1,5 @@
 // Resumen de una ficha terminada, o de un trabajo entero: presentación limpia para ver, imprimir o enviar (PDF o texto por WhatsApp).
-import { h, tituloFicha, vivos, botonBarra, NOMBRE_TIPO } from '../util.js';
+import { h, reemplazar, tituloFicha, vivos, botonBarra, NOMBRE_TIPO } from '../util.js';
 import { verMedida } from '../unidades.js';
 import { normalizarFicha, textoTipoPuerta, nombreElemento, extraPilar, tamanoHumos } from '../modelo.js';
 import { EMPRESA, COPYRIGHT } from '../config.js';
@@ -142,7 +142,7 @@ async function nodosFicha(App, ficha, trabajo, AJ, ver = partesGuardadas()) {
         .map(([letra, ga]) => [letra, h('div', { class: 'alzado-resumen' }, h('p', { class: 'tit' }, h('b', {}, 'Pared ' + letra + ' de frente')), svgAlzado(ga, { unidad: u }))]);
       if (dibujos.length) {
         const elegidas = new Set(paredesDeFrente(ficha)), caja = h('div', { class: 'frentes' });
-        const pintar = () => caja.replaceChildren(...dibujos.filter(([l]) => elegidas.has(l)).map(([, n]) => n));
+        const pintar = () => reemplazar(caja, ...dibujos.filter(([l]) => elegidas.has(l)).map(([, n]) => n));
         const botones = h('div', { class: 'chips' }, dibujos.map(([l]) => h('button', { type: 'button', 'data-acc': 'frente-pared', 'data-v': l, class: elegidas.has(l) ? 'on' : '',
           onclick: ev => { if (elegidas.has(l)) elegidas.delete(l); else elegidas.add(l); guardarFrente(ficha, [...elegidas]);
             ev.currentTarget.classList.toggle('on', elegidas.has(l)); ev.currentTarget.textContent = (elegidas.has(l) ? '✓ ' : '') + l; pintar(); } }, (elegidas.has(l) ? '✓ ' : '') + l)));
@@ -234,9 +234,9 @@ export async function pintarResumen(App, id) {
   const ver = partesGuardadas();
   const main = App.marco('resumen', tituloFicha(ficha), trabajo ? '#/trabajo/' + trabajo.id : '#/sueltas',
     acciones({ doc, titulo, aviso, texto: () => textoResumen({ ficha, trabajo, ajustes: AJ, conPuntuacion: ver.puntuacion }), editar: () => App.ir('#/ficha/' + id) }));
-  const pintarDoc = async () => doc.replaceChildren(cabecera(trabajo), ...(await nodosFicha(App, ficha, trabajo, AJ, ver)), h('footer', {}, COPYRIGHT));
+  const pintarDoc = async () => reemplazar(doc, cabecera(trabajo), ...(await nodosFicha(App, ficha, trabajo, AJ, ver)), h('footer', {}, COPYRIGHT));
   const zona = h('div');
-  const pintarBotones = async () => zona.replaceChildren(...[await botonesPartes(App, [ficha], ver, async () => { await pintarBotones(); await pintarDoc(); })].filter(Boolean));
+  const pintarBotones = async () => reemplazar(zona, ...[await botonesPartes(App, [ficha], ver, async () => { await pintarBotones(); await pintarDoc(); })].filter(Boolean));
   await pintarBotones(); await pintarDoc();
   // Cocinas: hoja de pedido de cascos (para el taller) y de frentes (para el proveedor)
   const modos = ficha.tipo === 'cocina' ? MODOS_PEDIDO : ficha.tipo === 'puerta' ? [MODO_PUERTAS] : [];
@@ -321,7 +321,7 @@ async function pedidoDe(App, { fichas, todas, trabajo, modo, volver, ruta }) {
     partes.push(h('p', {}, h('b', {}, 'Total: ' + filas.reduce((x, f) => x + f.cant, 0) + ' muebles'), ' · medidas en mm.'));
   }
   partes.push(h('small', { class: 'ayuda' }, 'Cada cocina con sus alturas (las de Ajustes o las cambiadas en su ficha). Orientativo: sale de los muebles medidos; compruébalo antes de pedir.'), h('footer', {}, COPYRIGHT));
-  doc.replaceChildren(...partes);
+  reemplazar(doc, ...partes);
   main.append(elegir, aviso, doc);
 }
 
@@ -364,7 +364,7 @@ export async function pintarResumenTrabajo(App, id) {
     }
     if (!lista.length) partes.push(h('p', { class: 'vacio' }, fichas.length ? 'No has marcado ninguna ficha.' : 'Este trabajo aún no tiene fichas.'));
     partes.push(h('footer', {}, COPYRIGHT));
-    doc.replaceChildren(...partes);
+    reemplazar(doc, ...partes);
   }
   // Hojas de pedido de las cocinas del trabajo (todas juntas; en la hoja se eligen cuáles)
   const cocinas = fichas.filter(f => f.tipo === 'cocina'), dePuertas = fichas.filter(f => f.tipo === 'puerta');
@@ -372,12 +372,12 @@ export async function pintarResumenTrabajo(App, id) {
   const zonaPedidos = enlaces.length ? h('div', { class: 'elegir-fichas pedidos no-imprimir' }, h('small', { class: 'et' }, 'Hojas de pedido del trabajo:'),
     h('div', { class: 'chips' }, enlaces.map(([m, t, l]) => h('a', { class: 'boton-chip', href: '#/pedido-trabajo/' + id + '/' + m + '/' + encodeURIComponent(l.map(f => f.id).join(',')), 'data-acc': 'pedido-trabajo-' + m }, t)))) : null;
   const ver = partesGuardadas(), zonaPartes = h('div');
-  const pintarPartes = async () => zonaPartes.replaceChildren(...[await botonesPartes(App, elegidas(), ver, async () => { await pintarPartes(); await pintarDoc(); })].filter(Boolean));
+  const pintarPartes = async () => reemplazar(zonaPartes, ...[await botonesPartes(App, elegidas(), ver, async () => { await pintarPartes(); await pintarDoc(); })].filter(Boolean));
   const zonaSel = h('div', { class: 'elegir-fichas' });
   function pintarSel() {
     const tipos = [...new Set(fichas.map(f => f.tipo))];
     const chip = (acc, v, texto, on, alTocar, tipo) => h('button', { type: 'button', 'data-acc': acc, 'data-v': v, 'data-tipo': tipo || '', class: on ? 'on' : '', onclick: async () => { alTocar(); pintarSel(); await pintarPartes(); await pintarDoc(); } }, texto);
-    zonaSel.replaceChildren(
+    reemplazar(zonaSel, 
       h('small', { class: 'et' }, 'Qué va en el resumen (toca para quitar o poner; ✓ = va):'),
       h('div', { class: 'chips' },
         chip('elegir-todo', 'todo', 'Todo', sel.size === fichas.length, () => fichas.forEach(f => sel.add(f.id))),

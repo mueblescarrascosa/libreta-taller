@@ -1,5 +1,5 @@
 // Una ficha: sus huecos según el tipo y, en todas, medidas libres, notas, croquis y fotos.
-import { h, segmentado, tituloFicha, vivos, icono, altoSegunTexto } from '../util.js';
+import { h, reemplazar, segmentado, tituloFicha, vivos, icono, altoSegunTexto } from '../util.js';
 import { unidadDe } from '../unidades.js';
 import { nombrarPuerta, CORTO_ELEMENTO, HUMOS_DIAMETROS, HUMOS_RECTANGULARES, islaNueva, avisos, camposDeElemento, elementoNuevo, paredNueva, puertaNueva, normalizarFicha, resumenPuerta, limpiarDatos, tieneInformacion,
   TIPOS_ELEMENTO, NOMBRE_ELEMENTO, RAPIDAS_PUERTA, USOS, nombreElemento, tiposPuertaPara, CORREDERAS, otraHoja, anchoFijo, pilarEnPunta, esquinaDe, esquinaDescuadrada } from '../modelo.js';
@@ -108,7 +108,7 @@ export async function pintarFicha(App, id) {
     const zona = h('div', { class: 'campo descuadre', 'data-acc': acc });
     const pintar = () => {
       const v = valor() || { estado: 'escuadra', sentido: null, mm: null, en: 1000 }, des = esquinaDescuadrada(v);
-      zona.replaceChildren(h('label', { class: 'et' }, titulo),
+      reemplazar(zona, h('label', { class: 'et' }, titulo),
         segmentado({ acc: 'descuadre', opciones: [['escuadra', 'A escuadra'], ['abierta', 'Abre'], ['cerrada', 'Cierra']], valor: des ? (v.sentido || 'abierta') : 'escuadra',
           alCambiar: x => {
             poner(x === 'escuadra' ? Object.assign({}, v, { estado: 'escuadra' }) : Object.assign({}, v, { estado: 'descuadrada', sentido: x, en: conEn ? (v.en ?? 1000) : null }));
@@ -210,7 +210,7 @@ export async function pintarFicha(App, id) {
         h('div', { class: 'avisos', 'data-avisos': 'puerta.' + p.id }));
     }
     function repintar() {
-      zona.replaceChildren(...d.puertas.map((p, i) => (p.id === abierta ? editor : resumen)(p, i)));
+      reemplazar(zona, ...d.puertas.map((p, i) => (p.id === abierta ? editor : resumen)(p, i)));
       refrescarAvisos();
     }
     repintarPuertas = repintar;
@@ -242,7 +242,7 @@ export async function pintarFicha(App, id) {
       const ancho = e.tipo === 'pilar' || !pared ? null : pilarEnPunta(d, pared, e.ref === 'der' ? 'der' : 'izq');
       if (ancho === null) { zona.replaceChildren(); zona.hidden = true; return; }
       zona.hidden = false;
-      zona.replaceChildren(h('label', { class: 'et' }, 'Medido desde (hay un pilar de ' + verMedida(ancho, 'cm') + ' cm en esa esquina)'),
+      reemplazar(zona, h('label', { class: 'et' }, 'Medido desde (hay un pilar de ' + verMedida(ancho, 'cm') + ' cm en esa esquina)'),
         segmentado({ acc: 'desde', opciones: [['esquina', 'Esquina'], ['pilar', 'Pilar']], valor: e.desde === 'pilar' ? 'pilar' : 'esquina',
           alCambiar: v => { if (v === 'pilar') e.desde = 'pilar'; else delete e.desde; cambio(); } }));
     };
@@ -265,7 +265,7 @@ export async function pintarFicha(App, id) {
             campoMedida({ etiqueta: 'Ancho', acc: 'rect_ancho', valor: e.rect_ancho, mal: e.mal && e.mal.rect_ancho, unidad: 'cm', alCambiar: (v, t) => { anotarMedida(e, 'rect_ancho', v, t); cambio(); } }),
             campoMedida({ etiqueta: 'Alto', acc: 'rect_alto', valor: e.rect_alto, mal: e.mal && e.mal.rect_alto, unidad: 'cm', alCambiar: (v, t) => { anotarMedida(e, 'rect_alto', v, t); cambio(); } })));
       }
-      zona.replaceChildren(...n);
+      reemplazar(zona, ...n);
     };
     pintar();
     return zona;
@@ -302,11 +302,11 @@ export async function pintarFicha(App, id) {
   function paredes(tipos) {
     const zona = h('div', {});
     const enM = () => d.paredes_m ?? App.ajustes().paredesM;
-    const repintar = () => { zona.replaceChildren(...d.paredes.map(p => pared(p, tipos, repintar, enM() ? 'm' : unidad))); refrescarAvisos(); };
+    const repintar = () => { reemplazar(zona, ...d.paredes.map(p => pared(p, tipos, repintar, enM() ? 'm' : unidad))); refrescarAvisos(); };
     repintar();
     // La altura es una para toda la habitación; lo especial (vigas, buhardillas) va en notas.
     const zonaAlto = h('div', {});
-    const pintarAlto = () => zonaAlto.replaceChildren(medida(d, 'alto_techo', 'Altura de suelo a techo', { unidad: enM() ? 'm' : unidad }),
+    const pintarAlto = () => reemplazar(zonaAlto, medida(d, 'alto_techo', 'Altura de suelo a techo', { unidad: enM() ? 'm' : unidad }),
       h('small', { class: 'ayuda' }, 'Vigas, buhardillas o techos inclinados: en una nota.'));
     pintarAlto();
     // Alzados: una pared de frente, elegida con su letra; se rehace con cada cambio, como la planta.
@@ -315,16 +315,16 @@ export async function pintarFicha(App, id) {
     function pintarAlzado() {
       const letras = d.paredes.map(p => p.letra);
       if (!letras.includes(paredAlzado)) paredAlzado = letras[0] || null;
-      botonesAlzado.replaceChildren(...letras.map(l => h('button', { type: 'button', 'data-acc': 'alzado-pared', 'data-v': l, class: l === paredAlzado ? 'on' : '',
+      reemplazar(botonesAlzado, ...letras.map(l => h('button', { type: 'button', 'data-acc': 'alzado-pared', 'data-v': l, class: l === paredAlzado ? 'on' : '',
         onclick: () => { paredAlzado = l; pintarAlzado(); } }, 'Pared ' + l)));
       const p = d.paredes.find(x => x.letra === paredAlzado), g = p ? geometriaAlzado(d, p, AJ) : null;
-      zonaAlzado.replaceChildren(...(g ? [svgAlzado(g, { unidad }), g.techoMedido ? null : h('small', { class: 'ayuda' }, 'Sin la altura del techo: dibujado con 2,50 m.'),
+      reemplazar(zonaAlzado, ...(g ? [svgAlzado(g, { unidad }), g.techoMedido ? null : h('small', { class: 'ayuda' }, 'Sin la altura del techo: dibujado con 2,50 m.'),
         h('small', { class: 'ayuda' }, 'Alturas de muebles orientativas.')].filter(Boolean)
         : [h('small', { class: 'ayuda' }, 'Pon el largo de la pared para verla de frente.')]));
     }
     // Perspectiva, de pie (ojos a 160 por defecto, se pueden cambiar); también a pantalla completa.
     const zonaPersp = h('div', { class: 'zona-perspectiva' });
-    const pintarPerspectiva = () => zonaPersp.replaceChildren(vistaInteractiva({ d, margen: AJ.margen, ajustes: AJ, alGuardar: cambio,
+    const pintarPerspectiva = () => reemplazar(zonaPersp, vistaInteractiva({ d, margen: AJ.margen, ajustes: AJ, alGuardar: cambio,
       alAmpliar: () => abrirPerspectivaGrande({ d, margen: AJ.margen, ajustes: AJ, alGuardar: cambio, alCerrar: pintarPerspectiva }) }));
     // Planta dibujada con las medidas: se rehace con cada cambio.
     const zonaPlanta = h('div', { class: 'zona-planta' });
@@ -345,7 +345,7 @@ export async function pintarFicha(App, id) {
           } }, pps.length > 1 ? 'Pasar los ' + pps.length + ' a pilar' : 'Pasar a pilar de ' + pps[0].en)));
       }
       if (g.sinSituar.length) hijos.push(h('small', { class: 'ayuda', 'data-acc': 'sin-situar' }, 'Sin situar (falta la distancia o el largo de su pared): ' + g.sinSituar.map(e => e.etiqueta + ' en ' + e.pared).join(', ') + '.'));
-      zonaPlanta.replaceChildren(...hijos);
+      reemplazar(zonaPlanta, ...hijos);
       pintarAlzado();
       if (!document.querySelector('.capa-perspectiva')) pintarPerspectiva();
     };
@@ -387,8 +387,8 @@ export async function pintarFicha(App, id) {
         // La mejor combinación posible sin tocar los electrodomésticos: se enseña al lado y se aplica si se quiere
         h('button', { type: 'button', class: 'mini', 'data-acc': 'buscar-mejor', onclick: ev => {
           const r = mejorCocina(ficha), caja = ev.currentTarget.parentElement.querySelector('.mejor-cocina');
-          if (!r || !r.cambios.length) { caja.replaceChildren(h('small', { class: 'ayuda' }, 'No encuentro nada mejor sin tocar los electrodomésticos ni alejarlos de sus tomas: está bien así.')); return; }
-          caja.replaceChildren(h('p', {}, h('b', {}, 'La mejor que encuentro: ' + r.despues.total + '/100'), ' (la tuya, ' + r.antes.total + ') · almacenaje ' + r.despues.almacenaje.nota + ' · usabilidad ' + r.despues.usabilidad.nota),
+          if (!r || !r.cambios.length) { reemplazar(caja, h('small', { class: 'ayuda' }, 'No encuentro nada mejor sin tocar los electrodomésticos ni alejarlos de sus tomas: está bien así.')); return; }
+          reemplazar(caja, h('p', {}, h('b', {}, 'La mejor que encuentro: ' + r.despues.total + '/100'), ' (la tuya, ' + r.antes.total + ') · almacenaje ' + r.despues.almacenaje.nota + ' · usabilidad ' + r.despues.usabilidad.nota),
             h('ul', { class: 'consejos' }, r.cambios.map(t => h('li', {}, t))),
             h('div', { class: 'dos' },
               h('button', { type: 'button', 'data-acc': 'aplicar-mejor', onclick: async () => {
@@ -398,7 +398,7 @@ export async function pintarFicha(App, id) {
               h('button', { type: 'button', 'data-acc': 'dejar-mia', onclick: () => caja.replaceChildren() }, 'Dejar la mía')));
         } }, 'Buscar la mejor combinación'),
         h('div', { class: 'mejor-cocina', 'data-acc': 'mejor-cocina' })) : null;
-      zonaC.replaceChildren(...[nota].filter(Boolean), c.length
+      reemplazar(zonaC, ...[nota].filter(Boolean), c.length
         ? h('div', {}, GRUPOS_CONSEJO.filter(([k]) => c.some(x => x.grupo === k)).map(([k, t]) => h('div', { class: 'grupo-consejos', 'data-grupo': k }, h('h5', {}, t),
           h('ul', { class: 'consejos' }, c.filter(x => x.grupo === k).map(x => h('li', { 'data-consejo': x.campo }, h('b', {}, x.texto), h('small', {}, x.porque)))))))
         : h('p', { class: 'ayuda' }, 'Nada que mejorar con lo que hay puesto.'));
@@ -416,9 +416,9 @@ export async function pintarFicha(App, id) {
     const zonaEl = h('div', {}), zonaPilares = h('div', { class: 'zona-pilares' }), zonaZonas = h('div', { class: 'zona-zonas' });
     const de = f => p.elementos.filter(f).map(e => elemento(e, p.elementos, repintar, p));
     function repintar() {
-      zonaPilares.replaceChildren(...de(e => e.tipo === 'pilar'));
-      zonaZonas.replaceChildren(...de(e => e.tipo === 'zona'));
-      zonaEl.replaceChildren(...de(e => e.tipo !== 'pilar' && e.tipo !== 'zona'));
+      reemplazar(zonaPilares, ...de(e => e.tipo === 'pilar'));
+      reemplazar(zonaZonas, ...de(e => e.tipo === 'zona'));
+      reemplazar(zonaEl, ...de(e => e.tipo !== 'pilar' && e.tipo !== 'zona'));
       refrescarAvisos();
     }
     repintar();
@@ -430,7 +430,7 @@ export async function pintarFicha(App, id) {
     const zonaEsquinas = h('div', { class: 'zona-esquinas' });
     const ladosEsq = () => ['izq', 'der'].map(lado => ({ lado, q: esquinaDe(d, p, lado) })).filter(x => x.q);
     let verEsquinas = ladosEsq().some(x => esquinaDescuadrada(x.q.valor));
-    const pintarEsquinas = () => zonaEsquinas.replaceChildren(...(verEsquinas ? ladosEsq().map(({ lado, q }) => editorDescuadre({
+    const pintarEsquinas = () => reemplazar(zonaEsquinas, ...(verEsquinas ? ladosEsq().map(({ lado, q }) => editorDescuadre({
       titulo: 'Esquina con ' + q.con + (lado === 'izq' ? ' (izq.)' : ' (dcha.)'), acc: 'esquina-' + lado,
       valor: () => { const x = esquinaDe(d, p, lado); return x && x.valor; }, poner: v => { const x = esquinaDe(d, p, lado); if (x) x.poner(v); }, conEn: true })) : []));
     pintarEsquinas();
@@ -457,7 +457,7 @@ export async function pintarFicha(App, id) {
           p.elementos.push(z); cambio(); repintar();
         } }, '＋ Zona azulejada (campana, fregadero…)'));
       }
-      zonaAzulejo.replaceChildren(
+      reemplazar(zonaAzulejo, 
         segmentado({ acc: 'azulejo', opciones: [['no', 'Sin'], ['toda', 'Toda'], ['franja', 'Franja'], ['zonas', 'Por zonas']], valor: p.azulejo ?? null, permitirVacio: true, alCambiar: v => { p.azulejo = v; cambio(); pintarAzulejo(); } }),
         ...extra, zonaZonas);
     };
@@ -490,7 +490,7 @@ export async function pintarFicha(App, id) {
   function enchufes() {
     const zona = h('div', {});
     const repintar = () => {
-      zona.replaceChildren(...d.enchufes.map(e => h('div', { class: 'elemento', 'data-elemento': 'enchufe' },
+      reemplazar(zona, ...d.enchufes.map(e => h('div', { class: 'elemento', 'data-elemento': 'enchufe' },
         h('div', { class: 'cab' }, h('b', {}, 'Enchufe'), h('small', {}, 'medido al centro'),
           h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-elemento', onclick: () => { if (confirmarQuitar('el enchufe')) { d.enchufes.splice(d.enchufes.indexOf(e), 1); cambio(); repintar(); } } }, 'Quitar')),
         h('div', { class: 'dos' }, medida(e, 'distancia', 'Distancia', { ref: e.ref, alCambiarRef: r => { e.ref = r; d.ref_ultima = r; cambio(); }, aviso: null }), medida(e, 'altura', 'Altura del suelo', { aviso: null })),
@@ -523,7 +523,7 @@ export async function pintarFicha(App, id) {
           x.vuelo ? h('small', { class: 'ayuda', 'data-acc': 'vuelo-personas' }, 'La encimera sale ' + verMedida(x.vuelo, 'cm') + ' cm por el lado que no da a la cocina' + (x.largo ? ': caben ' + Math.floor(x.largo / 600) + ' personas (60 cm cada una).' : '.')) : null),
         h('small', { class: 'ayuda' }, peninsula ? 'Desde la esquina de la pared hasta el lado de la península.' : 'Desde la esquina de la pared hasta el lado de la isla, a lo largo de la pared.'));
     }
-    const repintar = () => { zona.replaceChildren(...d.islas.map(tarjeta)); refrescarAvisos(); };
+    const repintar = () => { reemplazar(zona, ...d.islas.map(tarjeta)); refrescarAvisos(); };
     repintar();
     const nueva = tipo => () => { d.islas.push(islaNueva(tipo, d.paredes[0] && d.paredes[0].letra)); cambio(); repintar(); };
     return [h('h2', {}, 'Islas y penínsulas'), zona,
@@ -560,7 +560,7 @@ export async function pintarFicha(App, id) {
       function pintarCampana() {
         const x = campanasPared(p, d).find(c => (c.alto || c.placa) === m), c = centrosCampana(p, d).find(q => q.mueble === m);
         const g = geometriaAlzado(d, p), t = g && (g.tubos || []).find(q => q.mueble === m);
-        textosCampana.replaceChildren(...[x && h('small', { class: 'ayuda holguras-campana', 'data-acc': 'holguras-campana' }, textoHolgurasCampana(x)),
+        reemplazar(textosCampana, ...[x && h('small', { class: 'ayuda holguras-campana', 'data-acc': 'holguras-campana' }, textoHolgurasCampana(x)),
           c && h('small', { class: 'ayuda centro-campana', 'data-acc': 'centro-campana' }, textoCentroCampana(c) + '.'),
           t && h('small', { class: 'ayuda tubo-humos' + (t.cajear || !t.salida ? ' aviso-tubo' : ''), 'data-acc': 'tubo-humos' }, textoTubo(t)),
           m.extractor === 'recirculacion' && h('small', { class: 'ayuda', 'data-acc': 'tubo-humos' }, 'Placa extractora con recirculación: sin tubo ni salida de humos (filtros de carbón).'),
@@ -687,7 +687,7 @@ export async function pintarFicha(App, id) {
       // Arriba solo se cuadra si hay altos: las columnas solas no son una fila de altos.
       const pintarCuadre = () => { cuadre.textContent = nombre !== 'bajos' && !p[nombre].length ? '' : textoCuadre(nombre === 'bajos' ? cuadreBajos(p, d) : nombre === 'altos' ? cuadreAltos(p, d) : cuadreAltillos(p, d), 'cm'); };
       const repintar = () => {
-        zona.replaceChildren(...listaOrdenada({ lista: p[nombre], atributo: 'data-modulo', abierto: () => abiertos[nombre], alAbrir: idm => { abiertos[nombre] = idm; }, repintar,
+        reemplazar(zona, ...listaOrdenada({ lista: p[nombre], atributo: 'data-modulo', abierto: () => abiertos[nombre], alAbrir: idm => { abiertos[nombre] = idm; }, repintar,
           resumen: nombreModulo, detalle: m => (m.ancho ? ' · ' + medidasModulo(m) : ''),
           editor: m => editorModulo(m, nombre, repintar, pintarCuadre) }));
         pintarCuadre(); refrescarAvisos();
@@ -705,7 +705,7 @@ export async function pintarFicha(App, id) {
     // Cocina puente (cocinas altas): encima de los altos, otra fila de fondo 60 desde los 195 hasta el techo; las columnas, también
     if (!p.altillos) p.altillos = [];
     const zonaPuente = h('div', {});
-    const pintarPuente = () => zonaPuente.replaceChildren(...(p.puente ? [fila('altillos', 'Altos de arriba (fondo 60, de ' + verMedida(PUENTE.desde, 'cm') + ' cm hasta el techo menos ' + verMedida(PUENTE.cierre, 'cm') + ')')] : []));
+    const pintarPuente = () => reemplazar(zonaPuente, ...(p.puente ? [fila('altillos', 'Altos de arriba (fondo 60, de ' + verMedida(PUENTE.desde, 'cm') + ' cm hasta el techo menos ' + verMedida(PUENTE.cierre, 'cm') + ')')] : []));
     const puente = h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Cocina puente (altos a dos alturas)'),
       segmentado({ acc: 'puente', opciones: SI_NO, valor: !!p.puente, alCambiar: v => { p.puente = v || null; cambio(); pintarPuente(); refrescarAvisos(); refrescos.forEach(f => f()); } }));
     pintarPuente();
@@ -740,7 +740,7 @@ export async function pintarFicha(App, id) {
         c.rincon && !lados.length ? h('small', { class: 'ayuda' }, 'Esta pared no tiene otra al lado: añade la pared o dibuja la forma.') : null);
     };
     const repintar = () => {
-      zona.replaceChildren(...listaOrdenada({ lista, atributo: 'data-cuerpo', abierto: () => abierto, alAbrir: idc => { abierto = idc; }, repintar,
+      reemplazar(zona, ...listaOrdenada({ lista, atributo: 'data-cuerpo', abierto: () => abierto, alAbrir: idc => { abierto = idc; }, repintar,
         resumen: c => 'Cuerpo ' + (lista.indexOf(c) + 1) + (c.rincon ? ' · ' + textoRincon(c) : '') + (interioresDe(c).length ? ' · ' + textoInteriores(c, AJ) : '') + (c.puertas ? ' · puertas ' + (c.puertas === 'corredera' ? 'correderas' : 'abatibles') : ''),
         editor: c => [enPared ? editorRincon(c) : null,
           campoMedida({ etiqueta: c.rincon && c.rincon !== 'recto' ? 'Ancho en esta pared' : 'Ancho', acc: 'ancho', valor: c.ancho, mal: c.mal && c.mal.ancho, unidad: 'cm', rapidos: c.rincon && c.rincon !== 'recto' ? LADOS_RINCON_CUERPO : AJ.modulo_anchos, alCambiar: (v, t) => { anotarMedida(c, 'ancho', v, t); cambio(); pintarCuadre(); } }),
@@ -791,7 +791,7 @@ export async function pintarFicha(App, id) {
   function material() {
     const caja = h('div', { class: 'tarjeta material', 'data-acc': 'material' });
     const pintar = () => { const l = textoMaterial(ficha, unidad, AJ);
-      caja.replaceChildren(...(l.length ? l.map(t => h('p', { class: t.startsWith('- ') ? 'sub' : '' }, t)) : [h('p', { class: 'ayuda' }, 'Aún no hay muebles con medida.')]),
+      reemplazar(caja, ...(l.length ? l.map(t => h('p', { class: t.startsWith('- ') ? 'sub' : '' }, t)) : [h('p', { class: 'ayuda' }, 'Aún no hay muebles con medida.')]),
         h('small', { class: 'ayuda' }, 'Orientativo: sale de los muebles medidos. Lo medido y lo pedido mandan.')); };
     pintar(); refrescos.push(() => { if (caja.isConnected) pintar(); });
     return caja;
@@ -844,7 +844,7 @@ export async function pintarFicha(App, id) {
     // Remates: costados vistos, regletas y cierres a techo. Salen solos de las medidas; aquí se elige si van y de qué
     // material (como los frentes, como el casco u otro). Lo que va cuenta en los tableros y en las hojas de pedido.
     const infoRemates = h('small', { class: 'ayuda', 'data-acc': 'remates-info' });
-    const pintarRemates = () => { const t = textoRemates(d); infoRemates.textContent = t.length ? t.join(' · ') : 'Con lo medido no hace falta ningún remate.'; };
+    const pintarRemates = () => { const t = textoRemates(d); infoRemates.textContent = t.length ? t[0] + (t.length > 1 ? ': ' + t.slice(1).map(x => x.replace(/^- /, '')).join(' · ') : '') : 'Con lo medido no hace falta ningún remate.'; };
     refrescos.push(() => { if (infoRemates.isConnected) pintarRemates(); });
     const remates = () => {
       if (!d.remates) d.remates = {};
@@ -866,12 +866,12 @@ export async function pintarFicha(App, id) {
         h('small', { class: 'ayuda' }, 'Vacío: regleta de 4 cm (que abran las bisagras de 110° con el tirador) y costado de 2 cm. Ocupan su sitio en la pared.'),
         infoRemates];
     };
-    const pintarLineales = () => zonaLin.replaceChildren(...ac.lineales.map(l => h('div', { class: 'libre', 'data-lineal': l.tipo },
+    const pintarLineales = () => reemplazar(zonaLin, ...ac.lineales.map(l => h('div', { class: 'libre', 'data-lineal': l.tipo },
       l.tipo === 'otro' ? texto(l, 'nombre', 'lineal-nombre', '¿Qué lineal?') : h('span', {}, nombreLineal(l, AJ)),
       texto(l, 'modelo', 'lineal-modelo', 'Modelo o color'),
       h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-lineal', onclick: () => { if (confirmarQuitar(nombreLineal(l, AJ).toLowerCase())) { ac.lineales.splice(ac.lineales.indexOf(l), 1); cambio(); pintarLineales(); } } }, '✕'))));
     const pintar = () => {
-      caja.replaceChildren(
+      reemplazar(caja, 
         h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Bitono (altos y bajos distintos)'),
           segmentado({ acc: 'bitono', opciones: SI_NO, valor: ac.bitono, permitirVacio: true, alCambiar: v => { ac.bitono = v; cambio(); pintar(); } })),
         ...(ac.bitono
@@ -899,7 +899,7 @@ export async function pintarFicha(App, id) {
   function electro() {
     if (!d.electro) d.electro = [];
     const zona = h('div', { class: 'lista' });
-    const repintar = () => zona.replaceChildren(...d.electro.map(e => {
+    const repintar = () => reemplazar(zona, ...d.electro.map(e => {
       const [, nombre, tipos] = datosElectro(e.clave);
       return h('div', { class: 'elemento', 'data-electro': e.clave },
         h('div', { class: 'cab' }, e.clave === 'otro' ? texto(e, 'nombre', 'electro-nombre', '¿Qué es?') : h('b', {}, nombre),
@@ -959,7 +959,7 @@ export async function pintarFicha(App, id) {
   // Tapetas (tapajuntas) de la ficha de puertas: de 7, de 9 o a medida; salen en la hoja de pedido de puertas
   function campoTapetas() {
     const zona = h('div', { class: 'campo', 'data-acc': 'tapetas-campo' });
-    const pintarT = () => zona.replaceChildren(h('label', { class: 'et' }, 'Tapetas'),
+    const pintarT = () => reemplazar(zona, h('label', { class: 'et' }, 'Tapetas'),
       segmentado({ acc: 'tapetas', opciones: TAPETAS, valor: d.tapeta ?? null, permitirVacio: true, alCambiar: v => { d.tapeta = v || null; cambio(); pintarT(); } }),
       ...(d.tapeta === 'especial' ? [campoMedida({ etiqueta: 'Ancho de la tapeta', acc: 'tapeta-mm', valor: d.tapeta_mm ?? null, unidad: 'cm', alCambiar: v => { d.tapeta_mm = v; cambio(); } })] : []),
       ...(!d.tapeta ? [h('small', { class: 'ayuda' }, 'Sin contestar: en el pedido sale que falta elegirlas.')] : []));
@@ -1010,7 +1010,7 @@ export async function pintarFicha(App, id) {
   const nuevaLibre = () => { d.libres.push({ id: nuevoId(), nombre: '', mm: null }); cambio(); repintarLibres(); zonaLibres.querySelectorAll('[data-acc="libre-nombre"]')[d.libres.length - 1].focus(); };
   function repintarLibres() {
     zonaLibres.hidden = tituloLibres.hidden = !d.libres.length;
-    zonaLibres.replaceChildren(...d.libres.map(m => h('div', { class: 'libre', 'data-libre': '' },
+    reemplazar(zonaLibres, ...d.libres.map(m => h('div', { class: 'libre', 'data-libre': '' },
       h('input', { 'data-acc': 'libre-nombre', placeholder: 'Nombre', value: m.nombre, oninput: ev => { m.nombre = ev.target.value; cambio(); } }),
       campoMedida({ acc: 'libre-valor', valor: m.mm, mal: m.mal && m.mal.mm, unidad, aviso: 'libre.' + m.id, alCambiar: (v, textoMal) => { anotarMedida(m, 'mm', v, textoMal); cambio(); } }),
       h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-libre', onclick: () => { if (confirmarQuitar('la medida')) { d.libres.splice(d.libres.indexOf(m), 1); cambio(); repintarLibres(); } } }, '✕'))));
@@ -1020,7 +1020,7 @@ export async function pintarFicha(App, id) {
   const zonaNotas = h('div', { class: 'tarjeta' }), tituloNotas = h('h2', {}, 'Notas');
   function repintarNotas() {
     zonaNotas.hidden = tituloNotas.hidden = !d.notas.length;
-    zonaNotas.replaceChildren(...d.notas.map(n => h('div', { class: 'campo' },
+    reemplazar(zonaNotas, ...d.notas.map(n => h('div', { class: 'campo' },
       h('textarea', { 'data-acc': 'nota', placeholder: 'Nota', onfocus: ev => altoSegunTexto(ev.target), oninput: ev => { n.texto = ev.target.value; altoSegunTexto(ev.target); cambio(); } }, n.texto),
       h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-nota', onclick: () => { if (confirmarQuitar('la nota')) { d.notas.splice(d.notas.indexOf(n), 1); cambio(); repintarNotas(); } } }, 'Quitar nota'))));
     // Cada nota, del alto de su texto y un renglón más (cuando ya está en la pantalla, que antes no se sabe el alto).

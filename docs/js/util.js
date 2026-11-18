@@ -12,6 +12,12 @@ export function h(tag, attrs, ...hijos) {
   return e;
 }
 
+// Cambia el contenido de un elemento como h(): sin los huecos vacíos (null, undefined, false). replaceChildren del
+// navegador los escribiría como texto («null» bajo «Cara del pilar»).
+export function reemplazar(el, ...hijos) {
+  el.replaceChildren(...hijos.flat().filter(x => x !== null && x !== undefined && x !== false));
+}
+
 // Grupo de botones excluyentes. Con permitirVacio, tocar el activo lo desmarca.
 export function segmentado({ acc, opciones, valor, alCambiar, permitirVacio }) {
   const botones = opciones.map(([v, texto]) => h('button', { type: 'button', 'data-acc': acc, 'data-v': String(v), class: v === valor ? 'on' : '', onclick: () => {

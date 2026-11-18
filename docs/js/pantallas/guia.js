@@ -1,6 +1,6 @@
 // Guía de medidas para diseñar una cocina. Parte de la cocina tipo (Ajustes; por defecto zócalo 15 + mueble 70 +
 // encimera 4) y de las mismas medidas de referencia que usan los consejos de diseño (consejos.js: MEDIDAS).
-import { h } from '../util.js';
+import { h, reemplazar } from '../util.js';
 import { MEDIDAS as M } from '../consejos.js';
 
 const cm = mm => String(Math.round(mm) / 10).replace('.', ',') + ' cm';
@@ -100,7 +100,7 @@ export function pintarGuia(App, fichaId) {
   const salida = h('div', { class: 'guia-resultado', 'data-res': 'encimera' }, 'Escribe la estatura de quien más cocina.');
   function pintar() {
     const a = alturaEncimera(est.value, gas);
-    if (a === null) { salida.replaceChildren('Escribe la estatura en cm (entre 120 y 230).'); return; }
+    if (a === null) { reemplazar(salida, 'Escribe la estatura en cm (entre 120 y 230).'); return; }
     const ops = opcionesEncimera(a, 3, gola), t = Number(techo.value) > 0 ? Number(techo.value) * 10 : null;
     if (elegida >= ops.length) elegida = 0;
     const op = ops[elegida], al = altosPara(op, t);
@@ -112,7 +112,7 @@ export function pintarGuia(App, fichaId) {
       await App.cambiarAjustes({ cocina_tipo: { zocalo: op.zocalo, mueble: op.mueble, grueso: op.grueso, alto_alto: al.alto, separacion: al.separacion } });
       usar.textContent = '✓ Es tu cocina tipo'; pintarTipo();
     } }, 'Usar como mi cocina tipo');
-    salida.replaceChildren(...[
+    reemplazar(salida, ...[
       h('p', {}, 'Encimera a unos ', h('b', {}, a + ' cm'), gas ? ' (3 cm menos por la parrilla del gas).' : '.'),
       h('div', { class: 'opciones-encimera' }, tarjetas),
       h('p', { 'data-res': 'altos' }, 'Altos de ', h('b', {}, cm(al.alto)), ' desde ', cm(al.desde), ' hasta ', cm(al.hasta), ' (', cm(al.separacion), ' sobre la encimera). ',
@@ -136,7 +136,7 @@ export function pintarGuia(App, fichaId) {
   // ── La cocina tipo actual (de Ajustes) ──
   const zonaTipo = h('div');
   function pintarTipo() {
-    zonaTipo.replaceChildren(tabla(['Pieza', 'Medida', ''], [
+    reemplazar(zonaTipo, tabla(['Pieza', 'Medida', ''], [
       ['Zócalo', cm(M.zocalo), 'Lo normal, 10 o 15; de 6, solo casos especiales'],
       ['Mueble bajo', cm(M.mueble_bajo) + ' de alto', 'Puertas de 70 u 80; fondo ' + cm(M.fondo_bajo) + ' con la puerta'],
       ['Encimera', cm(M.grueso_encimera) + ' de grueso', 'Lo normal, 4 o 2 cm; de 3 o 1,2, casos especiales. Fondo ' + cm(M.fondo_encimera) + ' (vuela 2–4 cm)'],

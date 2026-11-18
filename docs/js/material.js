@@ -178,7 +178,7 @@ export function rematesCocina(d, { todos = false } = {}) {
       if (r.tope && (r.fila === 'columna' || r.fila === 'sobre')) { const menos = ALTURAS.columna - r.tope; altoRegleta -= menos; altoCostado -= menos; }
       if (r.tope && r.fila === 'altos') altoRegleta = altoCostado = r.tope - ALTURAS.altos_desde;
       if (r.tipo === 'regleta') poner('regletas', 'Regleta de ' + NOMBRE[r.fila], altoRegleta, r.ancho, p.letra, deAltos);
-      else poner('costados', 'Costado de ' + NOMBRE[r.fila] + ' (' + Math.round(r.ancho / 10) + ' cm)', altoCostado, fondo, p.letra, deAltos);
+      else poner('costados', 'Costado de ' + NOMBRE[r.fila] + ' (' + String(Math.round(r.ancho) / 10).replace('.', ',') + ' cm)', altoCostado, fondo, p.letra, deAltos);
     });
     // Cierre a techo: encima de altos y columnas, del alto que falte hasta el techo (en tiras de como mucho 2,70 m)
     // (en la cocina puente, encima de los altos de arriba y de las columnas: el cierre que se deja hasta el techo)

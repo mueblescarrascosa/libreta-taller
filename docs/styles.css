@@ -139,6 +139,8 @@ button.mini { min-height: 36px; padding: 4px 10px; font-size: 14px; }
 .vacio { color: var(--tenue); text-align: center; padding: 16px 0; }
 .seg { display: flex; gap: 0; }
 .seg button { flex: 1; border-radius: 0; margin-left: -1px; }
+/* Textos largos (Recirculación…) en el móvil: el botón encoge y la palabra se parte con guion, sin salirse */
+.seg button { min-width: 0; padding-left: 6px; padding-right: 6px; hyphens: auto; overflow-wrap: anywhere; }
 .seg button:first-child { border-radius: 8px 0 0 8px; margin-left: 0; }
 .seg button:last-child { border-radius: 0 8px 8px 0; }
 .seg button.on { background: var(--oscuro); border-color: var(--oscuro); color: #fff; }

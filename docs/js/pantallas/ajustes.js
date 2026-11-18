@@ -1,5 +1,5 @@
 // Ajustes compartidos entre dispositivos: unidades, margen de aviso y listas (botones rápidos, usos, lineales…).
-import { h, segmentado } from '../util.js';
+import { h, reemplazar, segmentado } from '../util.js';
 import { VERSION, COPYRIGHT, CREDITO } from '../config.js';
 import { bienvenida, crearEjemplo, letraGrande, GUIA } from '../ayuda.js';
 import { AJUSTES_FABRICA, claveDe } from '../modelo.js';
@@ -28,7 +28,7 @@ function listaEditable(App, k, titulo, numeros, ayuda) {
       guardar(lista.concat([[clave, t]]));
     };
     nuevo.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); anadir(); } });
-    caja.replaceChildren(
+    reemplazar(caja, 
       h('div', { class: 'cab' }, h('b', {}, titulo),
         h('button', { type: 'button', class: 'mini', 'data-acc': 'fabrica', onclick: () => guardar(JSON.parse(JSON.stringify(AJUSTES_FABRICA[k]))) }, 'Valores de fábrica')),
       ...(ayuda ? [h('small', { class: 'ayuda' }, ayuda)] : []),

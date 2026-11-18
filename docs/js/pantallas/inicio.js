@@ -1,5 +1,5 @@
 // Lista de trabajos (el último tocado arriba), notas sueltas, buscador, archivados y papelera.
-import { h, segmentado, tituloFicha, vivos } from '../util.js';
+import { h, reemplazar, segmentado, tituloFicha, vivos } from '../util.js';
 import { buscar, trabajoNuevo } from '../modelo.js';
 import { actividad, fichasDePlantilla } from '../trabajos.js';
 import { NOMBRE_ESTADO, ESTADOS } from './trabajo.js';
@@ -33,7 +33,7 @@ export async function pintarInicio(App) {
     if (filtro && !cuenta(filtro)) filtro = null;
     const chip = (k, t) => h('button', { type: 'button', 'data-acc': 'filtro-estado', 'data-v': k || 'todos', class: filtro === k ? 'on' : '',
       onclick: () => { filtro = filtro === k ? null : k; try { localStorage.setItem('med-filtro-estado', filtro || ''); } catch (e) { /* sin almacenamiento */ } pintarFiltro(); pintarLista(); } }, t);
-    zonaFiltro.replaceChildren(chip(null, 'Todos'), ...usados.map(([k, t]) => chip(k, t + ' ' + cuenta(k))));
+    reemplazar(zonaFiltro, chip(null, 'Todos'), ...usados.map(([k, t]) => chip(k, t + ' ' + cuenta(k))));
   }
   function pintarLista() {
     const r = buscar(consulta, trabajos, fichas), filas = [];
@@ -51,7 +51,7 @@ export async function pintarInicio(App) {
         (verArchivados ? 'Ocultar' : 'Ver') + ' montados (' + archivados.length + ')'));
       if (verArchivados) archivados.forEach(t => filas.push(filaTrabajo(t)));
     }
-    lista.replaceChildren(...filas);
+    reemplazar(lista, ...filas);
   }
   async function cargar() {
     trabajos = await App.almacen.todos('trabajos');
@@ -77,7 +77,7 @@ export async function pintarInicio(App) {
       const b = h('button', { type: 'button', 'data-acc': acc, 'data-v': v, onclick: () => { b.textContent = alTocar(); b.classList.toggle('on', b.textContent !== texto); } }, texto);
       return b;
     };
-    zonaForm.replaceChildren(h('form', { class: 'tarjeta', onsubmit: crear }, nombre,
+    reemplazar(zonaForm, h('form', { class: 'tarjeta', onsubmit: crear }, nombre,
       h('label', { class: 'et' }, 'Unidad'),
       segmentado({ acc: 'trabajo-unidad', opciones: [['mm', 'Milímetros'], ['cm', 'Centímetros']], valor: unidad, alCambiar: v => { unidad = v; } }),
       h('label', { class: 'et' }, 'Empezar ya con (opcional)'),

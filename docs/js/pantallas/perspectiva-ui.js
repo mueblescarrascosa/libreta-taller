@@ -1,6 +1,6 @@
 // La perspectiva con su planta pequeña: tocar en la planta dónde te pones y arrastrar hacia dónde miras;
 // deslizar sobre el dibujo para girar. Lo elegido se guarda en la ficha (d.vista, en mm) y sale igual en el resumen.
-import { h } from '../util.js';
+import { h, reemplazar } from '../util.js';
 import { escenaPerspectiva, vistaDe, vistaPorDefecto, svgPerspectiva, OJOS, INCLINACION, ALTURAS_OJOS, INCLINACIONES } from '../perspectiva.js';
 import { svgPlanta } from '../plano-vista.js';
 
@@ -13,7 +13,7 @@ export function vistaInteractiva({ d, margen, ajustes = null, alGuardar, grande 
   let vista = Object.assign({}, vistaDe(esc, d.vista));
   const zonaVista = h('div', { class: 'vista-3d', 'data-acc': 'vista-3d' });
   let pendiente = false;
-  const pintarVista = () => zonaVista.replaceChildren(svgPerspectiva(esc, vista));
+  const pintarVista = () => reemplazar(zonaVista, svgPerspectiva(esc, vista));
   const pronto = () => { if (pendiente) return; pendiente = true; requestAnimationFrame(() => { pendiente = false; pintarVista(); pintarMarca(); }); };
   const guardar = () => {
     d.vista = { x: Math.round(vista.x), y: Math.round(vista.y), ang: Math.round(vista.ang * 10) / 10 };
@@ -35,7 +35,7 @@ export function vistaInteractiva({ d, margen, ajustes = null, alGuardar, grande 
   planta.append(marca);
   function pintarMarca() {
     const x = vista.x / esc.k, y = vista.y / esc.k, a = vista.ang * Math.PI / 180, L = s * 5, ab = Math.PI / 4;
-    marca.replaceChildren(
+    reemplazar(marca, 
       svgEl('polygon', { points: [[x, y], [x + L * Math.cos(a - ab), y + L * Math.sin(a - ab)], [x + L * Math.cos(a + ab), y + L * Math.sin(a + ab)]].map(p => p.join(',')).join(' '), fill: 'rgba(220,38,38,.22)', stroke: '#dc2626', 'stroke-width': s * 0.15 }),
       svgEl('circle', { cx: x, cy: y, r: s * 0.7, fill: '#dc2626' }));
   }

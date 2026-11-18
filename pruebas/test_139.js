@@ -5,6 +5,8 @@ import { fichaNueva, paredNueva } from '../docs/js/modelo.js';
 import { moduloNuevo, situarMuebles, MICRO_INTEGRABLE, electrosDeMuebles } from '../docs/js/modulos.js';
 import { articulo, articuloPuente } from '../docs/js/presupuesto.js';
 import { geometriaPlanta } from '../docs/js/plano-vista.js';
+import { abrir, entrar, crearTrabajo } from './arnes.js';
+import { rematesCocina } from '../docs/js/material.js';
 
 const mod = (tipo, ancho, x = {}) => Object.assign(moduloNuevo(tipo), { ancho }, x);
 const pared = (letra, largo, bajos) => Object.assign(paredNueva([]), { letra, largo, elementos: [], bajos, altos: [] });
@@ -36,5 +38,23 @@ prueba('microondas integrable: 60 × 38', () => {
   const d = { paredes: [pared('A', 3000, [mod('columna_hmo', 600)])] };
   igual(electrosDeMuebles(d).get('microondas'), { tipo: 'integrable', ancho: MICRO_INTEGRABLE.ancho, alto: MICRO_INTEGRABLE.alto });
 });
+
+prueba('costado de 1,6: su grueso de verdad en el material', () => {
+  const p = pared('A', 3000, [mod('bajo', 600)]);
+  const r = rematesCocina({ paredes: [p], remates: { costado_mm: 16 } }).filter(x => x.tipo === 'costados');
+  afirma(r.length && r.every(x => /\(1,6 cm\)/.test(x.pieza)), JSON.stringify(r.map(x => x.pieza)));
+});
+
+const con = fn => async () => { const a = await abrir({ ancho: 390, tactil: true }); try { await entrar(a); await fn(a); igual(a.errores, [], 'errores de página'); } finally { await a.cerrar(); } };
+prueba('app: el pilar no escribe «null» y nada se sale a 390 px', con(async a => {
+  await crearTrabajo(a, 'Casa');
+  await a.page.click('[data-acc="tipo"][data-v="cocina"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');
+  await a.page.click('[data-acc="anadir-pared"]');
+  await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="pilar"]');
+  await a.page.click('[data-pared="A"] [data-acc="anadir-elemento"][data-v="humos"]');
+  const t = await a.page.$eval('[data-pantalla="ficha"]', n => n.textContent);
+  afirma(!/null|undefined/.test(t), 'texto con null/undefined');
+  afirma(await a.page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), 'scroll lateral');
+}));
 
 await fin();
