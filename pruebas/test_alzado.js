@@ -4,6 +4,9 @@ import { moduloNuevo } from '../docs/js/modulos.js';
 import { geometriaAlzado, ALTURAS } from '../docs/js/alzado.js';
 import { abrir, entrar, crearTrabajo } from './arnes.js';
 
+import { REMATES } from '../docs/js/modulos.js';
+REMATES.porDefecto = false;   // pensada antes de 1.34: sin regletas ni costados en la medida
+
 const mod = (tipo, ancho) => Object.assign(moduloNuevo(tipo), { ancho });
 function cocina() {
   const f = fichaNueva('cocina', null, 't');

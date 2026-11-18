@@ -15,7 +15,8 @@ import { huella } from '../sincro.js';
 import { geometriaPlanta, svgPlanta, aplicarPlano, pilarEnParedes, pilaresEnParedes, pasarAPilar } from '../plano-vista.js';
 import { abrirPlano } from '../plano-editor.js';
 import { geometriaAlzado, svgAlzado, campanasPared, textoHolgurasCampana, centrosCampana, textoCentroCampana, anchoPlaca, anchoCampana, textoTubo, fijarCocinaTipo, alturasCocina, CAMPOS_ALTURA } from '../alzado.js';
-import { puntuarCocina } from '../puntuacion.js';
+import { puntuarCocina, mejorCocina } from '../puntuacion.js';
+import { TAPETAS } from '../pedido.js';
 import { airePlaca, textoAirePlaca } from '../consejos.js';
 import { vistaInteractiva, abrirPerspectivaGrande } from './perspectiva-ui.js';
 import { consejosDiseno, GRUPOS as GRUPOS_CONSEJO } from '../consejos.js';
@@ -380,7 +381,21 @@ export async function pintarFicha(App, id) {
       const nota = pu ? h('div', { class: 'puntuacion', 'data-acc': 'puntuacion' },
         h('p', {}, h('b', {}, 'Puntuación: ' + pu.total + '/100'), ' · almacenaje ' + pu.almacenaje.nota + ' · usabilidad ' + pu.usabilidad.nota),
         pu.almacenaje.detalle.length ? h('small', { class: 'ayuda' }, pu.almacenaje.detalle.join(', ')) : null,
-        ...pu.almacenaje.mejoras.map(m => h('small', { class: 'ayuda' }, '↑ ' + m))) : null;
+        ...pu.almacenaje.mejoras.map(m => h('small', { class: 'ayuda' }, '↑ ' + m)),
+        // La mejor combinación posible sin tocar los electrodomésticos: se enseña al lado y se aplica si se quiere
+        h('button', { type: 'button', class: 'mini', 'data-acc': 'buscar-mejor', onclick: ev => {
+          const r = mejorCocina(ficha), caja = ev.currentTarget.parentElement.querySelector('.mejor-cocina');
+          if (!r || !r.cambios.length) { caja.replaceChildren(h('small', { class: 'ayuda' }, 'No encuentro nada mejor sin tocar los electrodomésticos: está bien así.')); return; }
+          caja.replaceChildren(h('p', {}, h('b', {}, 'La mejor que encuentro: ' + r.despues.total + '/100'), ' (la tuya, ' + r.antes.total + ') · almacenaje ' + r.despues.almacenaje.nota + ' · usabilidad ' + r.despues.usabilidad.nota),
+            h('ul', { class: 'consejos' }, r.cambios.map(t => h('li', {}, t))),
+            h('div', { class: 'dos' },
+              h('button', { type: 'button', 'data-acc': 'aplicar-mejor', onclick: async () => {
+                if (!confirm('¿Cambiar los muebles de la cocina por esta combinación? Los electrodomésticos se quedan donde están.')) return;
+                d.paredes = r.ficha.datos.paredes; cambio(); await guardarYa(); window.dispatchEvent(new HashChangeEvent('hashchange'));
+              } }, 'Aplicarla'),
+              h('button', { type: 'button', 'data-acc': 'dejar-mia', onclick: () => caja.replaceChildren() }, 'Dejar la mía')));
+        } }, 'Buscar la mejor combinación'),
+        h('div', { class: 'mejor-cocina', 'data-acc': 'mejor-cocina' })) : null;
       zonaC.replaceChildren(...[nota].filter(Boolean), c.length
         ? h('div', {}, GRUPOS_CONSEJO.filter(([k]) => c.some(x => x.grupo === k)).map(([k, t]) => h('div', { class: 'grupo-consejos', 'data-grupo': k }, h('h5', {}, t),
           h('ul', { class: 'consejos' }, c.filter(x => x.grupo === k).map(x => h('li', { 'data-consejo': x.campo }, h('b', {}, x.texto), h('small', {}, x.porque)))))))
@@ -614,7 +629,7 @@ export async function pintarFicha(App, id) {
     function fila(nombre, titulo) {
       const zona = h('div', { class: 'modulos' }), cuadre = h('small', { class: 'cuadre', 'data-acc': 'cuadre-' + nombre });
       // Arriba solo se cuadra si hay altos: las columnas solas no son una fila de altos.
-      const pintarCuadre = () => { cuadre.textContent = nombre === 'altos' && !p.altos.length ? '' : textoCuadre(nombre === 'bajos' ? cuadreBajos(p, d) : cuadreAltos(p), 'cm'); };
+      const pintarCuadre = () => { cuadre.textContent = nombre === 'altos' && !p.altos.length ? '' : textoCuadre(nombre === 'bajos' ? cuadreBajos(p, d) : cuadreAltos(p, d), 'cm'); };
       const repintar = () => {
         zona.replaceChildren(...listaOrdenada({ lista: p[nombre], atributo: 'data-modulo', abierto: () => abiertos[nombre], alAbrir: idm => { abiertos[nombre] = idm; }, repintar,
           resumen: nombreModulo, detalle: m => (m.ancho ? ' · ' + medidasModulo(m) : ''),
@@ -757,6 +772,10 @@ export async function pintarFicha(App, id) {
             op.usar ? segmentado({ acc: 'remate-material', opciones: MATERIALES_REMATE, valor: op.material, alCambiar: v => { o().material = v; cambio(); pintar(); } }) : null,
             op.usar && op.material === 'otro' ? texto(o(), 'otro', 'remate-otro', '¿Qué material? (p. ej. DM lacado, roble…)') : null);
         }),
+        h('div', { class: 'dos' },
+          campoMedida({ etiqueta: 'Regleta a la pared (mín.)', acc: 'remate-regleta', valor: d.remates.regleta_mm ?? null, unidad: 'cm', rapidos: [30, 40, 50], alCambiar: v => { if (v > 0) d.remates.regleta_mm = v; else delete d.remates.regleta_mm; cambio(); } }),
+          campoMedida({ etiqueta: 'Grueso del costado', acc: 'remate-costado', valor: d.remates.costado_mm ?? null, unidad: 'cm', rapidos: [16, 19, 20], alCambiar: v => { if (v > 0) d.remates.costado_mm = v; else delete d.remates.costado_mm; cambio(); } })),
+        h('small', { class: 'ayuda' }, 'Vacío: regleta de 4 cm (que abran las bisagras de 110° con el tirador) y costado de 2 cm. Ocupan su sitio en la pared.'),
         infoRemates];
     };
     const pintarLineales = () => zonaLin.replaceChildren(...ac.lineales.map(l => h('div', { class: 'libre', 'data-lineal': l.tipo },
@@ -843,13 +862,25 @@ export async function pintarFicha(App, id) {
     document.body.append(capa);
   }
 
+  // Tapetas (tapajuntas) de la ficha de puertas: de 7, de 9 o a medida; salen en la hoja de pedido de puertas
+  function campoTapetas() {
+    const zona = h('div', { class: 'campo', 'data-acc': 'tapetas-campo' });
+    const pintarT = () => zona.replaceChildren(h('label', { class: 'et' }, 'Tapetas'),
+      segmentado({ acc: 'tapetas', opciones: TAPETAS, valor: d.tapeta ?? null, permitirVacio: true, alCambiar: v => { d.tapeta = v || null; cambio(); pintarT(); } }),
+      ...(d.tapeta === 'especial' ? [campoMedida({ etiqueta: 'Ancho de la tapeta', acc: 'tapeta-mm', valor: d.tapeta_mm ?? null, unidad: 'cm', alCambiar: v => { d.tapeta_mm = v; cambio(); } })] : []),
+      ...(!d.tapeta ? [h('small', { class: 'ayuda' }, 'Sin contestar: en el pedido sale que falta elegirlas.')] : []));
+    pintarT();
+    return zona;
+  }
   function propios() {
     if (ficha.tipo === 'puerta') return [h('div', { class: 'tarjeta' }, h('b', {}, 'Para todas las puertas'),
       // Se suele medir el premarco; si aún no está puesto, la puerta.
       h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Se mide'),
         segmentado({ acc: 'medida-de', opciones: [['premarco', 'Premarco'], ['puerta', 'Puerta']], valor: d.medida === 'premarco' ? 'premarco' : 'puerta',
           alCambiar: v => { d.medida = v; cambio(); repintarPuertas(); } })),
-      h('div', { class: 'dos' }, texto(d, 'modelo', 'puertas-modelo', 'Modelo'), texto(d, 'color', 'puertas-color', 'Color'))), ...puertas()];
+      h('div', { class: 'dos' }, texto(d, 'modelo', 'puertas-modelo', 'Modelo'), texto(d, 'color', 'puertas-color', 'Color')),
+      // Tapetas (tapajuntas): de 7, de 9 o a medida; salen en la hoja de pedido de puertas
+      campoTapetas()), ...puertas()];
     if (ficha.tipo === 'cocina') return [...paredes(TIPOS_ELEMENTO.cocina), ...islas(), plegable('acabados', 'Acabados', acabados(), resumenAcabados), plegable('electro', 'Electrodomésticos', electro(), resumenElectro), plegable('material', 'Material', material(), resumenMaterial)];
     if (ficha.tipo === 'armario') {
       // El vestidor se mide por paredes: el hueco y la lista general de cuerpos solo se ven si ya tenía datos de antes.

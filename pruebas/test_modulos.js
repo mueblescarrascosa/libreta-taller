@@ -3,6 +3,9 @@ import { TIPOS_MODULO, moduloNuevo, nombreModulo, cuadreBajos, cuadreAltos, cuad
 import { fichaNueva, avisos, tieneInformacion, AJUSTES_FABRICA } from '../docs/js/modelo.js';
 import { geometriaPlanta } from '../docs/js/plano-vista.js';
 
+import { REMATES } from '../docs/js/modulos.js';
+REMATES.porDefecto = false;   // pensada antes de 1.34: sin regletas ni costados en la medida
+
 const mod = (tipo, ancho, o) => Object.assign(moduloNuevo(tipo), { ancho }, o);
 const cerca = (a, b) => Math.abs(a - b) <= 0.5;
 

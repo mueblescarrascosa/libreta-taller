@@ -8,6 +8,9 @@ import { mezclarAjustes } from '../docs/js/modelo.js';
 import { ALTURAS, fijarCocinaTipo } from '../docs/js/alzado.js';
 import { abrir, entrar, crearTrabajo } from './arnes.js';
 
+import { REMATES } from '../docs/js/modulos.js';
+REMATES.porDefecto = false;   // pensada antes de 1.34: sin regletas ni costados en la medida
+
 const mod = (tipo, ancho, o) => Object.assign(moduloNuevo(tipo), { ancho }, o);
 const pared = (letra, largo, extra = {}) => Object.assign(paredNueva([]), { letra, largo, elementos: [], bajos: [], altos: [] }, extra);
 const textos = f => consejosDiseno(f).map(c => c.texto);

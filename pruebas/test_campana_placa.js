@@ -8,6 +8,9 @@ import { campanasPared, placasPared, centrosCampana, textoCentroCampana, anchoPl
 import { textoResumen } from '../docs/js/resumen.js';
 import { abrir, entrar, crearTrabajo } from './arnes.js';
 
+import { REMATES } from '../docs/js/modulos.js';
+REMATES.porDefecto = false;   // pensada antes de 1.34: sin regletas ni costados en la medida
+
 const mod = (tipo, ancho, x) => Object.assign(moduloNuevo(tipo), { ancho }, x || {});
 const cocina = (paredes, cerrada = false) => { const f = fichaNueva('cocina', null, 't'); f.datos.paredes = paredes; if (cerrada) f.datos.plano = { cerrada: true }; return f; };
 const pared = (letra, largo, x) => Object.assign(paredNueva([]), { letra, largo, elementos: [], bajos: [], altos: [] }, x);

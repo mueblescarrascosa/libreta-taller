@@ -145,12 +145,16 @@ const resto = (largo, s) => (hay(largo) ? largo - s : null);
 // Lo que ocupan los bajos en una pared (con lo que entran los rinconeros de las de al lado) y lo que queda (negativo: se pasa).
 // Si la fila toca un pilar (de la pared o de la de al lado, en esa esquina), lo dice: hay que cajear, y el cuadre es hasta la pared siguiente.
 export function cuadreBajos(p, datos) {
-  const e = rinconerosQueEntran(datos, p), s = suma(p.bajos) + e.izq + e.der, c = { suma: s, resto: resto(p.largo, s) };
+  const sit = situarMuebles(p, datos), fijos = sit.remates.filter(r => r.fila !== 'altos' && !(r.desde >= (sit.bajos.length ? sit.bajos[sit.bajos.length - 1].hasta : 0) - 1)).reduce((a, r) => a + r.ancho, 0);
+  const e = rinconerosQueEntran(datos, p), s = suma(p.bajos) + e.izq + e.der + fijos, c = { suma: s, resto: resto(p.largo, s) }, rg = medidasRemates(datos).regleta;
+  if (fijos) c.remates = fijos;
+  if (rg) c.regleta = rg;
   const L = p.largo, ocupa = [];
   if (e.izq + suma(p.bajos) > 0) ocupa.push([0, e.izq + suma(p.bajos)]);
   if (e.der && hay(L)) ocupa.push([L - e.der, L]);
-  const choca = tramosPilar(datos, p).some(([a, b]) => ocupa.some(([x, y]) => x < b - 1 && a < y - 1));
-  if (choca) { const v = paredesVecinas(datos, p).der; Object.assign(c, { choca: true, hasta: v ? v.letra : null }); }
+  // Si un mueble choca con un pilar se cajea, siempre con 1 cm de holgura en ancho y en fondo
+  const pilar = tramosPilar(datos, p).find(([a, b]) => ocupa.some(([x, y]) => x < b - 1 && a < y - 1));
+  if (pilar) { const v = paredesVecinas(datos, p).der; Object.assign(c, { choca: true, hasta: v ? v.letra : null, cajeado: { ancho: pilar[1] - pilar[0] + HOLGURA_PILAR, fondo: hay(pilar[2]) ? pilar[2] + HOLGURA_PILAR : null } }); }
   return c;
 }
 // Lo que ocupan los pilares a lo largo de una pared (mm desde la izquierda): los suyos y lo que sobresalen los de las
@@ -160,30 +164,75 @@ function tramosPilar(datos, p) {
   const L = p.largo, r = [], pilares = q => (q.elementos || []).filter(x => x.tipo === 'pilar' && hay(x.distancia) && hay(x.ancho));
   pilares(p).forEach(x => {
     const a = x.ref === 'der' ? (hay(L) ? L - x.distancia - x.ancho : null) : x.distancia;
-    if (a !== null) r.push([a, a + x.ancho]);
+    if (a !== null) r.push([a, a + x.ancho, hay(x.fondo) ? x.fondo : null]);
   });
   const enPunta = (q, lado) => pilares(q).find(x => hay(x.fondo) && ((x.ref === 'der') === (lado === 'der') ? x.distancia <= PEGADO : hay(q.largo) && q.largo - x.distancia - x.ancho <= PEGADO));
   const v = paredesVecinas(datos, p);
   const pi = v.izq && v.izq !== p && enPunta(v.izq, 'der'), pd = v.der && v.der !== p && enPunta(v.der, 'izq');
-  if (pi) r.push([0, pi.fondo]);
-  if (pd && hay(L)) r.push([L - pd.fondo, L]);
+  if (pi) r.push([0, pi.fondo, hay(pi.ancho) ? pi.ancho : null]);
+  if (pd && hay(L)) r.push([L - pd.fondo, L, hay(pd.ancho) ? pd.ancho : null]);
   return r;
 }
 // Arriba ocupan los altos y también las columnas de abajo, que llegan hasta arriba. El alto sobre frigo va encima de su columna: no suma.
-export function cuadreAltos(p) { const s = suma((p.altos || []).filter(m => m.tipo !== 'alto_frigo')) + suma((p.bajos || []).filter(esColumna)); return { suma: s, resto: resto(p.largo, s) }; }
+export function cuadreAltos(p, datos) {
+  const sit = situarMuebles(p, datos || {}), fin = sit.altos.length ? sit.altos[sit.altos.length - 1].hasta : 0;
+  // Arriba también ocupan las regletas y costados de las columnas (llegan hasta arriba)
+  const fin2 = Math.max(fin, ...sit.bajos.filter(b => esColumna(b.m)).map(b => b.hasta));
+  const fijos = sit.remates.filter(r => (r.fila === 'altos' || r.fila === 'columna') && r.desde < fin2 - 1).reduce((a, r) => a + r.ancho, 0);
+  const s = suma((p.altos || []).filter(m => m.tipo !== 'alto_frigo')) + suma((p.bajos || []).filter(esColumna)) + fijos;
+  const c = { suma: s, resto: resto(p.largo, s) }, rg = medidasRemates(datos || {}).regleta;
+  if (fijos) c.remates = fijos;
+  if (rg) c.regleta = rg;
+  return c;
+}
+
+// ── Remates en la medida ──
+// Regleta contra la pared (mínimo 4 cm: que abran bien las bisagras de 110° con el tirador) y costado de 2 cm en cada
+// extremo libre (sin mueble al lado ni pared) y en las columnas que quedan junto a un bajo (por encima de la encimera se
+// ve su lado). Ocupan su sitio: los muebles se colocan contándolos. Se quitan o cambian en «Acabados → Remates».
+export const REGLETA_PARED = 40, GRUESO_COSTADO = 20, REGLETA_HASTA = 150, HOLGURA_PILAR = 10;
+// porDefecto: las pruebas anteriores a 1.34 (pensadas sin remates en la medida) lo apagan; en la app siempre está.
+export const REMATES = { porDefecto: true };
+export function medidasRemates(datos) {
+  const r = (datos && datos.remates) || {}, usa = k => (r[k] && typeof r[k].usar === 'boolean' ? r[k].usar : REMATES.porDefecto);
+  return { regleta: usa('regletas') ? (r.regleta_mm > 0 ? r.regleta_mm : REGLETA_PARED) : 0, costado: usa('costados') ? (r.costado_mm > 0 ? r.costado_mm : GRUESO_COSTADO) : 0 };
+}
 
 // Dónde va cada mueble a lo largo de la pared (mm desde la izquierda). Los bajos, seguidos desde lo que ocupe un rinconero
-// de la pared anterior; los altos, seguidos pero saltando las columnas, salvo el alto sobre frigo, que va encima de la suya.
+// de la pared anterior (o desde la regleta de la pared); los altos, seguidos pero saltando las columnas, salvo el alto
+// sobre frigo, que va encima de la suya. remates: las regletas y costados con su sitio ({ tipo, fila, desde, hasta }).
 export function situarMuebles(p, datos) {
-  const e = rinconerosQueEntran(datos, p), bajos = [], altos = [], columnas = [];
+  const e = rinconerosQueEntran(datos, p), bajos = [], altos = [], columnas = [], remates = [], R = medidasRemates(datos);
+  const L = hay(p.largo) ? p.largo : null, lista = (p.bajos || []).filter(m => hay(m.ancho)), filaDe = m => (esColumna(m) ? 'columna' : 'bajos');
+  const poner = (tipo, fila, desde, ancho) => { if (ancho > 0) remates.push({ tipo, fila, desde, hasta: desde + ancho, ancho }); };
   let s = e.izq;
-  for (const m of p.bajos || []) {
-    if (!hay(m.ancho)) break;
+  // Regleta a la pared de la izquierda (no si entra un rinconero de la pared de al lado ni si empieza con el rinconero)
+  if (lista.length && !e.izq && R.regleta && lista[0].tipo !== 'rinconero') { poner('regleta', filaDe(lista[0]), s, R.regleta); s += R.regleta; }
+  const inicio = s;
+  lista.forEach((m, i) => {
+    // Costado entre una columna y un bajo: del lado de la columna que se ve sobre la encimera
+    const ant = lista[i - 1];
+    // (el costado llega hasta arriba: los altos de al lado empiezan después de él)
+    let antes = 0;
+    if (ant && R.costado && esColumna(m) !== esColumna(ant) && ant.tipo !== 'hueco' && m.tipo !== 'hueco') {
+      poner('costado', 'columna', s, R.costado); s += R.costado;
+      if (esColumna(ant) && columnas.length) columnas[columnas.length - 1].ocupaHasta += R.costado; else antes = R.costado;
+    }
     bajos.push({ m, desde: s, hasta: s + m.ancho });
-    if (esColumna(m)) columnas.push({ m, desde: s, hasta: s + m.ancho, usada: false });
+    if (esColumna(m)) columnas.push({ m, desde: s, hasta: s + m.ancho, usada: false, ocupaDesde: s - antes, ocupaHasta: s + m.ancho });
     s += m.ancho;
+  });
+  // Al final: si llega a la pared (sobran hasta 15 cm), regleta con lo que quede; si no, costado del último mueble
+  const ultimo = lista[lista.length - 1];
+  if (ultimo && L !== null && ultimo.tipo !== 'rinconero' && ultimo.tipo !== 'hueco') {
+    const queda = L - e.der - s;
+    if (queda > 0 && queda <= REGLETA_HASTA && R.regleta) poner('regleta', filaDe(ultimo), s, queda);
+    else if (queda > REGLETA_HASTA && R.costado) poner('costado', filaDe(ultimo), s, R.costado);
   }
+  // Altos: también con su regleta a la pared si no empieza una columna en ese lado
   s = 0;
+  const conAltos = (p.altos || []).some(m => hay(m.ancho));
+  if (conAltos && R.regleta && !columnas.some(c => c.desde <= inicio)) { poner('regleta', 'altos', 0, R.regleta); s = R.regleta; }
   for (const m of p.altos || []) {
     if (!hay(m.ancho)) break;
     if (m.tipo === 'alto_frigo') {
@@ -191,11 +240,17 @@ export function situarMuebles(p, datos) {
       if (c) { c.usada = true; altos.push({ m, desde: c.desde, hasta: c.desde + m.ancho }); s = Math.max(s, c.desde + m.ancho); continue; }
     }
     let choca;
-    while ((choca = columnas.find(c => s < c.hasta && s + m.ancho > c.desde))) s = choca.hasta;
+    while ((choca = columnas.find(c => s < c.ocupaHasta && s + m.ancho > c.ocupaDesde))) s = choca.ocupaHasta;
     altos.push({ m, desde: s, hasta: s + m.ancho });
     s += m.ancho;
   }
-  return { bajos, altos, entran: e };
+  const finAlto = altos.length ? altos[altos.length - 1].hasta : 0, columnaDetras = columnas.some(c => c.ocupaDesde >= finAlto - 1);
+  if (altos.length && L !== null && !columnaDetras) {
+    const queda = L - finAlto;
+    if (queda > 0 && queda <= REGLETA_HASTA && R.regleta) poner('regleta', 'altos', finAlto, queda);
+    else if (queda > REGLETA_HASTA && R.costado) poner('costado', 'altos', finAlto, R.costado);
+  }
+  return { bajos, altos, entran: e, remates };
 }
 // Cuerpos de armario contra el hueco más estrecho de los medidos.
 export function cuadreCuerpos(d) {
@@ -248,10 +303,14 @@ export function textoCuadre(c, unidad) {
   if (c.choca) {
     const con = c.hasta ? ' la pared ' + c.hasta : '';
     const t = c.resto === 0 ? 'cuadra justo' + (con ? ' con' + con : '') : c.resto > 0 ? 'te falta ' + n(c.resto) + (con ? ' para' + con : '') : 'te pasas ' + n(c.resto) + (con ? ' de' + con : '');
-    return 'Choca con el pilar (cajear) · ' + t;
+    const cj = c.cajeado ? ': cajear ' + n(c.cajeado.ancho) + (hay(c.cajeado.fondo) ? ' × ' + n(c.cajeado.fondo) + ' de fondo' : '') + ' (con 1 cm de holgura)' : ' (cajear)';
+    return 'Choca con el pilar' + cj + ' · ' + t;
   }
-  if (c.resto === 0) return 'Cuadra justo';
-  return c.resto > 0 ? 'Quedan ' + n(c.resto) : 'Te pasas ' + n(c.resto);
+  const inc = c.remates ? ' (con ' + n(c.remates) + ' de regleta y costados)' : '';
+  if (c.resto === 0) return 'Cuadra justo' + inc + (c.regleta ? ' · ⚠ falta la regleta a la pared (' + n(c.regleta) + ')' : '');
+  if (c.resto < 0) return 'Te pasas ' + n(c.resto) + inc;
+  if (c.regleta && c.resto <= REGLETA_HASTA) return 'Quedan ' + n(c.resto) + ': regleta a la pared' + (c.resto < c.regleta ? ' · ⚠ corta: mejor ' + n(c.regleta) + ' para que abran bien las puertas' : '') + inc;
+  return 'Quedan ' + n(c.resto) + inc;
 }
 
 // Avisos: pasarse del largo de la pared o del hueco. Quedarse corto no es aviso (se enseña como «quedan»).
@@ -261,7 +320,7 @@ export function avisosModulos(ficha, unidad) {
   };
   (d.paredes || []).forEach(p => {
     pasa('pared.' + p.id, 'Bajos de la pared ' + p.letra, cuadreBajos(p, d));
-    pasa('pared.' + p.id, 'Altos de la pared ' + p.letra, cuadreAltos(p));
+    pasa('pared.' + p.id, 'Altos de la pared ' + p.letra, cuadreAltos(p, d));
     pasa('pared.' + p.id, 'Cuerpos de la pared ' + p.letra, cuadreCuerposPared(p, d));
     (p.cuerpos || []).forEach((c, i) => avisoPantalonero(l, 'pared.' + p.id, 'Cuerpo ' + (i + 1) + ' de la pared ' + p.letra, c, unidad));
   });

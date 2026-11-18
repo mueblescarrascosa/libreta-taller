@@ -3,6 +3,9 @@ import { textoResumen, bloquesResumen } from '../docs/js/resumen.js';
 import { fichaNueva, trabajoNuevo, elementoNuevo, AJUSTES_FABRICA } from '../docs/js/modelo.js';
 import { moduloNuevo } from '../docs/js/modulos.js';
 
+import { REMATES } from '../docs/js/modulos.js';
+REMATES.porDefecto = false;   // pensada antes de 1.34: sin regletas ni costados en la medida
+
 const trabajo = Object.assign(trabajoNuevo('Reforma Sol', 'cm'), { cliente: 'Juan', direccion: 'C/ Sol 1' });
 
 prueba('texto de puertas: cabecera, modelo y una línea por puerta', () => {

@@ -126,6 +126,8 @@ export async function abrir(op = {}) {
     return route.fulfill({ status: 404, headers: CORS, body: '' });
   });
   await page.goto(base + '/index.html');
+  // Las pruebas de antes de 1.34 cuentan sin regletas ni costados en la medida; las que los prueban piden { conRemates: true }
+  if (!op.conRemates) await page.evaluate(async () => { (await import('./js/modulos.js')).REMATES.porDefecto = false; });
   return { page, ctx, base, nube, errores, estado, cerrar: async () => { await browser.close(); srv.close(); } };
 }
 

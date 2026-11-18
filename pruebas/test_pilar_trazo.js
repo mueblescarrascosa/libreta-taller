@@ -5,6 +5,9 @@ import { cuadreBajos, textoCuadre, moduloNuevo } from '../docs/js/modulos.js';
 import { elementoNuevo } from '../docs/js/modelo.js';
 import { fichaNueva } from '../docs/js/modelo.js';
 
+import { REMATES } from '../docs/js/modulos.js';
+REMATES.porDefecto = false;   // pensada antes de 1.34: sin regletas ni costados en la medida
+
 function azar(semilla) { let s = semilla >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 function trazo(vertices, { temblor = 0.01, semilla = 1, paso = 4 } = {}) {
   const r = azar(semilla), vs = vertices.concat([vertices[0]]), pts = [];
@@ -84,9 +87,9 @@ prueba('pasar a pilar: A y la de al lado llegan a la esquina, el pilar va en A y
   igual(n.paredes[1].elementos[0].desde, 'pilar', 'el enchufe se midió desde la cara del pilar');
   igual(n.plano.vertices.length, 4); igual(pilarEnParedes(n), null);
   const c = cuadreBajos(n.paredes[0], n);
-  igual(textoCuadre(c, 'cm'), 'Choca con el pilar (cajear) · te pasas 2 cm de la pared B');
+  igual(textoCuadre(c, 'cm'), 'Choca con el pilar: cajear 51 cm × 41 cm de fondo (con 1 cm de holgura) · te pasas 2 cm de la pared B');
   n.paredes[0].bajos[0].ancho = 2990;
-  igual(textoCuadre(cuadreBajos(n.paredes[0], n), 'cm'), 'Choca con el pilar (cajear) · te falta 1 cm para la pared B');
+  igual(textoCuadre(cuadreBajos(n.paredes[0], n), 'cm'), 'Choca con el pilar: cajear 51 cm × 41 cm de fondo (con 1 cm de holgura) · te falta 1 cm para la pared B');
   afirma(/Choca con el pilar/.test(textoCuadre(cuadreBajos(n.paredes[1], n), 'cm')) || !n.paredes[1].bajos.length, 'la de al lado sin bajos no dice nada');
 });
 prueba('sin pilar el cuadre sigue igual', () => {

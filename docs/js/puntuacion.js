@@ -2,7 +2,7 @@
 // Almacenaje: «metros útiles» de cada mueble (un metro de cajones guarda más que uno de puertas; una despensa, mucho más),
 // repartidos entre los metros de cocina. Usabilidad: parte de 100 y resta por cada consejo de diseño de placa, agua,
 // frío, encimera y pasos (lo que funcionaría mal al usarla). Es orientativa: sirve para comparar propuestas.
-import { situarMuebles, esColumna } from './modulos.js';
+import { situarMuebles, esColumna, cuadreAltos, moduloNuevo, nombreModulo } from './modulos.js';
 import { consejosDiseno } from './consejos.js';
 import { varianteDe } from './frentes.js';
 
@@ -76,4 +76,49 @@ export function textoPuntuacion(p) {
   if (p.usabilidad.detalle.length) l.push('- A mejorar en el uso: ' + p.usabilidad.detalle.slice(0, 5).join('; '));
   else l.push('- Uso: sin nada que mejorar con lo que hay puesto');
   return l;
+}
+
+// ── La mejor combinación posible, respetando los electrodomésticos ──
+// Prueba, de uno en uno, los cambios que no tocan electrodomésticos (placa, fregadero, lavavajillas, columnas, campana…):
+// un bajo de puertas a cajonero, mover un bajo o cajonero a otro sitio de su pared y poner altos donde haya pared libre
+// (de 30 a 90 cm). Se queda con el que más sube la nota y repite mientras mejore. No cambia la ficha: devuelve la copia.
+const MOVIBLES = ['bajo', 'cajonero'];
+const copiar = o => JSON.parse(JSON.stringify(o));
+export function mejorCocina(ficha, { pasos = 6 } = {}) {
+  const p0 = puntuarCocina(ficha);
+  if (!p0) return null;
+  let actual = copiar(ficha), nota = p0.total;
+  const cambios = [];
+  for (let paso = 0; paso < pasos; paso++) {
+    let mejor = null;
+    const probar = (nueva, texto) => { const pu = puntuarCocina(nueva); if (pu && pu.total > (mejor ? mejor.nota : nota)) mejor = { ficha: nueva, nota: pu.total, texto }; };
+    (actual.datos.paredes || []).forEach((p, ip) => {
+      // Bajo de puertas → cajonero
+      (p.bajos || []).forEach((m, i) => {
+        if (m.tipo !== 'bajo' || m.variante) return;
+        const n = copiar(actual); n.datos.paredes[ip].bajos[i].tipo = 'cajonero';
+        probar(n, 'Pared ' + p.letra + ': el bajo de ' + Math.round(m.ancho / 10) + ' a cajonero');
+      });
+      // Mover un bajo o cajonero a otro sitio de la misma pared
+      (p.bajos || []).forEach((m, i) => {
+        if (!MOVIBLES.includes(m.tipo)) return;
+        for (let j = 0; j < p.bajos.length; j++) {
+          if (j === i) continue;
+          const n = copiar(actual), l = n.datos.paredes[ip].bajos, [x] = l.splice(i, 1);
+          l.splice(j, 0, x);
+          probar(n, 'Pared ' + p.letra + ': mover el ' + nombreModulo(m).toLowerCase() + ' de ' + Math.round(m.ancho / 10) + ' al puesto ' + (j + 1));
+        }
+      });
+      // Altos donde quede pared libre arriba
+      const c = cuadreAltos(p, actual.datos);
+      if ((p.altos || []).length && c.resto >= 300) {
+        const w = Math.min(900, Math.floor(c.resto / 50) * 50), n = copiar(actual);
+        n.datos.paredes[ip].altos.push(Object.assign(moduloNuevo('alto'), { ancho: w }));
+        probar(n, 'Pared ' + p.letra + ': un alto de ' + Math.round(w / 10) + ' en la pared libre');
+      }
+    });
+    if (!mejor) break;
+    actual = mejor.ficha; nota = mejor.nota; cambios.push(mejor.texto);
+  }
+  return { antes: p0, despues: puntuarCocina(actual), cambios, ficha: actual };
 }

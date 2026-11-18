@@ -5,6 +5,9 @@ import { fichaNueva } from '../docs/js/modelo.js';
 import { consejosDiseno } from '../docs/js/consejos.js';
 import { abrir, entrar } from './arnes.js';
 
+import { REMATES } from '../docs/js/modulos.js';
+REMATES.porDefecto = false;   // pensada antes de 1.34: sin regletas ni costados en la medida
+
 prueba('armario: fondo para colgar, barra larga y puertas u hojas demasiado anchas', () => {
   const c = fichaNueva('armario', 'corredera', 't'), t = f => consejosDiseno(f).map(x => x.texto);
   Object.assign(c.datos, { ancho_medio: 2400, fondo: 600, hojas: 2, cuerpos: [{ id: 'a', ancho: 1200, interior: 'barra' }] });

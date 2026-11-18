@@ -12,7 +12,7 @@ import { geometriaPlanta, svgPlanta } from '../plano-vista.js';
 import { generarPdf, aclararDibujos } from '../pdf.js';
 import { geometriaAlzado, svgAlzado, fijarCocinaTipo, alturasCocina } from '../alzado.js';
 import { tablerosFichas } from '../material.js';
-import { pedidoCascos, pedidoFrentes, pedidoJuntos, textoPedido, MODOS_PEDIDO } from '../pedido.js';
+import { pedidoCascos, pedidoFrentes, pedidoJuntos, textoPedido, MODOS_PEDIDO, MODO_PUERTAS, pedidoPuertas, textoPedidoPuertas } from '../pedido.js';
 const ORDEN_PEDIDO = ['Bajos', 'Columnas', 'Altos', 'Remates'];
 
 const v = (mm, u) => (mm === null || mm === undefined ? '' : verMedida(mm, u));
@@ -239,8 +239,9 @@ export async function pintarResumen(App, id) {
   const pintarBotones = async () => zona.replaceChildren(...[await botonesPartes(App, [ficha], ver, async () => { await pintarBotones(); await pintarDoc(); })].filter(Boolean));
   await pintarBotones(); await pintarDoc();
   // Cocinas: hoja de pedido de cascos (para el taller) y de frentes (para el proveedor)
-  const pedidos = ficha.tipo === 'cocina' ? h('div', { class: 'elegir-fichas pedidos no-imprimir' }, h('small', { class: 'et' }, 'Hojas de pedido:'),
-    h('div', { class: 'chips' }, MODOS_PEDIDO.map(([m, t]) => h('a', { class: 'boton-chip', href: '#/pedido/' + id + '/' + m, 'data-acc': 'pedido-' + m }, t)))) : null;
+  const modos = ficha.tipo === 'cocina' ? MODOS_PEDIDO : ficha.tipo === 'puerta' ? [MODO_PUERTAS] : [];
+  const pedidos = modos.length ? h('div', { class: 'elegir-fichas pedidos no-imprimir' }, h('small', { class: 'et' }, 'Hojas de pedido:'),
+    h('div', { class: 'chips' }, modos.map(([m, t]) => h('a', { class: 'boton-chip', href: '#/pedido/' + id + '/' + m, 'data-acc': 'pedido-' + m }, t)))) : null;
   main.append(...[zona, pedidos, aviso, doc].filter(Boolean));
 }
 
@@ -256,33 +257,52 @@ export async function pintarPedido(App, id, modo) {
 export async function pintarPedidoTrabajo(App, tid, modo, ids) {
   const trabajo = await App.almacen.leer('trabajos', tid);
   if (!trabajo || trabajo.borrado_at) return App.ir('#/');
-  const todas = ordenFichas(vivos(await App.almacen.todos('fichas')).filter(f => f.trabajo_id === tid && f.tipo === 'cocina')).map(normalizarFicha);
+  const tipo = modo === 'puertas' ? 'puerta' : 'cocina';
+  const todas = ordenFichas(vivos(await App.almacen.todos('fichas')).filter(f => f.trabajo_id === tid && f.tipo === tipo)).map(normalizarFicha);
   const elegidas = ids ? new Set(decodeURIComponent(ids).split(',')) : null;
   const fichas = todas.filter(f => !elegidas || elegidas.has(f.id));
   return pedidoDe(App, { fichas, todas, trabajo, modo, volver: '#/resumen-trabajo/' + tid, ruta: (m, lista) => '#/pedido-trabajo/' + tid + '/' + m + '/' + encodeURIComponent((lista || fichas).map(f => f.id).join(',')) });
 }
 async function pedidoDe(App, { fichas, todas, trabajo, modo, volver, ruta }) {
   const AJ = App.ajustes();
-  modo = MODOS_PEDIDO.some(([m]) => m === modo) ? modo : 'cascos';
-  const nombre = { cascos: 'Pedido de cascos', frentes: 'Pedido de frentes', juntos: 'Pedido de muebles (casco y frentes)' }[modo];
+  const esPuertas = modo === 'puertas';
+  modo = esPuertas || MODOS_PEDIDO.some(([m]) => m === modo) ? modo : 'cascos';
+  const nombre = { cascos: 'Pedido de cascos', frentes: 'Pedido de frentes', juntos: 'Pedido de muebles (casco y frentes)', puertas: 'Pedido de puertas' }[modo];
   const aviso = h('p', { class: 'aviso-resumen' }), doc = h('article', { class: 'resumen-doc pedido-doc' });
-  const que = fichas.length === 1 ? tituloFicha(fichas[0]) : fichas.length + ' cocinas';
+  const que = fichas.length === 1 ? tituloFicha(fichas[0]) : fichas.length + (esPuertas ? ' fichas de puertas' : ' cocinas');
   const titulo = tituloLargo(trabajo, nombre + ' - ' + que);
-  const texto = () => (trabajo ? '*' + (trabajo.nombre || 'Trabajo') + '*' + (fichas.length > 1 ? ' · ' + fichas.map(tituloFicha).join(', ') : '') + '\n' : '') + textoPedido(modo, fichas, AJ);
+  // «Editar a mano»: la hoja se puede cambiar en pantalla (casos especiales); el PDF, la impresión y el WhatsApp salen como
+  // se ha dejado. No se guarda en la ficha: es para este envío.
+  let editado = false;
+  const texto = () => editado ? doc.innerText.replace(/\n{3,}/g, '\n\n') : (trabajo ? '*' + (trabajo.nombre || 'Trabajo') + '*' + (fichas.length > 1 ? ' · ' + fichas.map(tituloFicha).join(', ') : '') + '\n' : '') + (esPuertas ? textoPedidoPuertas(fichas, AJ) : textoPedido(modo, fichas, AJ));
   const main = App.marco('resumen', nombre, volver, acciones({ doc, titulo, aviso, texto, editar: () => App.ir(fichas.length === 1 ? '#/ficha/' + fichas[0].id : volver) }));
   // Modo y, si hay varias cocinas, cuáles entran
-  const elegir = h('div', { class: 'elegir-fichas pedidos no-imprimir' }, h('small', { class: 'et' }, 'Qué hoja:'),
-    h('div', { class: 'chips' }, MODOS_PEDIDO.map(([m, t]) => h('a', { class: 'boton-chip' + (m === modo ? ' on' : ''), href: ruta(m), 'data-acc': 'modo-pedido', 'data-v': m }, t))));
+  const botonEditar = h('button', { type: 'button', class: 'mini', 'data-acc': 'editar-pedido', onclick: () => {
+    editado = true; doc.contentEditable = 'true'; doc.classList.add('editando');
+    if (!doc.querySelector('.notas-pedido')) doc.insertBefore(h('section', { class: 'notas-pedido' }, h('h3', {}, 'Notas'), h('p', {}, 'Escribe aquí lo especial de este pedido…')), doc.querySelector('footer'));
+    botonEditar.textContent = '✎ Editando: toca cualquier texto para cambiarlo'; doc.focus();
+  } }, '✎ Editar a mano');
+  const elegir = h('div', { class: 'elegir-fichas pedidos no-imprimir' }, botonEditar, h('small', { class: 'et' }, 'Qué hoja:'),
+    h('div', { class: 'chips' }, (esPuertas ? [MODO_PUERTAS] : MODOS_PEDIDO).map(([m, t]) => h('a', { class: 'boton-chip' + (m === modo ? ' on' : ''), href: ruta(m), 'data-acc': 'modo-pedido', 'data-v': m }, t))));
   if (todas.length > 1) {
     const ids = new Set(fichas.map(f => f.id));
-    elegir.append(h('small', { class: 'et' }, 'Cocinas que entran (toca para quitar o poner; ✓ = entra):'),
+    elegir.append(h('small', { class: 'et' }, (esPuertas ? 'Fichas' : 'Cocinas') + ' que entran (toca para quitar o poner; ✓ = entra):'),
       h('div', { class: 'chips' }, todas.map(f => h('a', { class: 'boton-chip' + (ids.has(f.id) ? ' on' : ''), 'data-acc': 'cocina-pedido', 'data-v': f.id,
         href: ruta(modo, ids.has(f.id) ? fichas.filter(x => x.id !== f.id) : todas.filter(x => ids.has(x.id) || x.id === f.id)) }, (ids.has(f.id) ? '✓ ' : '') + tituloFicha(f)))));
   }
   const celdas = (...c) => h('tr', {}, c.map(x => h('td', {}, String(x))));
   const tabla = (cab, cuerpo) => h('div', { class: 'tabla-scroll' }, h('table', { class: 'tabla-pedido' }, h('thead', {}, h('tr', {}, cab.map(c => h('th', {}, c)))), h('tbody', {}, cuerpo)));
   const partes = [cabecera(trabajo), h('h2', {}, nombre + ' · ' + que)];
-  if (!fichas.length) partes.push(h('p', { class: 'vacio' }, 'No hay ninguna cocina elegida.'));
+  if (!fichas.length) partes.push(h('p', { class: 'vacio' }, esPuertas ? 'No hay ninguna ficha de puertas elegida.' : 'No hay ninguna cocina elegida.'));
+  else if (esPuertas) {
+    const r = pedidoPuertas(fichas, AJ), cm = mm => (mm === null || mm === undefined ? '?' : String(Math.round(mm) / 10).replace('.', ','));
+    partes.push(tabla(['Cant.', 'Tipo', 'Ancho × alto', 'Galce', 'Abren', 'Acabado', 'Notas', 'Dónde'], r.filas.map(f => celdas(f.cant, f.tipo, cm(f.an) + ' × ' + cm(f.al), f.galce ? cm(f.galce) : 'sin apuntar',
+      [f.izq ? f.izq + ' izq.' : '', f.der ? f.der + ' dcha.' : ''].filter(Boolean).join(', ') || '—', f.acabado, [f.condena ? f.condena + ' con condena' : '', f.vidriera ? f.vidriera + ' con vidriera' : '', f.nota].filter(Boolean).join('; ') || '—', f.donde.join(', ')))));
+    partes.push(h('h3', {}, 'Galces (marcos)'), h('p', {}, r.galces.map(([g, n]) => n + ' de ' + (g === null ? 'galce sin apuntar' : cm(g) + ' cm')).join(' · ')));
+    partes.push(h('h3', {}, 'Tapetas y cabezales'), ...r.tapetas.map(([t, g]) => h('p', {}, h('b', {}, 'Tapetas de ' + cm(t) + ' cm: ' + g.largas + ' largas'), ' (4 por puerta) · ', h('b', {}, 'cabezales: ' + g.cabezales + ', en ' + g.tiras + (g.tiras === 1 ? ' tira' : ' tiras')), ' (de cada tira salen 2; en doble bandera, 1)')),
+      ...(r.sinTapeta.length ? [h('p', { class: 'aviso-tapetas' }, '⚠ Falta elegir las tapetas (7, 9 o medida especial) en: ' + r.sinTapeta.join(', '))] : []));
+    partes.push(h('p', {}, h('b', {}, 'Total: ' + r.filas.reduce((x, f) => x + f.cant, 0) + ' puertas'), ' · medidas en cm; con premarco, la puerta del catálogo que le toca.'));
+  }
   else if (modo === 'frentes') {
     const filas = pedidoFrentes(fichas, AJ);
     [...new Set(filas.map(f => f.acabado))].forEach(a => partes.push(h('h3', {}, 'Acabado: ' + a),
@@ -345,9 +365,10 @@ export async function pintarResumenTrabajo(App, id) {
     doc.replaceChildren(...partes);
   }
   // Hojas de pedido de las cocinas del trabajo (todas juntas; en la hoja se eligen cuáles)
-  const cocinas = fichas.filter(f => f.tipo === 'cocina');
-  const zonaPedidos = cocinas.length ? h('div', { class: 'elegir-fichas pedidos no-imprimir' }, h('small', { class: 'et' }, 'Hojas de pedido de ' + (cocinas.length > 1 ? 'las ' + cocinas.length + ' cocinas' : 'la cocina') + ':'),
-    h('div', { class: 'chips' }, MODOS_PEDIDO.map(([m, t]) => h('a', { class: 'boton-chip', href: '#/pedido-trabajo/' + id + '/' + m + '/' + encodeURIComponent(cocinas.map(f => f.id).join(',')), 'data-acc': 'pedido-trabajo-' + m }, t)))) : null;
+  const cocinas = fichas.filter(f => f.tipo === 'cocina'), dePuertas = fichas.filter(f => f.tipo === 'puerta');
+  const enlaces = [...(cocinas.length ? MODOS_PEDIDO.map(([m, t]) => [m, t, cocinas]) : []), ...(dePuertas.length ? [[MODO_PUERTAS[0], MODO_PUERTAS[1], dePuertas]] : [])];
+  const zonaPedidos = enlaces.length ? h('div', { class: 'elegir-fichas pedidos no-imprimir' }, h('small', { class: 'et' }, 'Hojas de pedido del trabajo:'),
+    h('div', { class: 'chips' }, enlaces.map(([m, t, l]) => h('a', { class: 'boton-chip', href: '#/pedido-trabajo/' + id + '/' + m + '/' + encodeURIComponent(l.map(f => f.id).join(',')), 'data-acc': 'pedido-trabajo-' + m }, t)))) : null;
   const ver = partesGuardadas(), zonaPartes = h('div');
   const pintarPartes = async () => zonaPartes.replaceChildren(...[await botonesPartes(App, elegidas(), ver, async () => { await pintarPartes(); await pintarDoc(); })].filter(Boolean));
   const zonaSel = h('div', { class: 'elegir-fichas' });

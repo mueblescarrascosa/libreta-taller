@@ -81,7 +81,7 @@ function bloquePared(p, ud, u, ajustes, d, sinInst) {
   (p.elementos || []).filter(e => e.tipo !== 'zona' && !(sinInst && INSTALACIONES.includes(e.tipo))).forEach(e => l.push(lineaElemento(e, u, extraPilar(d, p, e) > 0)));
   // El rinconero dice en qué pared sigue.
   const v = paredesVecinas(d, p), bajos = (p.bajos || []).map(m => (m.tipo === 'rinconero' && v[m.gira === 'izq' ? 'izq' : 'der'] ? Object.assign({}, m, { sigue: v[m.gira === 'izq' ? 'izq' : 'der'].letra }) : m));
-  l.push(lineaModulos('Bajos', bajos, cuadreBajos(p, d)), (p.altos || []).length ? lineaModulos('Altos', p.altos, cuadreAltos(p)) : null);
+  l.push(lineaModulos('Bajos', bajos, cuadreBajos(p, d)), (p.altos || []).length ? lineaModulos('Altos', p.altos, cuadreAltos(p, d)) : null);
   // Dónde queda el centro de cada campana (para la salida de humos y colgarla).
   if (hay(p.largo) && ((p.bajos || []).length || (p.altos || []).length)) {
     centrosCampana(p, d).forEach(c => l.push('- ' + textoCentroCampana(c)));

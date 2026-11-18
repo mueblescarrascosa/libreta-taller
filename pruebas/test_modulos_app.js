@@ -1,6 +1,9 @@
 import { prueba, afirma, igual, fin } from './mini.js';
 import { abrir, entrar, crearTrabajo } from './arnes.js';
 
+import { REMATES } from '../docs/js/modulos.js';
+REMATES.porDefecto = false;   // pensada antes de 1.34: sin regletas ni costados en la medida
+
 const con = (op, fn) => async () => { const a = await abrir(op); try { await entrar(a); await fn(a); igual(a.errores, [], 'errores de página'); } finally { await a.cerrar(); } };
 const nueva = async (a, tipo, subtipo) => {
   await crearTrabajo(a, 'Casa'); await a.page.click('[data-acc="tipo"][data-v="' + tipo + '"]');

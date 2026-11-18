@@ -72,7 +72,7 @@ async function cocinaCompleta(a) {
 }
 
 async function recorrido(ancho) {
-  const a = await abrir({ ancho, tactil: ancho < 600 });
+  const a = await abrir({ ancho, tactil: ancho < 600, conRemates: true });
   await a.page.setViewportSize({ width: ancho, height: ancho < 600 ? 915 : 900 });
   try {
     await entrar(a);

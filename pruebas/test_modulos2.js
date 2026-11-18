@@ -4,6 +4,9 @@ import { fichaNueva, paredNueva, AJUSTES_FABRICA } from '../docs/js/modelo.js';
 import { textoResumen } from '../docs/js/resumen.js';
 import { geometriaPlanta } from '../docs/js/plano-vista.js';
 
+import { REMATES } from '../docs/js/modulos.js';
+REMATES.porDefecto = false;   // pensada antes de 1.34: sin regletas ni costados en la medida
+
 const mod = (tipo, ancho, o) => Object.assign(moduloNuevo(tipo), { ancho }, o);
 const G = AJUSTES_FABRICA.modulo_anchos;
 

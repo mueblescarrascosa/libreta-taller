@@ -2,6 +2,9 @@ import { prueba, afirma, igual, fin } from './mini.js';
 import { fichaNueva, paredNueva, elementoNuevo, avisos } from '../docs/js/modelo.js';
 import { moduloNuevo } from '../docs/js/modulos.js';
 
+import { REMATES } from '../docs/js/modulos.js';
+REMATES.porDefecto = false;   // pensada antes de 1.34: sin regletas ni costados en la medida
+
 const mod = (tipo, ancho) => Object.assign(moduloNuevo(tipo), { ancho });
 const el = (tipo, x) => Object.assign(elementoNuevo(tipo, 'izq'), x);
 const pared = (letra, largo, extra = {}) => Object.assign(paredNueva([]), { letra, largo, elementos: [] }, extra);

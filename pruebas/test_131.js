@@ -8,6 +8,9 @@ import { campanasPared, textoHolgurasCampana } from '../docs/js/alzado.js';
 import { consejosDiseno, airePlaca, textoAirePlaca } from '../docs/js/consejos.js';
 import { abrir, entrar, crearTrabajo } from './arnes.js';
 
+import { REMATES } from '../docs/js/modulos.js';
+REMATES.porDefecto = false;   // pensada antes de 1.34: sin regletas ni costados en la medida
+
 const mod = (tipo, ancho, x) => Object.assign(moduloNuevo(tipo), { ancho }, x || {});
 const cocina = paredes => { const f = fichaNueva('cocina', null, 't'); f.datos.paredes = paredes; return f; };
 const pared = (letra, largo, x) => Object.assign(paredNueva([]), { letra, largo, elementos: [], bajos: [], altos: [] }, x);

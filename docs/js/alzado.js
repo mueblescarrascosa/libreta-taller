@@ -176,7 +176,7 @@ export function geometriaAlzado(d, pared, ajustes = null) {
   const g = { letra: pared.letra, largo: L, techo, techoMedido: hay(d.alto_techo), piezas: [], puntos: [] };
   const pieza = (clase, x, y, w, h, texto, tipo) => { if (w > 0 && h > 0) g.piezas.push({ clase, tipo: tipo || clase, x, y, w, h, texto: texto || '' }); };
   // Puertas, cajones, tiradores y electrodomésticos de un mueble (frentes.js), en su sitio.
-  const frente = (lista, x, alto = false) => lista.forEach(q => pieza('f_' + q.k + (alto && q.k === 'hoja' ? '_alto' : ''), x + q.x0, q.z0, q.x1 - q.x0, q.z1 - q.z0));
+  const frente = (lista, x, alto = false) => lista.filter(q => !q.soloCuenta).forEach(q => pieza('f_' + q.k + (alto && q.k === 'hoja' ? '_alto' : ''), x + q.x0, q.z0, q.x1 - q.x0, q.z1 - q.z0));
 
   // Azulejo de la pared: toda o en franja (las zonas van con los elementos).
   if (pared.azulejo === 'toda') pieza('azulejo', 0, 0, L, techo);
@@ -187,10 +187,10 @@ export function geometriaAlzado(d, pared, ajustes = null) {
 
   // Muebles: bajos con zócalo y encimera; columnas hasta arriba (la de frigo, hasta su alto si lo lleva); altos.
   const sit = situarMuebles(pared, d), frigosConAlto = new Set(sit.altos.filter(a => a.m.tipo === 'alto_frigo').map(a => a.desde));
-  const bajo = (x, w, texto, tipo, variante) => {
+  const bajo = (x, w, texto, tipo, variante, rincon = null) => {
     pieza('zocalo', x, 0, w, ALTURAS.zocalo);
     pieza('bajo', x, ALTURAS.zocalo, w, ALTURAS.encimera - ALTURAS.grueso_encimera - ALTURAS.zocalo, texto, tipo);
-    frente(frenteModulo(tipo, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera, { variante }), x);
+    frente(frenteModulo(tipo, w, ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera, { variante, rincon }), x);
     pieza('encimera', x, ALTURAS.encimera - ALTURAS.grueso_encimera, w, ALTURAS.grueso_encimera);
   };
   if (sit.entran.izq) bajo(0, sit.entran.izq, '', 'rinconero');
@@ -203,13 +203,18 @@ export function geometriaAlzado(d, pared, ajustes = null) {
       pieza('columna', desde, 0, hasta - desde, h, texto, m.tipo);
       return frente(m.tipo === 'columna_frigo' && frigoLibre(d, m) ? frenteFrigoLibre(hasta - desde, frigoLibre(d, m) === 'americano') : frenteModulo(m.tipo, hasta - desde, 0, h, { columna: true, variante: varianteDe(m) }), desde);
     }
-    bajo(desde, hasta - desde, texto, m.tipo, varianteDe(m, d));
+    bajo(desde, hasta - desde, texto, m.tipo, varianteDe(m, d), m.tipo === 'rinconero' ? m : null);
   });
   sit.altos.forEach(({ m, desde, hasta }) => {
     if (m.tipo === 'hueco' || m.tipo === 'campana_deco') return;
     const y0 = m.tipo === 'alto_frigo' ? techoFrigo(d) : ALTURAS.altos_desde;
     pieza('alto', desde, y0, hasta - desde, arriba - y0, nombreModulo(m) + ' ' + medidasModulo(m), m.tipo);
     frente(frenteModulo(m.tipo, hasta - desde, y0, arriba, { variante: varianteAlto(m, d) }), desde, true);
+  });
+  // Regletas y costados (ocupan su sitio): del color de los frentes, finos
+  (sit.remates || []).forEach(r => {
+    const [y0, y1] = r.fila === 'altos' ? [ALTURAS.altos_desde, arriba] : r.fila === 'columna' ? [0, col] : [r.tipo === 'costado' ? 0 : ALTURAS.zocalo, ALTURAS.encimera - ALTURAS.grueso_encimera];
+    pieza('f_tablero', r.desde, y0, r.ancho, y1 - y0, '', r.tipo);
   });
   campanasPared(pared, d, sit).forEach(c => {
     const z = ALTURAS.encimera + CAMPANA.sobre, zp = z + CAMPANA.base, zc = zp + CAMPANA.piramide;

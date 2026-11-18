@@ -540,3 +540,5 @@ button.enlace[data-acc="crear-ejemplo"] { min-height: 40px !important; }
 .tabla-scroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 @media (max-width: 600px) { .tabla-pedido { font-size: .85em; } .tabla-pedido th, .tabla-pedido td { padding: 4px 3px; } }
 @media print { .tabla-scroll { overflow: visible; } }
+.pedido-doc.editando { outline: 2px dashed var(--acento, #b45309); outline-offset: 4px; }
+.pedido-doc.editando td, .pedido-doc.editando p { cursor: text; }

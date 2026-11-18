@@ -3,15 +3,16 @@
 // Cada trozo: { k, x0, x1, z0, z1 } con k = hoja (puerta o cajón), tirador, electro (horno, micro), cristal, campana, zocalo, tablero.
 // Medidas orientativas: lo medido manda.
 import { esLibre } from './modulos.js';
+export const RINCON_FONDO = 600;   // lo que tapa del rincón el mueble de la otra pared
 export const FRENTE = { zocalo: 100, holgura: 3, dos_puertas: 700, hmo_desde: 660, hmo_alto: 1000, horno: 600, cajones: 4 };
 
 const TIRADOR = 120, GRUESO_T = 14;
 
 // Puertas de un hueco (x0-x1, z0-z1): dos si es ancho (70 cm o más), una si no. tirador: 'arriba' (bajos), 'abajo' (altos), 'medio'.
-function puertas(r, x0, x1, z0, z1, tirador) {
+function puertas(r, x0, x1, z0, z1, tirador, una = false) {
   const g = FRENTE.holgura, ancho = x1 - x0, alto = z1 - z0;
   if (ancho <= 2 * g || alto <= 2 * g) return;
-  const hojas = ancho >= FRENTE.dos_puertas ? [[x0, x0 + ancho / 2, 'der'], [x0 + ancho / 2, x1, 'izq']] : [[x0, x1, 'izq']];
+  const hojas = !una && ancho >= FRENTE.dos_puertas ? [[x0, x0 + ancho / 2, 'der'], [x0 + ancho / 2, x1, 'izq']] : [[x0, x1, 'izq']];
   hojas.forEach(([a, b, abre]) => {
     r.push({ k: 'hoja', x0: a + g, x1: b - g, z0: z0 + g, z1: z1 - g });
     const tx = abre === 'der' ? b - g - 40 - GRUESO_T : a + g + 40, largo = Math.min(TIRADOR, alto / 3);
@@ -39,7 +40,7 @@ const CAJONES_DE = { '4 GAVETEROS': 4, '5 GAVETEROS': 5, '2 CACEROLEROS': [1, 1]
 // El frente de un mueble de cocina (tipo de módulo) de ancho «ancho», que va de z0 a z1 (con el zócalo ya fuera en los bajos).
 // columna: si es una columna (empieza en el suelo y lleva su zócalo).
 // variante: el modelo elegido para el presupuesto (cajones, especiero, soporte de horno, H/MO con puerta…), si lo hay.
-export function frenteModulo(tipo, ancho, z0, z1, { columna = false, variante = null } = {}) {
+export function frenteModulo(tipo, ancho, z0, z1, { columna = false, variante = null, rincon = null } = {}) {
   const r = [];
   if (!(ancho > 0) || !(z1 > z0) || tipo === 'hueco' || tipo === 'otro') return r;
   let base = z0;
@@ -128,7 +129,24 @@ export function frenteModulo(tipo, ancho, z0, z1, { columna = false, variante = 
       [1 / 3, 2 / 3].forEach(f => r.push({ k: 'tablero', x0: 0, x1: ancho, z0: z0 + h * f - 10, z1: z0 + h * f + 10 }));
       break;
     }
-    default: // bajo, fregadero, rinconero…
+    case 'rinconero': {
+      // En el rincón, el mueble de la otra pared tapa su fondo (60): solo se ve lo que queda.
+      //  · En L: una puerta en esta cara (lado − 60) y otra en la otra cara (lado2 − 60; solo cuenta, no se dibuja aquí).
+      //  · Recto (ciego): puerta solo en la parte que se ve (largo − 60); lo tapado no lleva.
+      //  · Chaflán: una puerta en la diagonal, de (lado − 60) × √2.
+      const F = RINCON_FONDO, forma = (rincon && rincon.forma) || 'L', esquinaIzq = rincon && rincon.gira === 'izq', g = FRENTE.holgura;
+      if (forma === 'chaflan') {
+        const diag = Math.round(Math.max(0, ancho - F) * Math.SQRT2);
+        puertas(r, 0, ancho, base, z1, 'arriba', true);
+        r.filter(q => q.k === 'hoja').forEach(q => (q.real = diag - 2 * g));
+        break;
+      }
+      const vis = Math.max(0, ancho - F), x0 = esquinaIzq ? F : 0;
+      if (vis > 2 * g) puertas(r, x0, x0 + vis, base, z1, 'arriba', true);
+      if (forma === 'L' && rincon && rincon.lado2 > F) r.push({ k: 'hoja', x0: 0, x1: rincon.lado2 - F - 2 * g, z0: base + g, z1: z1 - g, soloCuenta: true, otraCara: true });
+      break;
+    }
+    default: // bajo, fregadero…
       puertas(r, 0, ancho, base, z1, 'arriba');
   }
   return r;
