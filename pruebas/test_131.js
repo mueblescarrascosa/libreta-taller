@@ -3,7 +3,7 @@
 // frigorífico americano va siempre en un hueco de 92 (y un 92 es americano).
 import { prueba, afirma, igual, fin } from './mini.js';
 import { fichaNueva, paredNueva } from '../docs/js/modelo.js';
-import { moduloNuevo } from '../docs/js/modulos.js';
+import { situarMuebles, moduloNuevo } from '../docs/js/modulos.js';
 import { campanasPared, textoHolgurasCampana } from '../docs/js/alzado.js';
 import { consejosDiseno, airePlaca, textoAirePlaca } from '../docs/js/consejos.js';
 import { abrir, entrar, crearTrabajo } from './arnes.js';
@@ -18,21 +18,21 @@ const pared = (letra, largo, x) => Object.assign(paredNueva([]), { letra, largo,
 prueba('campana: un alto encima de la placa la pisa; se dice cuánto y el hueco que hay que dejar', () => {
   const A = pared('A', 3000, { bajos: [mod('bajo', 600), mod('placa', 900), mod('bajo', 600)], altos: [mod('alto', 600), mod('alto', 600), mod('alto', 600)] }), f = cocina([A]);
   // Placa de 60 centrada en el mueble de 90 (de 75 a 135): los altos de 0-60, 60-120 y 120-180 la pisan.
+  // 1.36: los altos dejan solos el sitio de la campana (60 + 10 a cada lado + costados): ya no la pisan
   const c = campanasPared(A, f.datos);
-  igual(c.map(x => [x.desde, x.hasta, x.pisan.length]), [[750, 1350, 2]]);
-  const t = textoHolgurasCampana(c[0]);
-  afirma(/pisa/.test(t) && /hueco de 80 cm/.test(t), t);
-  afirma(!/quedan ⚠/.test(t), t);
-  afirma(consejosDiseno(f).some(x => /pisan la campana/.test(x.texto)), 'sale en los consejos');
-  // Con hueco de 80 encima (campana de 60 y 10 a cada lado), ya no pisa y quedan 10 por lado.
-  A.altos = [mod('alto', 650), mod('hueco', 800), mod('alto', 600)];
-  const b = campanasPared(A, f.datos)[0];
-  igual([b.pisan.length, b.izq, b.der], [0, 100, 100]);
+  igual(c.map(x => [x.desde, x.hasta, x.pisan.length]), [[750, 1350, 0]]);
+  afirma(situarMuebles(A, f.datos).altos.every(x => x.hasta <= 650 || x.desde >= 1450), JSON.stringify(situarMuebles(A, f.datos).altos.map(x => [x.desde, x.hasta])));
+  afirma(!consejosDiseno(f).some(x => /pisan la campana/.test(x.texto)), 'sin aviso');
+  // Puesta a mano en los altos («Campana decorativa»): manda lo puesto; si un alto la pisa, se dice cuánto y el hueco
+  A.altos = [mod('alto', 600), mod('alto', 600), mod('campana_deco', 600), mod('alto', 600)];
+  A.bajos = [mod('placa', 900), mod('bajo', 600), mod('bajo', 600)];
+  const m = campanasPared(A, f.datos)[0];
+  afirma(m && m.alto, 'la campana es la del mueble');
   // Placa extractora: sin campana, los altos pueden ir encima.
-  A.altos = [mod('alto', 600), mod('alto', 600), mod('alto', 600)]; A.bajos[1].extractor = 'recirculacion';
+  A.altos = [mod('alto', 600), mod('alto', 600), mod('alto', 600)]; A.bajos = [mod('bajo', 600), Object.assign(mod('placa', 900), { extractor: 'recirculacion' }), mod('bajo', 600)];
   igual(campanasPared(A, f.datos), []);
   // Alto campana encima: la campana va dentro del mueble.
-  A.bajos[1].extractor = null; A.altos = [mod('alto', 750), mod('alto_campana', 600), mod('alto', 600)];
+  A.bajos = [mod('bajo', 600), mod('placa', 900), mod('bajo', 600)]; A.altos = [mod('alto', 750), mod('alto_campana', 600), mod('alto', 600)];
   igual(campanasPared(A, f.datos), []);
 });
 
@@ -54,7 +54,7 @@ prueba('1.31.1: el resumen (y el PDF) dice lo que queda junto a la campana y la 
   const { AJUSTES_FABRICA } = await import('../docs/js/modelo.js');
   const A = pared('A', 3000, { bajos: [mod('columna_frigo', 600), mod('placa', 900), mod('cajonero', 600), mod('fregadero', 800)], altos: [mod('alto', 600), mod('alto', 900), mod('alto', 600)] }), f = cocina([A]);
   const t = textoResumen({ ficha: f, trabajo: null, ajustes: AJUSTES_FABRICA });
-  afirma(/Campana piramidal de 60 cm encima de la placa: ⚠ el mueble de la izquierda la pisa/.test(t), t);
+  afirma(/Campana piramidal de 60 cm encima de la placa/.test(t) && !/la pisa/.test(t), t);
   afirma(/Placa de 60 cm: encimera libre ⚠ 15 cm a la izquierda \(hasta la columna frigo\)/.test(t), t);
 });
 

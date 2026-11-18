@@ -8,6 +8,11 @@ export const TIPOS_MODULO = {
   bajos: ['bajo', 'fregadero', 'placa', 'cajonero', 'lavavajillas', 'lavadora', 'rinconero', 'columna_hmo', 'columna_frigo', 'escobero', 'despensero', 'hueco', 'otro'],
   altos: ['alto', 'alto_abierto', 'alto_campana', 'campana_deco', 'alto_micro', 'alto_frigo', 'hueco', 'otro'],
 };
+// Para elegir: en grupos (bajos, columnas y lo demás; los altos aparte)
+export const GRUPOS_MODULO = {
+  bajos: [['Bajos', ['bajo', 'fregadero', 'placa', 'cajonero', 'lavavajillas', 'lavadora', 'rinconero']], ['Columnas', ['columna_hmo', 'columna_frigo', 'escobero', 'despensero']], ['Otros', ['hueco', 'otro']]],
+  altos: [['Altos', ['alto', 'alto_abierto', 'alto_campana', 'campana_deco', 'alto_micro', 'alto_frigo']], ['Otros', ['hueco', 'otro']]],
+};
 export const NOMBRE_MODULO = {
   bajo: 'Bajo', fregadero: 'Fregadero', placa: 'Placa', cajonero: 'Cajonero', lavavajillas: 'Lavavajillas', lavadora: 'Lavadora', rinconero: 'Rinconero',
   columna_hmo: 'Columna H/MO', columna_frigo: 'Columna frigo', escobero: 'Escobero', despensero: 'Despensero', hueco: 'Hueco',
@@ -179,7 +184,8 @@ export function cuadreAltos(p, datos) {
   // Arriba también ocupan las regletas y costados de las columnas (llegan hasta arriba)
   const fin2 = Math.max(fin, ...sit.bajos.filter(b => esColumna(b.m)).map(b => b.hasta));
   const fijos = sit.remates.filter(r => (r.fila === 'altos' || r.fila === 'columna' || r.fila === 'sobre') && r.desde < fin2 - 1).reduce((a, r) => a + r.ancho, 0);
-  const s = suma((p.altos || []).filter(m => m.tipo !== 'alto_frigo')) + suma((p.bajos || []).filter(esColumna)) + fijos;
+  const zonas = (sit.zonas || []).filter(z => z.der || sit.altos.some(a => a.desde >= z.hasta - 1)).reduce((a, z) => a + (z.hasta - z.desde), 0);
+  const s = sit.altos.filter(a => a.m.tipo !== 'alto_frigo').reduce((a, b) => a + (b.hasta - b.desde), 0) + suma((p.bajos || []).filter(esColumna)) + fijos + zonas;
   const c = { suma: s, resto: resto(p.largo, s) }, rg = medidasRemates(datos || {}).regleta;
   if (fijos) c.remates = fijos;
   if (rg) c.regleta = rg;
@@ -200,6 +206,18 @@ export function medidasRemates(datos) {
     columnaSobre: r.costado_columna === 'encimera' };
 }
 
+// Sitio de la campana decorativa en los altos: sobre cada mueble de placa sin extractor, centrado, del ancho de la
+// campana (la del mueble, la de Electrodomésticos o 60) y 10 cm más a cada lado. No si la campana es extraíble o
+// integrada, ni si en los altos ya hay una «Campana decorativa» o un «Alto campana» (manda lo puesto a mano).
+export const MARGEN_CAMPANA = 100;
+function zonasCampana(bajos, altos, datos) {
+  const c = ((datos && datos.electro) || []).find(e => e.clave === 'campana');
+  if (!altos.length || (c && c.tipo && c.tipo !== 'decorativa') || altos.some(m => m.tipo === 'campana_deco' || m.tipo === 'alto_campana')) return [];
+  return bajos.filter(b => b.m.tipo === 'placa' && !b.m.extractor).map(b => {
+    const w = hay(b.m.campana_ancho) ? b.m.campana_ancho : c && hay(c.ancho) ? c.ancho : 600, x = (b.desde + b.hasta) / 2;
+    return { desde: x - w / 2 - MARGEN_CAMPANA, hasta: x + w / 2 + MARGEN_CAMPANA, placa: b.m };
+  });
+}
 // Arriba, lo que deja ver el lado del alto de al lado: campana decorativa o hueco. FONDO_ALTO_VISTO: el fondo del alto con su puerta.
 const abiertoArriba = m => m.tipo === 'hueco' || m.tipo === 'campana_deco';
 export const FONDO_ALTO_VISTO = 350;
@@ -243,9 +261,16 @@ export function situarMuebles(p, datos) {
   const listaA = (p.altos || []).filter(m => hay(m.ancho)), pilares = tramosPilar(datos || {}, p);
   const tapaPilar = (a, b) => pilares.some(([x, y, f]) => x < b - 1 && a < y - 1 && hay(f) && f >= FONDO_ALTO_VISTO);
   if (conAltos && R.regleta && !columnas.some(c => c.desde <= inicio) && listaA.length && !abiertoArriba(listaA[0])) { poner('regleta', 'altos', 0, R.regleta); s = R.regleta; }
+  // Campana decorativa sobre el mueble de placa: su sitio en los altos se reserva solo, centrado con la placa, con 10 cm
+  // a cada lado (y el costado de los altos de al lado). Un hueco puesto a mano en ese sitio sobra: se quita. Si en los
+  // altos hay un «Campana decorativa» o un «Alto campana», manda lo puesto a mano.
+  const zonas = zonasCampana(bajos, listaA, datos);
+  const enZona = (a, b) => zonas.some(z => a < z.hasta && b > z.desde);
+  const obstaculos = columnas.concat(zonas.map(z => ({ ocupaDesde: z.desde - R.costado, ocupaHasta: z.hasta + R.costado, zona: z })));
   let previo = null;
   for (const m of p.altos || []) {
     if (!hay(m.ancho)) break;
+    if (m.tipo === 'hueco' && enZona(s, s + m.ancho)) continue;
     if (previo && R.costado && previo.hasta === s && abiertoArriba(previo.m) !== abiertoArriba(m) && m.tipo !== 'alto_frigo') {
       const hueco = abiertoArriba(m) ? [s, s + m.ancho, m] : [previo.desde, previo.hasta, previo.m];
       // Pilar tan hondo como el alto: hace de pared, regleta para que abra la puerta; si no, costado
@@ -258,19 +283,30 @@ export function situarMuebles(p, datos) {
     }
     let choca;
     const s0 = s;
-    while ((choca = columnas.find(c => s < c.ocupaHasta && s + m.ancho > c.ocupaDesde))) s = choca.ocupaHasta;
+    while ((choca = obstaculos.find(c => s < c.ocupaHasta && s + m.ancho > c.ocupaDesde))) {
+      if (choca.zona && R.costado && previo && !abiertoArriba(previo.m) && previo.hasta <= choca.zona.desde) choca.zona.izq = previo;
+      s = choca.ocupaHasta;
+      if (choca.zona) choca.zona.der = true;
+    }
     // Si saltando la columna se sale de la pared, no cabe: se queda donde iba (el cuadre dice cuánto te pasas)
     if (L !== null && s !== s0 && s + m.ancho > L + 1) s = s0;
     altos.push(previo = { m, desde: s, hasta: s + m.ancho });
     s += m.ancho;
   }
+  // Costados a los lados de la campana: el del alto de la izquierda (pegado a él) y el de la derecha (antes del alto)
+  zonas.forEach(z => {
+    const izq = z.izq || [...altos].reverse().find(a => a.hasta <= z.desde + 1 && a.hasta > z.desde - 600);
+    // (si es el último alto, ya lleva el costado de final de fila)
+    if (izq && R.costado && !abiertoArriba(izq.m) && izq !== altos[altos.length - 1]) poner('costado', 'altos', izq.hasta, R.costado);
+    if (z.der && R.costado && altos.some(a => a.desde >= z.hasta - 1)) poner('costado', 'altos', z.hasta, R.costado);
+  });
   const finAlto = altos.length ? altos[altos.length - 1].hasta : 0, columnaDetras = columnas.some(c => c.ocupaHasta >= finAlto - 1);
   if (altos.length && L !== null && !columnaDetras && !abiertoArriba(altos[altos.length - 1].m)) {
     const queda = L - finAlto;
     if (queda > 0 && queda <= REGLETA_HASTA && R.regleta) poner('regleta', 'altos', finAlto, queda);
     else if (queda > REGLETA_HASTA && R.costado) poner('costado', 'altos', finAlto, R.costado);
   }
-  return { bajos, altos, entran: e, remates };
+  return { bajos, altos, entran: e, remates, zonas };
 }
 // Cuerpos de armario contra el hueco más estrecho de los medidos.
 export function cuadreCuerpos(d) {
@@ -396,11 +432,12 @@ export function electrosDeMuebles(d) {
   const todos = (d.paredes || []).flatMap(p => (p.bajos || []).concat(p.altos || []));
   todos.forEach(m => {
     if (m.tipo === 'placa') {
-      poner('placa', { ancho: m.placa_ancho || null });
+      poner('placa', { tipo: m.placa_tipo || null, ancho: m.placa_ancho || null });
       if (!m.extractor) poner('campana', { tipo: todos.some(x => x.tipo === 'alto_campana') ? 'extraible' : 'decorativa', ancho: m.campana_ancho || null });
       if (m.horno) poner('horno', { tipo: 'bajo' });
     }
     if (m.tipo === 'campana_deco') poner('campana', { tipo: 'decorativa', ancho: m.campana_ancho || null });
+    if ((m.tipo === 'campana_deco' || m.tipo === 'alto_campana') && !todos.some(x => x.tipo === 'placa')) poner('placa', { tipo: m.placa_tipo || null, ancho: m.placa_ancho || null });
     if (m.tipo === 'alto_campana') poner('campana', { tipo: 'extraible' });
     if (m.tipo === 'columna_hmo') { poner('horno', { tipo: 'columna' }); poner('microondas', { tipo: 'integrable' }); }
     if (m.tipo === 'alto_micro') poner('microondas', { tipo: 'integrable' });

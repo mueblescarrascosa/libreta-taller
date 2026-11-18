@@ -6,7 +6,7 @@ import { nombrarPuerta, CORTO_ELEMENTO, HUMOS_DIAMETROS, HUMOS_RECTANGULARES, is
 import { duplicarFicha } from '../trabajos.js';
 import { campoMedida, campoEntero } from '../campos.js';
 import { verMedida } from '../unidades.js';
-import { ANCHOS_ELECTRO, ALTOS_ELECTRO, TIPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, medidasModulo, anchosDe, FORMAS_RINCONERO, LADOS_RINCONERO, paredesVecinas, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, FORMAS_RINCON_CUERPO, LADOS_RINCON_CUERPO, INTERIOR_RINCON, textoRincon, textoCuadre, lineaNueva, nombreLineal, nombreInterior, interioresDe, elegirInterior, textoInteriores, acabadosNuevos, MATERIALES_ENCIMERA, ELECTRO, datosElectro, electroNuevo, tieneInstalacion, instalacionDe, sincronizarElectros, COLORES_ELECTRO, colorElectroComun } from '../modulos.js';
+import { ANCHOS_ELECTRO, ALTOS_ELECTRO, TIPOS_MODULO, GRUPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, medidasModulo, anchosDe, FORMAS_RINCONERO, LADOS_RINCONERO, paredesVecinas, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, FORMAS_RINCON_CUERPO, LADOS_RINCON_CUERPO, INTERIOR_RINCON, textoRincon, textoCuadre, lineaNueva, nombreLineal, nombreInterior, interioresDe, elegirInterior, textoInteriores, acabadosNuevos, MATERIALES_ENCIMERA, ELECTRO, datosElectro, electroNuevo, tieneInstalacion, instalacionDe, sincronizarElectros, COLORES_ELECTRO, colorElectroComun } from '../modulos.js';
 import { seccionAdjuntos } from './adjuntos.js';
 import { textoMaterial, textoRemates, TIPOS_REMATE, MATERIALES_REMATE, opcionRemate } from '../material.js';
 import { variantesDe, varianteHabitual, alturasDe, alturaHabitual, NOMBRE_VARIANTE, articulo, paquetePresupuesto, CLAVE_PASO } from '../presupuesto.js';
@@ -14,7 +14,7 @@ import { textoResumen, urlWhatsapp } from '../resumen.js';
 import { huella } from '../sincro.js';
 import { geometriaPlanta, svgPlanta, aplicarPlano, pilarEnParedes, pilaresEnParedes, pasarAPilar } from '../plano-vista.js';
 import { abrirPlano } from '../plano-editor.js';
-import { geometriaAlzado, svgAlzado, campanasPared, textoHolgurasCampana, centrosCampana, textoCentroCampana, anchoPlaca, anchoCampana, textoTubo, fijarCocinaTipo, alturasCocina, CAMPOS_ALTURA } from '../alzado.js';
+import { geometriaAlzado, svgAlzado, campanasPared, salidaCampana, textoHolgurasCampana, centrosCampana, textoCentroCampana, anchoPlaca, anchoCampana, textoTubo, fijarCocinaTipo, alturasCocina, CAMPOS_ALTURA } from '../alzado.js';
 import { puntuarCocina, mejorCocina } from '../puntuacion.js';
 import { TAPETAS } from '../pedido.js';
 import { airePlaca, textoAirePlaca } from '../consejos.js';
@@ -560,11 +560,12 @@ export async function pintarFicha(App, id) {
           c && h('small', { class: 'ayuda centro-campana', 'data-acc': 'centro-campana' }, textoCentroCampana(c) + '.'),
           t && h('small', { class: 'ayuda tubo-humos' + (t.cajear || !t.salida ? ' aviso-tubo' : ''), 'data-acc': 'tubo-humos' }, textoTubo(t)),
           m.extractor === 'recirculacion' && h('small', { class: 'ayuda', 'data-acc': 'tubo-humos' }, 'Placa extractora con recirculación: sin tubo ni salida de humos (filtros de carbón).'),
+          c && !m.extractor && salidaCampana(m, p, d) === 'recirculacion' && h('small', { class: 'ayuda', 'data-acc': 'tubo-humos' }, 'Campana de recirculación: sin tubo ni salida de humos (filtros de carbón).'),
           ...airePlaca(d, p).filter(a => a.mueble === m).map(a => h('small', { class: 'ayuda aire-placa', 'data-acc': 'aire-placa' }, textoAirePlaca(a)))].filter(Boolean));
       }
       const sel = h('select', { class: 'select-tipo', 'data-acc': 'tipo-modulo', 'aria-label': 'Tipo de mueble', onchange: () => {
         const t = sel.value; m.tipo = t; if (t === 'rinconero' && !m.forma) Object.assign(m, { forma: 'L', lado2: null, gira: 'der' }); cambio(); repintar(); } },
-        TIPOS_MODULO[nombre].map(t => h('option', { value: t }, NOMBRE_MODULO[t])));
+        GRUPOS_MODULO[nombre].map(([g, l]) => h('optgroup', { label: g }, l.map(t => h('option', { value: t }, NOMBRE_MODULO[t])))));
       sel.value = m.tipo;
       const n = [sel];
       if (m.tipo === 'otro') n.push(h('input', { 'data-acc': 'nombre-modulo', placeholder: '¿Qué módulo?', value: m.nombre, oninput: ev => { m.nombre = ev.target.value; cambio(); } }));
@@ -591,12 +592,21 @@ export async function pintarFicha(App, id) {
             segmentado({ acc: 'campana-tipo', opciones: [['piramidal', 'Piramidal'], ['recta', 'Recta (de cajón)']], valor: m.campana_tipo || 'piramidal', alCambiar: v => { m.campana_tipo = v; cambio(); repintar(); } })));
           n.push(tamano('campana-ancho', 'Tamaño de la campana (el mueble es el hueco)', 'campana_ancho', [600, 900, 1200], anchoCampana(null, d)));
         }
-        n.push(tamano('placa-ancho', m.tipo === 'placa' ? 'Tamaño de la placa' : 'Placa debajo', 'placa_ancho', [300, 600, 700, 800, 900], anchoPlaca(null, d)));
+        n.push(tamano('placa-ancho', m.tipo === 'placa' ? 'Tamaño de la placa' : 'Placa debajo: tamaño', 'placa_ancho', [300, 600, 700, 800, 900], anchoPlaca(null, d)));
+        n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, m.tipo === 'placa' ? 'Tipo de placa' : 'Placa debajo: tipo'),
+          segmentado({ acc: 'placa-tipo', opciones: [['induccion', 'Inducción'], ['vitro', 'Vitro'], ['gas', 'Gas']], valor: m.placa_tipo ?? null, permitirVacio: true, alCambiar: v => { m.placa_tipo = v; cambio(); } })));
         // Placa extractora (el extractor en la propia placa): sin campana encima; el aire se limpia y vuelve
         // (recirculación) o sale a la calle con un tubo a ras de suelo, por detrás del zócalo.
         if (m.tipo === 'placa') n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Placa con extractor'),
           segmentado({ acc: 'placa-extractor', opciones: [['recirculacion', 'Recirculación'], ['exterior', 'Sale a la calle (a ras de suelo)']], valor: m.extractor ?? null, permitirVacio: true, alCambiar: v => { m.extractor = v; cambio(); repintar(); } })));
-        if (m.tipo === 'placa' && x && !m.extractor) n.push(tamano('campana-ancho', 'Tamaño de la campana', 'campana_ancho', [600, 900, 1200], anchoCampana(null, d)));
+        // La campana va con la placa: su tipo y tamaño aquí; en los altos se le deja el sitio solo, centrada con la placa.
+        if (m.tipo === 'placa' && !m.extractor) {
+          n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Tipo de campana'),
+            segmentado({ acc: 'campana-tipo', opciones: [['piramidal', 'Piramidal'], ['recta', 'Recta (de cajón)']], valor: m.campana_tipo || 'piramidal', alCambiar: v => { m.campana_tipo = v; cambio(); repintar(); } })));
+          n.push(tamano('campana-ancho', 'Tamaño de la campana', 'campana_ancho', [600, 900, 1200], anchoCampana(null, d)));
+        }
+        if (m.tipo !== 'placa' || !m.extractor) n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Salida de la campana' + (m.campana_salida ? '' : salidaCampana(m, p, d) === 'recirculacion' ? ' (sin marcar: recirculación, por la salida de humos)' : '')),
+          segmentado({ acc: 'campana-salida', opciones: [['exterior', 'A la calle (con tubo)'], ['recirculacion', 'Recirculación (sin tubo)']], valor: m.campana_salida ?? null, permitirVacio: true, alCambiar: v => { m.campana_salida = v; cambio(); repintar(); } })));
         pintarCampana(); n.push(textosCampana);
       }
       if (tieneInstalacion(m)) {
@@ -640,10 +650,12 @@ export async function pintarFicha(App, id) {
       };
       refrescos.push(pintarCuadre);
       repintar();
-      return h('div', { 'data-fila': nombre }, h('label', { class: 'et' }, titulo), zona, cuadre,
-        h('div', { class: 'chips' }, TIPOS_MODULO[nombre].map(t => h('button', { type: 'button', 'data-acc': 'anadir-modulo', 'data-v': t, onclick: () => {
-          const m = moduloNuevo(t); p[nombre].push(m); abiertos[nombre] = m.id; cambio(); repintar();
-        } }, CORTO_MODULO[t] || NOMBRE_MODULO[t]))));
+      // Botones para añadir, en grupos (bajos, columnas, otros); bajos y altos, separados por una raya
+      return h('div', { 'data-fila': nombre, class: 'fila-muebles fila-' + nombre }, h('label', { class: 'et' }, titulo), zona, cuadre,
+        ...GRUPOS_MODULO[nombre].map(([g, l]) => h('div', { class: 'grupo-anadir' }, h('small', { class: 'et-grupo' }, g),
+          h('div', { class: 'chips' }, l.map(t => h('button', { type: 'button', 'data-acc': 'anadir-modulo', 'data-v': t, onclick: () => {
+            const m = moduloNuevo(t); p[nombre].push(m); abiertos[nombre] = m.id; cambio(); repintar();
+          } }, CORTO_MODULO[t] || NOMBRE_MODULO[t]))))));
     }
     caja.append(fila('bajos', 'Bajos y columnas'), fila('altos', 'Altos'));
     return caja;
@@ -753,9 +765,22 @@ export async function pintarFicha(App, id) {
       if (!d.alturas) d.alturas = {};
       const ctAj = (AJ && AJ.cocina_tipo) || {};
       pintarInfo();
+      // «De la encimera a los altos» y «Altos desde el suelo» son la misma cosa vista de dos maneras: se apunta una y la
+      // otra se rellena sola (desde el suelo − zócalo − mueble bajo − encimera). Apuntar una borra la otra guardada.
+      const calc = () => { const ct = alturasCocina(d, AJ), enc = ct.zocalo + ct.mueble + ct.grueso;
+        return { separacion: d.alturas.separacion ?? (d.alturas.desde ? ct.separacion : null), desde: d.alturas.desde ?? (d.alturas.separacion ? enc + ct.separacion : null) }; };
+      const caja2 = h('div', { class: 'dos alturas-cocina' });
+      const otro = { separacion: 'desde', desde: 'separacion' };
+      const rellenar = () => { const c = calc(); ['separacion', 'desde'].forEach(k => { const i = caja2.querySelector('input[data-acc="altura-' + k + '"]'); if (i && document.activeElement !== i) i.value = c[k] ? verMedida(c[k], 'cm') : ''; }); };
+      caja2.append(...CAMPOS_ALTURA.map(([k, t]) => campoMedida({ etiqueta: t + (ctAj[k] ? ' (' + verMedida(ctAj[k], 'cm') + ')' : ''), acc: 'altura-' + k, valor: otro[k] ? calc()[k] : d.alturas[k] ?? null, unidad: 'cm',
+        alCambiar: v => {
+          if (otro[k] && v > 0 && !d.alturas[k] && v === calc()[k]) return;   // el valor calculado, sin tocar: no cambia nada
+          if (v > 0) d.alturas[k] = v; else delete d.alturas[k];
+          if (otro[k] && v > 0) delete d.alturas[otro[k]];
+          fijarCocinaTipo(alturasCocina(d, AJ)); pintarInfo(); rellenar(); cambio();
+        } })));
       return [h('label', { class: 'et' }, 'Alturas de esta cocina (vacío: las de Ajustes)'),
-        h('div', { class: 'dos alturas-cocina' }, CAMPOS_ALTURA.map(([k, t]) => campoMedida({ etiqueta: t + (ctAj[k] ? ' (' + verMedida(ctAj[k], 'cm') + ')' : ''), acc: 'altura-' + k, valor: d.alturas[k] ?? null, unidad: 'cm',
-          alCambiar: v => { if (v > 0) d.alturas[k] = v; else delete d.alturas[k]; fijarCocinaTipo(alturasCocina(d, AJ)); pintarInfo(); cambio(); } }))),
+        caja2,
         infoAlturas];
     };
     // Remates: costados vistos, regletas y cierres a techo. Salen solos de las medidas; aquí se elige si van y de qué

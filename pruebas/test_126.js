@@ -35,8 +35,8 @@ prueba('campana piramidal sobre la placa sin alto encima y alto abierto sin puer
   const g = geometriaAlzado(f.datos, A);
   afirma(g.piezas.some(p => p.tipo === 'campana' && p.trap), 'la pirámide en el alzado');
   A.altos[1] = mod('alto', 800);
-  // 1.31: un alto no puede pisar la campana de la placa: la campana sigue y se avisa de lo que la pisa.
-  igual(campanasPared(A, f.datos).map(x => [x.desde, x.hasta, x.pisan.length]), [[700, 1300, 1]], 'con un alto encima: la campana sigue y el alto la pisa');
+  // 1.36: los altos dejan solos el sitio de la campana: el alto que iría encima pasa al otro lado y nadie la pisa.
+  igual(campanasPared(A, f.datos).map(x => [x.desde, x.hasta, x.pisan.length]), [[700, 1300, 0]], 'con un alto encima: la campana sigue y el alto se aparta');
   A.altos[1] = mod('hueco', 800); f.datos.electro = [{ id: 'e', clave: 'campana', tipo: 'extraible', ancho: 600 }];
   igual(campanasPared(A, f.datos), [], 'extraíble: va en el alto de campana');
   f.datos.electro[0].tipo = 'decorativa';
@@ -150,9 +150,10 @@ prueba('campana: tipo y tamaño en el mueble que hace de hueco, y lo que queda a
   A.altos[1].campana_tipo = 'recta';
   afirma(!geometriaAlzado(f.datos, A).piezas.some(p => p.trap) && geometriaAlzado(f.datos, A).piezas.filter(p => p.tipo === 'campana').length === 3, 'recta: sin pirámide');
   A.altos = [mod('alto', 600)]; A.bajos[1].campana_ancho = 900;
-  igual(textoHolgurasCampana(campanasPared(A, f.datos)[0]), 'Campana piramidal de 90 cm encima de la placa: quedan ⚠ 0 cm a la izquierda hasta el mueble y 210 cm a la derecha hasta la pared.');
+  // 1.36: el alto que pisaría la campana se aparta (10 cm de holgura a cada lado)
+  igual(textoHolgurasCampana(campanasPared(A, f.datos)[0]), 'Campana piramidal de 90 cm encima de la placa: quedan 60 cm a la izquierda hasta la pared y 10 cm a la derecha hasta el mueble.');
   const { consejosDiseno } = await import('../docs/js/consejos.js');
-  afirma(consejosDiseno(f).some(c => c.texto === 'La campana de la pared A queda a 0 cm del mueble de la izquierda' && /al menos 5 cm/.test(c.porque)), 'avisa del margen: ' + consejosDiseno(f).map(c => c.texto).join(' | '));
+  afirma(!consejosDiseno(f).some(c => /La campana de la pared A queda a/.test(c.texto)), 'con el alto apartado ya no hay que avisar del margen: ' + consejosDiseno(f).map(c => c.texto).join(' | '));
   A.altos = [mod('alto', 600), mod('campana_deco', 900, { campana_ancho: 600 })];
   afirma(!consejosDiseno(f).some(c => /campana de la pared/.test(c.texto)), 'con 15 cm a cada lado, bien');
 });

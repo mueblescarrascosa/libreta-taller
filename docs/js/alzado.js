@@ -92,6 +92,17 @@ export function centrosCampana(pared, d, sit = situarMuebles(pared, d)) {
     return Object.assign(c, { lado: der ? 'der' : 'izq', dist: Math.round(der ? L - c.x : c.x), letra: vec && vec.letra ? vec.letra : null });
   });
 }
+// Salida de la campana: la elegida en su mueble (a la calle o recirculación); si no se ha dicho, recirculación cuando
+// la única salida de humos apuntada en la pared (o en la cocina) es de recirculación.
+export function salidaCampana(m, pared, d) {
+  if (m && m.campana_salida) return m.campana_salida;
+  const humos = l => l.flatMap(p => (p.elementos || []).filter(e => e.tipo === 'humos'));
+  for (const l of [[pared], (d && d.paredes) || []]) {
+    const h = humos(l);
+    if (h.length) return h.every(e => e.humos_forma === 'recirculacion') ? 'recirculacion' : 'exterior';
+  }
+  return null;
+}
 // «Centro de la campana a 145 cm de la pared B» (o «del lado izquierdo» si no hay pared al lado).
 export function textoCentroCampana(c) {
   return 'Centro de la campana a ' + verMedida(c.dist, 'cm') + ' cm ' + (c.letra ? 'de la pared ' + c.letra + ' (' + (c.lado === 'der' ? 'derecha' : 'izquierda') + ')' : 'del lado ' + (c.lado === 'der' ? 'derecho' : 'izquierdo'));
@@ -104,7 +115,7 @@ export function campanasPared(pared, d, sit = situarMuebles(pared, d)) {
   const anchoEn = (hueco, m) => Math.min(anchoCampana(m, d), hueco);
   const puestas = sit.altos.filter(a => a.m.tipo === 'campana_deco').map(a => { const w = anchoEn(a.hasta - a.desde, a.m), x = (a.desde + a.hasta - w) / 2; return { alto: a.m, desde: x, hasta: x + w, ancho: w, hueco: a.hasta - a.desde, tipo: a.m.campana_tipo || 'piramidal' }; });
   const sobrePlaca = c && c.tipo && c.tipo !== 'decorativa' ? [] : sit.bajos.filter(({ m, desde, hasta }) => m.tipo === 'placa' && !m.extractor && !sit.altos.some(a => (a.m.tipo === 'campana_deco' || a.m.tipo === 'alto_campana') && a.desde < hasta - 50 && a.hasta > desde + 50))
-    .map(({ m, desde, hasta }) => { const w = anchoCampana(m, d), x = (desde + hasta - w) / 2; return { placa: m, desde: x, hasta: x + w, ancho: w, tipo: 'piramidal' }; });
+    .map(({ m, desde, hasta }) => { const w = anchoCampana(m, d), x = (desde + hasta - w) / 2; return { placa: m, desde: x, hasta: x + w, ancho: w, tipo: m.campana_tipo || 'piramidal' }; });
   // Lo que queda a cada lado hasta el siguiente alto o columna (o la pared). Negativo: ese mueble pisa la campana.
   // «pisan»: los altos o columnas que se meten en el sitio de la campana (no puede haber ninguno).
   const L = hay(pared.largo) ? pared.largo : Infinity, ocupan = sit.altos.filter(a => a.m.tipo !== 'hueco' && a.m.tipo !== 'campana_deco').concat(sit.bajos.filter(b => esColumna(b.m)));
@@ -276,7 +287,7 @@ export function geometriaAlzado(d, pared, ajustes = null) {
   });
   // Tubo de humos de cada campana y de cada placa extractora con salida a la calle, hasta la salida más cercana.
   const salidas = g.puntos.filter(q => q.tipo === 'humos' && !(q.dato && q.dato.humos_forma === 'recirculacion'));
-  g.tubos = g.centrosCampana.map(c => tuboHumos({ de: 'campana', x: c.x, z0: (c.mueble && c.mueble.tipo === 'alto_campana' ? ALTURAS.altos_desde : ALTURAS.encimera + CAMPANA.sobre) + TUBO.hasta_tubo, mueble: c.mueble }, salidas, techo))
+  g.tubos = g.centrosCampana.filter(c => salidaCampana(c.mueble, pared, d) !== 'recirculacion').map(c => tuboHumos({ de: 'campana', x: c.x, z0: (c.mueble && c.mueble.tipo === 'alto_campana' ? ALTURAS.altos_desde : ALTURAS.encimera + CAMPANA.sobre) + TUBO.hasta_tubo, mueble: c.mueble }, salidas, techo))
     .concat(placasExtractoras.map(c => tuboHumos({ de: 'placa', x: c.x, z0: TUBO.suelo, mueble: c.mueble }, salidas, techo)));
   return g;
 }

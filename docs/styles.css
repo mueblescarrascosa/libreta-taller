@@ -345,6 +345,13 @@ button { background: #fffef9; border-color: var(--borde); }
 .perspectiva-control { display: flex; gap: 10px; align-items: flex-start; }
 .perspectiva-control .planta-vista { flex: 0 0 42%; max-width: 220px; height: auto; touch-action: none; border: 1px solid var(--borde); border-radius: 8px; background: #fff; cursor: crosshair; }
 .perspectiva-botones { display: grid; gap: 6px; flex: 1; }
+/* 1.36: deslizar en horizontal sobre el dibujo gira (en vertical sigue moviendo la página); en el móvil, la planta grande debajo */
+.vista-3d { touch-action: pan-y; }
+@media (max-width: 640px) {
+  .perspectiva-control { flex-direction: column; align-items: stretch; }
+  .perspectiva-control .planta-vista { flex: none; width: 100%; max-width: 380px; margin: 0 auto; }
+  .perspectiva-botones .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+}
 .capa-perspectiva { position: fixed; inset: 0; z-index: 1000; background: var(--fondo, #f3efe6); padding: 10px; overflow: auto; display: grid; gap: 8px; align-content: start; }
 .capa-perspectiva > .cab { display: flex; justify-content: space-between; align-items: center; }
 .capa-perspectiva .vista-3d svg.perspectiva { max-height: 72vh; width: auto; max-width: 100%; margin: 0 auto; }
@@ -542,3 +549,8 @@ button.enlace[data-acc="crear-ejemplo"] { min-height: 40px !important; }
 @media print { .tabla-scroll { overflow: visible; } }
 .pedido-doc.editando { outline: 2px dashed var(--acento, #b45309); outline-offset: 4px; }
 .pedido-doc.editando td, .pedido-doc.editando p { cursor: text; }
+
+/* 1.36: al añadir muebles, en grupos (bajos, columnas, otros) y los altos separados de los bajos por una raya */
+.grupo-anadir { display: grid; gap: 4px; margin-top: 6px; }
+.grupo-anadir .et-grupo { font-size: .78rem; color: var(--suave, #6b7280); text-transform: uppercase; letter-spacing: .04em; }
+.fila-muebles.fila-altos { border-top: 2px dashed var(--borde, #d6c3ae); margin-top: 14px; padding-top: 12px; }

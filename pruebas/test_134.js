@@ -14,7 +14,7 @@ const cocina = (paredes, x) => { const f = fichaNueva('cocina', null, 't'); f.da
 
 prueba('regleta si sobran hasta 15 cm; costado visto si queda abierto; cierre a techo solo si se pide', () => {
   fijarCocinaTipo(AJUSTES_FABRICA.cocina_tipo);
-  const a = cocina([pared('A', 2460, { bajos: [mod('bajo', 600), mod('placa', 900), mod('cajonero', 900)], altos: [mod('alto', 600), mod('alto', 900), mod('alto', 900)] })], { alto_techo: 2600 });
+  const a = cocina([pared('A', 2460, { bajos: [mod('bajo', 600), Object.assign(mod('placa', 900), { extractor: 'recirculacion' }), mod('cajonero', 900)], altos: [mod('alto', 600), mod('alto', 900), mod('alto', 900)] })], { alto_techo: 2600 });
   const r = rematesCocina(a.datos);
   // 1.34: regleta de 4 cm a la pared en cada punta (la de la derecha, con lo que sobre)
   igual(r.filter(x => x.tipo === 'regletas').map(x => [x.pieza, x.ancho]), [['Regleta de bajo', 40], ['Regleta de bajo', 20], ['Regleta de alto', 40], ['Regleta de alto', 20]]);
@@ -31,7 +31,7 @@ prueba('regleta si sobran hasta 15 cm; costado visto si queda abierto; cierre a 
 });
 
 prueba('el material manda: frentes (tablero de frentes), casco (con los cascos) u otro (aparte)', () => {
-  const f = cocina([pared('A', 3000, { bajos: [mod('bajo', 600), mod('placa', 900)], altos: [mod('alto', 600)] })]);
+  const f = cocina([pared('A', 3000, { bajos: [mod('bajo', 600), Object.assign(mod('placa', 900), { extractor: 'recirculacion' })], altos: [mod('alto', 600)] })]);
   const m0 = materialCocina(f.datos);
   const costados = m => m.rematesFrentes.filter(q => q.remate === 'costados').length;
   igual(costados(m0), 2, 'dos costados como los frentes');

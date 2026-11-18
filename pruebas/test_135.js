@@ -13,7 +13,7 @@ const mod = (tipo, ancho) => Object.assign(moduloNuevo(tipo), { ancho });
 const pared = (letra, largo, x) => Object.assign(paredNueva([]), { letra, largo, elementos: [], bajos: [], altos: [] }, x);
 
 prueba('regleta a la pared y costados: ocupan su sitio y cuentan en el cuadre', () => {
-  const p = pared('A', 3600, { bajos: [mod('columna_frigo', 600), mod('placa', 900), mod('cajonero', 600), mod('lavavajillas', 600), mod('fregadero', 800)], altos: [mod('alto', 600), mod('alto', 900), mod('alto', 600), mod('alto', 800)] }), d = { paredes: [p] };
+  const p = pared('A', 3600, { bajos: [mod('columna_frigo', 600), Object.assign(mod('placa', 900), { extractor: 'recirculacion' }), mod('cajonero', 600), mod('lavavajillas', 600), mod('fregadero', 800)], altos: [mod('alto', 600), mod('alto', 900), mod('alto', 600), mod('alto', 800)] }), d = { paredes: [p] };
   const s = situarMuebles(p, d);
   igual(s.bajos.map(b => b.desde), [40, 660, 1560, 2160, 2760], 'regleta de 4 a la pared y costado de 2 tras la columna');
   igual(s.altos[0].desde, 660, 'los altos empiezan tras el costado de la columna');
