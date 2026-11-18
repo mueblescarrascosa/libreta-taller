@@ -130,7 +130,7 @@ prueba('en la ficha: tocar y arrastrar en la planta pequeña guarda dónde está
   igual(await a.page.$('[data-acc="capa-perspectiva"]'), null);
   await a.page.click('[data-acc="terminar"]'); await a.page.waitForSelector('.perspectiva-resumen svg.perspectiva');
   // Qué dibujos van: se quita la perspectiva, se recuerda y se vuelve a poner.
-  igual(await a.page.$$eval('[data-acc="parte-resumen"]', b => b.map(x => x.dataset.v)), ['planta', 'frente', 'perspectiva', 'instalaciones']);
+  igual(await a.page.$$eval('[data-acc="parte-resumen"]', b => b.map(x => x.dataset.v)), ['planta', 'frente', 'perspectiva', 'instalaciones', 'puntuacion']);   // 1.32: en cocinas, también la puntuación
   await a.page.click('[data-acc="parte-resumen"][data-v="perspectiva"]');
   await a.page.waitForFunction(() => !document.querySelector('.perspectiva-resumen'));
   afirma(await a.page.$('.planta-resumen'), 'la planta sigue');

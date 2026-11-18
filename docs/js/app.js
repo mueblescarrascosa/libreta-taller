@@ -10,7 +10,7 @@ import { pintarInicio } from './pantallas/inicio.js';
 import { pintarTrabajo } from './pantallas/trabajo.js';
 import { pintarFicha, descartarVacio } from './pantallas/ficha.js';
 import { pintarAjustes } from './pantallas/ajustes.js';
-import { pintarResumen, pintarResumenTrabajo } from './pantallas/resumen.js';
+import { pintarResumen, pintarResumenTrabajo, pintarPedido } from './pantallas/resumen.js';
 import { pintarPapelera } from './pantallas/papelera.js';
 import { pintarGuia } from './pantallas/guia.js';
 import { fijarCocinaTipo } from './alzado.js';
@@ -154,6 +154,8 @@ async function ruta() {
   if (App.vaciar) { const v = App.vaciar; App.vaciar = null; await v(); }
   if (App.alSalir) { const s = App.alSalir; App.alSalir = null; await s(); }
   App.refrescar = null;
+  // Cada pantalla parte de las alturas de Ajustes (la ficha y el resumen ponen las de su cocina)
+  if (App._ajustes) fijarCocinaTipo(App._ajustes.cocina_tipo);
   const [, seccion, id] = (location.hash || '#/').split('/');
   if (seccion === 'trabajo') return pintarTrabajo(App, id);
   if (seccion === 'sueltas') return pintarTrabajo(App, null);
@@ -161,6 +163,7 @@ async function ruta() {
   if (seccion === 'ajustes') return pintarAjustes(App, id);
   if (seccion === 'resumen') return pintarResumen(App, id);
   if (seccion === 'resumen-trabajo') return pintarResumenTrabajo(App, id);
+  if (seccion === 'pedido') return pintarPedido(App, id, (location.hash || '').split('/')[3]);
   if (seccion === 'papelera') return pintarPapelera(App);
   if (seccion === 'pendientes') return pintarPendientes(App);
   if (seccion === 'guia') return pintarGuia(App, id);

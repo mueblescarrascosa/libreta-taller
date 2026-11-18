@@ -234,12 +234,12 @@ export function fichasDePlantilla(trabajoId, { puertas, cocina, armarios = {} })
 }
 
 // Texto de todo el trabajo: cabecera, recuento de puertas y cada ficha.
-export function textoTrabajo({ trabajo, fichas, ajustes, abre = true }) {
+export function textoTrabajo({ trabajo, fichas, ajustes, abre = true, conPuntuacion = false }) {
   const u = (trabajo && trabajo.unidad) || ajustes.unidad, bloques = [];
   bloques.push(['*' + (trabajo.nombre || 'Trabajo') + '*', [trabajo.cliente, trabajo.direccion].filter(hay).join(' · ')].filter(hay));
   const r = recuentoPuertas(fichas, u, ajustes, { abre });
   if (r.total) bloques.push(['*' + r.titulo + '*', ...r.lineas]);
-  fichas.forEach(f => bloques.push(...bloquesResumen({ ficha: normalizarFicha(f), trabajo, ajustes }).slice(1)));
+  fichas.forEach(f => bloques.push(...bloquesResumen({ ficha: normalizarFicha(f), trabajo, ajustes, conPuntuacion }).slice(1)));
   return bloques.map(b => b.join('\n')).join('\n\n');
 }
 

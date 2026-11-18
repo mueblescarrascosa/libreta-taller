@@ -3,7 +3,9 @@ import { verMedida } from './unidades.js';
 import { tituloFicha } from './util.js';
 import { textoMaterial } from './material.js';
 import { resumenPuerta, nombreElemento, camposDeElemento, textoAzulejo, extraPilar, tamanoHumos, esquinaDe, textoDescuadre } from './modelo.js';
-import { centrosCampana, textoCentroCampana, geometriaAlzado, textoTubo } from './alzado.js';
+import { centrosCampana, textoCentroCampana, geometriaAlzado, textoTubo, campanasPared, textoHolgurasCampana, fijarCocinaTipo, alturasCocina } from './alzado.js';
+import { puntuarCocina, textoPuntuacion } from './puntuacion.js';
+import { airePlaca, textoAirePlaca } from './consejos.js';
 import { textoModulo, cuadreBajos, cuadreAltos, cuadreCuerposPared, textoCuadre, nombreLineal, nombreInterior, textoInteriores, textoRincon, textoElectro, paredesVecinas } from './modulos.js';
 
 const hay = v => v !== null && v !== undefined && v !== '';
@@ -83,6 +85,9 @@ function bloquePared(p, ud, u, ajustes, d, sinInst) {
   // Dónde queda el centro de cada campana (para la salida de humos y colgarla).
   if (hay(p.largo) && ((p.bajos || []).length || (p.altos || []).length)) {
     centrosCampana(p, d).forEach(c => l.push('- ' + textoCentroCampana(c)));
+    // Lo que queda a cada lado de la campana hasta el siguiente mueble (o si un mueble la pisa) y la encimera libre junto a la placa.
+    campanasPared(p, d).forEach(x => l.push('- ' + textoHolgurasCampana(x)));
+    airePlaca(d, p).forEach(a => l.push('- ' + textoAirePlaca(a)));
     // Tubo de humos (campana o placa extractora a la calle): cuánto tubo y codos, y si hay que cajearlo.
     const g = geometriaAlzado(d, p);
     ((g && g.tubos) || []).forEach(t => l.push('- ' + textoTubo(t)));
@@ -105,7 +110,8 @@ function acabadosTexto(ac, ajustes) {
 }
 
 // Bloques de líneas (la primera de cada bloque suele ser un título entre asteriscos).
-export function bloquesResumen({ ficha, trabajo, ajustes, sinInstalaciones = false }) {
+export function bloquesResumen({ ficha, trabajo, ajustes, sinInstalaciones = false, conPuntuacion = false }) {
+  if (ficha.tipo === 'cocina') fijarCocinaTipo(alturasCocina(ficha.datos, ajustes));
   const d = ficha.datos, { u, pared } = unidadesDe(ficha, trabajo, ajustes), v = (mm, ud = u) => verMedida(mm, ud);
   const bloques = [];
   if (trabajo) bloques.push(['*' + (trabajo.nombre || 'Trabajo') + '*', unir([trabajo.cliente, trabajo.direccion])].filter(hay));
@@ -149,6 +155,8 @@ export function bloquesResumen({ ficha, trabajo, ajustes, sinInstalaciones = fal
   if (libres.length) bloques.push(['*Otras medidas*', ...libres]);
   const notas = (d.notas || []).map(n => String(n.texto || '').trim()).filter(Boolean);
   if (notas.length) bloques.push(['*Notas*', ...notas]);
+  // La puntuación de la cocina, si se ha elegido mandarla
+  if (conPuntuacion && ficha.tipo === 'cocina') { const t = textoPuntuacion(puntuarCocina(ficha)); if (t.length) bloques.push(t); }
   return bloques.filter(b => b.length);
 }
 

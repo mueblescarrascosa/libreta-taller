@@ -19,6 +19,14 @@ export function fijarCocinaTipo(ct) {
   const encimera = ct.zocalo + ct.mueble + ct.grueso, desde = encimera + ct.separacion, hasta = desde + ct.alto_alto;
   return Object.assign(ALTURAS, { zocalo: ct.zocalo, mueble_bajo: ct.mueble, grueso_encimera: ct.grueso, encimera, altos_desde: desde, altos_hasta: hasta, columna: hasta, frigo: Math.min(1850, hasta - 300) });
 }
+// Alturas de una cocina: las de la cocina tipo de Ajustes y, encima, las que se hayan cambiado en la propia ficha.
+export const CAMPOS_ALTURA = [['zocalo', 'Zócalo'], ['mueble', 'Alto del mueble bajo (casco)'], ['grueso', 'Grueso de la encimera'], ['alto_alto', 'Alto de los altos'], ['separacion', 'De la encimera a los altos']];
+export function alturasCocina(d, ajustes) {
+  const base = Object.assign({}, (ajustes && ajustes.cocina_tipo) || { zocalo: 150, mueble: 700, grueso: 40, alto_alto: 700, separacion: 560 });
+  const propias = (d && d.alturas) || {};
+  CAMPOS_ALTURA.forEach(([k]) => { if (Number.isFinite(propias[k]) && propias[k] > 0) base[k] = propias[k]; });
+  return base;
+}
 const PUNTOS = ['humos', 'desague', 'toma', 'agua', 'gas', 'enchufe', 'otro'];
 
 // El frigorífico, si es de libre instalación: 'libre' o 'americano' (de los electrodomésticos de la cocina); si no, null.
@@ -93,9 +101,10 @@ export function campanasPared(pared, d, sit = situarMuebles(pared, d)) {
 // Texto para la ficha: «Campana de 60 en un hueco de 90: quedan 15 cm a la izquierda y 15 cm a la derecha».
 export function textoHolgurasCampana(x) {
   const cm = mm => Math.round(mm / 10) + ' cm', lado = (v, pared, t) => (v === null ? '' : v < 0 ? '⚠ el mueble de la ' + t + ' la pisa ' + cm(-v) : (!pared && v < CAMPANA.margen_min ? '⚠ ' : '') + cm(v) + ' a la ' + t + (pared ? ' hasta la pared' : ' hasta el mueble'));
-  const t = 'Campana ' + (x.tipo === 'recta' ? 'recta' : 'piramidal') + ' de ' + cm(x.ancho) + (x.hueco ? ' en un hueco de ' + cm(x.hueco) : ' encima de la placa') + ': quedan '
+  const pisa = (x.pisan || []).length > 0;
+  const t = 'Campana ' + (x.tipo === 'recta' ? 'recta' : 'piramidal') + ' de ' + cm(x.ancho) + (x.hueco ? ' en un hueco de ' + cm(x.hueco) : ' encima de la placa') + ': ' + (pisa ? '' : 'quedan ')
     + [lado(x.izq, x.izqPared, 'izquierda'), lado(x.der, x.derPared, 'derecha')].filter(Boolean).join(' y ') + '.';
-  return (x.pisan || []).length ? t + ' ⚠ Hay muebles encima de la placa: deja en los altos un hueco de ' + cm(x.ancho + 2 * CAMPANA.margen_bien) + ' (la campana y ' + cm(CAMPANA.margen_bien) + ' a cada lado).' : t;
+  return pisa ? t.replace(/ y ⚠ el mueble de la derecha/, ' y el de la derecha') + ' Deja en los altos un hueco de ' + cm(x.ancho + 2 * CAMPANA.margen_bien) + ' (la campana y ' + cm(CAMPANA.margen_bien) + ' a cada lado).' : t;
 }
 
 // Cuánto tubo y cuántos codos hacen falta desde el aparato (x, z0: donde empieza el tubo) hasta la salida de humos más

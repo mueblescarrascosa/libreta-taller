@@ -513,3 +513,25 @@ button.enlace { background: none; border: 0; padding: 0; min-height: 0; color: v
 .guia-indice .enlace { padding: 8px 0; }
 .textos-campana small { display: block; margin-top: 4px; }
 .textos-campana .aviso-tubo { color: #b45309; }
+/* 1.32: hojas de pedido, puntuación de la cocina y botones de pedido */
+.chips a.boton-chip { display: inline-flex; align-items: center; min-height: 40px; padding: 6px 14px; border: 1px solid var(--linea, #d8d2c4); border-radius: 999px; text-decoration: none; color: inherit; background: var(--papel, #fff); font-weight: 600; }
+.tabla-pedido { width: 100%; border-collapse: collapse; margin: 6px 0 14px; font-size: .95em; }
+.tabla-pedido th, .tabla-pedido td { border-bottom: 1px solid var(--linea, #d8d2c4); padding: 5px 6px; text-align: left; }
+.tabla-pedido th { font-weight: 700; }
+.tabla-pedido td:first-child, .tabla-pedido th:first-child { width: 3.5em; text-align: right; }
+.puntuacion { padding: 8px 10px; margin-bottom: 10px; border-radius: 10px; background: rgba(46, 125, 50, .08); }
+.puntuacion p { margin: 0 0 4px; } .puntuacion small { display: block; }
+.alturas-cocina { flex-wrap: wrap; }
+@media print { .pedidos, .elegir-partes { display: none !important; } }
+/* 1.32 (auditoría): en el móvil, las filas de 5 o más botones (material de la encimera, tipo de campana…) bajan de línea
+   en vez de ensanchar la página; y ninguna tarjeta puede hacerse más ancha que la pantalla. */
+.seg:has(> button:nth-child(5)) { flex-wrap: wrap; gap: 6px; }
+.seg:has(> button:nth-child(5)) > button, .seg:has(> button:nth-child(5)) > button:first-child, .seg:has(> button:nth-child(5)) > button:last-child { flex: 1 1 28%; margin-left: 0; border-radius: 8px; }
+.elemento > *, .tarjeta > *, .campo > *, details.plegable > * { min-width: 0; }
+.elemento, .tarjeta, .campo { min-width: 0; max-width: 100%; }
+/* 1.32 (auditoría): zonas de toque de al menos 40 px en lo que se tocaba con dificultad */
+header a.atras, header .engranaje, header .estado { min-width: 40px; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; }
+.como-rellenar > summary, .plegable > summary, a.enlace-guia, [data-acc="crear-ejemplo"], [data-acc="cerrar-puerta"], [data-acc="subir"] { min-height: 40px; display: flex; align-items: center; }
+[data-acc="subir"] { min-width: 40px; justify-content: center; }
+[data-acc="crear-ejemplo"], [data-acc="guia-uso"] { display: inline-flex !important; align-items: center; min-height: 40px; }
+button.enlace[data-acc="crear-ejemplo"] { min-height: 40px !important; }

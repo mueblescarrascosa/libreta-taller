@@ -19,6 +19,7 @@ prueba('campana: un alto encima de la placa la pisa; se dice cuánto y el hueco 
   igual(c.map(x => [x.desde, x.hasta, x.pisan.length]), [[750, 1350, 2]]);
   const t = textoHolgurasCampana(c[0]);
   afirma(/pisa/.test(t) && /hueco de 80 cm/.test(t), t);
+  afirma(!/quedan ⚠/.test(t), t);
   afirma(consejosDiseno(f).some(x => /pisan la campana/.test(x.texto)), 'sale en los consejos');
   // Con hueco de 80 encima (campana de 60 y 10 a cada lado), ya no pisa y quedan 10 por lado.
   A.altos = [mod('alto', 650), mod('hueco', 800), mod('alto', 600)];
@@ -43,6 +44,15 @@ prueba('aire de la placa: encimera libre a cada lado, según el tamaño de la pl
   A.bajos[1].placa_ancho = 900;
   x = airePlaca(f.datos, A)[0];
   igual([x.izq.libre, x.der.libre, x.izq.hasta], [0, 600, 'la columna frigo']);
+});
+
+prueba('1.31.1: el resumen (y el PDF) dice lo que queda junto a la campana y la encimera libre junto a la placa', async () => {
+  const { textoResumen } = await import('../docs/js/resumen.js');
+  const { AJUSTES_FABRICA } = await import('../docs/js/modelo.js');
+  const A = pared('A', 3000, { bajos: [mod('columna_frigo', 600), mod('placa', 900), mod('cajonero', 600), mod('fregadero', 800)], altos: [mod('alto', 600), mod('alto', 900), mod('alto', 600)] }), f = cocina([A]);
+  const t = textoResumen({ ficha: f, trabajo: null, ajustes: AJUSTES_FABRICA });
+  afirma(/Campana piramidal de 60 cm encima de la placa: ⚠ el mueble de la izquierda la pisa/.test(t), t);
+  afirma(/Placa de 60 cm: encimera libre ⚠ 15 cm a la izquierda \(hasta la columna frigo\)/.test(t), t);
 });
 
 const con = fn => async () => { const a = await abrir({}); try { await entrar(a); await fn(a); igual(a.errores, [], 'errores de página'); } finally { await a.cerrar(); } };

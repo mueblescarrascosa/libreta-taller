@@ -302,6 +302,51 @@ export const nombreElectro = e => (e.clave === 'otro' ? e.nombre || 'Otro' : dat
 export function textoElectro(e) {
   const tipo = (datosElectro(e.clave)[2].find(t => t[0] === e.tipo) || [])[1];
   const medida = hay(e.ancho) && hay(e.alto) ? verMedida(e.ancho, 'cm') + ' × ' + verMedida(e.alto, 'cm') + ' cm (ancho × alto)' : hay(e.ancho) ? verMedida(e.ancho, 'cm') + ' cm' : hay(e.alto) ? 'alto ' + verMedida(e.alto, 'cm') + ' cm' : null;
-  const partes = [tipo && tipo.toLowerCase(), medida, e.modelo && e.modelo.trim()].filter(Boolean);
+  const color = e.color && (COLORES_ELECTRO.find(c => c[0] === e.color) || [])[1];
+  const partes = [tipo && tipo.toLowerCase(), color && color.toLowerCase(), medida, e.modelo && e.modelo.trim()].filter(Boolean);
   return nombreElectro(e) + (partes.length ? ': ' + partes.join(' · ') : '');
 }
+
+// ── Electrodomésticos que se rellenan solos según los muebles ──
+// Color de cada electrodoméstico (también los de libre instalación)
+export const COLORES_ELECTRO = [['inox', 'Inox'], ['negro', 'Negro'], ['blanco', 'Blanco']];
+// Lo que piden los muebles puestos: placa (con su tamaño), campana (si la placa no lleva extractor), horno y micro de la
+// columna, horno bajo la placa, micro del alto de micro, frigorífico (integrable, libre o americano), lavavajillas y lavadora.
+export function electrosDeMuebles(d) {
+  const pide = new Map(), poner = (clave, datos) => { if (!pide.has(clave)) pide.set(clave, datos); };
+  const todos = (d.paredes || []).flatMap(p => (p.bajos || []).concat(p.altos || []));
+  todos.forEach(m => {
+    if (m.tipo === 'placa') {
+      poner('placa', { ancho: m.placa_ancho || null });
+      if (!m.extractor) poner('campana', { tipo: todos.some(x => x.tipo === 'alto_campana') ? 'extraible' : 'decorativa', ancho: m.campana_ancho || null });
+      if (m.horno) poner('horno', { tipo: 'bajo' });
+    }
+    if (m.tipo === 'campana_deco') poner('campana', { tipo: 'decorativa', ancho: m.campana_ancho || null });
+    if (m.tipo === 'alto_campana') poner('campana', { tipo: 'extraible' });
+    if (m.tipo === 'columna_hmo') { poner('horno', { tipo: 'columna' }); poner('microondas', { tipo: 'integrable' }); }
+    if (m.tipo === 'alto_micro') poner('microondas', { tipo: 'integrable' });
+    if (m.tipo === 'columna_frigo') poner('frigo', { tipo: m.instalacion || null, ancho: m.instalacion === 'americano' ? 920 : null });
+    if (m.tipo === 'lavavajillas') poner('lavavajillas', { tipo: m.instalacion || null, ancho: m.ancho || null });
+    if (m.tipo === 'lavadora') poner('lavadora', { tipo: m.instalacion || null });
+  });
+  return pide;
+}
+// Pone los que faltan (marcados «auto»), pone al día los «auto» que no se han tocado a mano y quita los «auto» que ya no
+// pide ningún mueble (si no tienen modelo apuntado). Lo que se escribe a mano manda. Devuelve true si ha cambiado algo.
+export function sincronizarElectros(d) {
+  if (!d.electro) d.electro = [];
+  const pide = electrosDeMuebles(d);
+  let cambio = false;
+  pide.forEach((datos, clave) => {
+    const e = d.electro.find(x => x.clave === clave);
+    if (!e) { d.electro.push(Object.assign(electroNuevo(clave), datos, { auto: true, color: colorElectroComun(d) })); cambio = true; return; }
+    if (!e.auto) return;
+    // Los puestos solos copian al mueble, también cuando el mueble deja de decirlo (vuelve a vacío)
+    Object.entries(datos).forEach(([k, v]) => { if (e[k] !== v) { e[k] = v; cambio = true; } });
+  });
+  const antes = d.electro.length;
+  d.electro = d.electro.filter(e => !e.auto || pide.has(e.clave) || (e.modelo && e.modelo.trim()));
+  return cambio || d.electro.length !== antes;
+}
+// Si ya hay alguno con color, los nuevos salen del mismo (lo normal es que vayan a juego)
+export const colorElectroComun = d => ((d.electro || []).find(e => e.color) || {}).color || null;
