@@ -189,7 +189,7 @@ export function escenaPerspectiva(d, { margen = 10, ajustes = null, colores = nu
     const a = { x: t.base.x + t.u.x * t.s0, y: t.base.y + t.u.y * t.s0 }, b = { x: t.base.x + t.u.x * t.s1, y: t.base.y + t.u.y * t.s1 };
     return { r: [a, b, { x: b.x + t.d.x, y: b.y + t.d.y }, { x: a.x + t.d.x, y: a.y + t.d.y }] };
   });
-  recortarSolapes(mods.filter(m => m.r && !m.alto && (m.columna || m.tipo === 'cuerpo')).map(m => ({ fijo: true, r: m.r })).concat(losas));
+  recortarSolapes(mods.filter(m => m.r && !m.alto && (m.columna || m.tipo === 'cuerpo')).map(m => ({ fijo: true, r: m.r })).concat(losas), { ceder: true });
   losas.forEach(l => { if (l.r) mueble(l.r, bajoEncimera, encimera, 'encimera', '', 'encimera'); });
   // Sobre la encimera: la placa (cristal negro con sus fuegos) y el fregadero (seno de acero y grifo).
   const encima = (r, s0, s1, t0, t1) => {
@@ -294,20 +294,34 @@ function separadas(A, B, holgura = 1) {
   }
   return null;
 }
+// Recorta m, a lo largo de su pared, por la punta donde se mete en o. Si no queda nada, r = null.
+function recortar(m, o) {
+  const r = m.r, L = Math.hypot(r[1].x - r[0].x, r[1].y - r[0].y) || 1, u = { x: (r[1].x - r[0].x) / L, y: (r[1].y - r[0].y) / L };
+  const s = o.r.map(q => (q.x - r[0].x) * u.x + (q.y - r[0].y) * u.y), smin = Math.min(...s), smax = Math.max(...s);
+  let s0 = 0, s1 = L;
+  if (smin <= 1) s0 = smax; else if (smax >= L - 1) s1 = smin; else return;
+  if (s1 - s0 < 10) { m.r = null; return; }
+  const dv = { x: r[3].x - r[0].x, y: r[3].y - r[0].y }, a = { x: r[0].x + u.x * s0, y: r[0].y + u.y * s0 }, b = { x: r[0].x + u.x * s1, y: r[0].y + u.y * s1 };
+  m.r = [a, b, { x: b.x + dv.x, y: b.y + dv.y }, { x: a.x + dv.x, y: a.y + dv.y }];
+}
+// Cuánto de su fondo pisa o en m (mm, medido de la pared hacia fuera).
+function pisaFondo(m, o) {
+  const r = m.r, D = Math.hypot(r[3].x - r[0].x, r[3].y - r[0].y) || 1, v = { x: (r[3].x - r[0].x) / D, y: (r[3].y - r[0].y) / D };
+  const t = o.r.map(q => (q.x - r[0].x) * v.x + (q.y - r[0].y) * v.y);
+  return Math.max(0, Math.min(D, Math.max(...t)) - Math.max(0, Math.min(...t)));
+}
 // Recorta, a lo largo de su pared, lo que se mete en otro ya puesto (los primeros mandan; «fijo» nunca se recorta). Si no queda nada, r = null.
-function recortarSolapes(lista) {
+// ceder: si el ya puesto solo pisa una tira fina del fondo del nuevo (el vuelo de la encimera de la otra pared en la esquina),
+// se recorta el ya puesto y no el nuevo (si no, el nuevo perdería todo lo que el otro tiene de fondo).
+const TIRA_FINA = 30;
+function recortarSolapes(lista, { ceder = false } = {}) {
   const puestos = [];
   lista.forEach(m => {
     if (!m.r) return;
     if (!m.fijo) for (const o of puestos) {
-      if (!m.r || separadas(m.r, o.r)) continue;
-      const r = m.r, L = Math.hypot(r[1].x - r[0].x, r[1].y - r[0].y) || 1, u = { x: (r[1].x - r[0].x) / L, y: (r[1].y - r[0].y) / L };
-      const s = o.r.map(q => (q.x - r[0].x) * u.x + (q.y - r[0].y) * u.y), smin = Math.min(...s), smax = Math.max(...s);
-      let s0 = 0, s1 = L;
-      if (smin <= 1) s0 = smax; else if (smax >= L - 1) s1 = smin; else continue;
-      if (s1 - s0 < 10) { m.r = null; break; }
-      const dv = { x: r[3].x - r[0].x, y: r[3].y - r[0].y }, a = { x: r[0].x + u.x * s0, y: r[0].y + u.y * s0 }, b = { x: r[0].x + u.x * s1, y: r[0].y + u.y * s1 };
-      m.r = [a, b, { x: b.x + dv.x, y: b.y + dv.y }, { x: a.x + dv.x, y: a.y + dv.y }];
+      if (!m.r) break;
+      if (!o.r || separadas(m.r, o.r)) continue;
+      if (ceder && !o.fijo && pisaFondo(m, o) < TIRA_FINA) recortar(o, m); else recortar(m, o);
     }
     if (m.r) puestos.push(m);
   });

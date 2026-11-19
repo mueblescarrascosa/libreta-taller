@@ -82,6 +82,11 @@ prueba('perspectiva: el rinconero recto primero de la C lleva la puerta a la der
   // La esquina con B está en la punta de menor y: la puerta, en el 40 % del otro lado
   const h0 = Math.min(...hoja.pts.map(p => p[1]));
   afirma(h0 > y0 + (y1 - y0) * 0.55, 'la puerta empieza pasada la parte tapada: ' + Math.round((h0 - y0) / (y1 - y0) * 100) + ' %');
+  // La encimera cubre todo el rinconero, también la esquina (la de la B pisaba 1 cm con el vuelo y se comía 62 cm de la de la C)
+  const enc = escenaPerspectiva(d).cajas.filter(c => c.color === 'encimera');
+  const cubre = (x, y) => enc.some(c => { const xs = c.huella.map(p => p.x), yy = c.huella.map(p => p.y); return x >= Math.min(...xs) && x <= Math.max(...xs) && y >= Math.min(...yy) && y <= Math.max(...yy); });
+  const xr = rc.huella.map(p => p.x), xm = (Math.min(...xr) + Math.max(...xr)) / 2;
+  [0.05, 0.3, 0.5, 0.8].forEach(f => afirma(cubre(xm, y0 + (y1 - y0) * f), 'encimera sobre el rinconero al ' + f * 100 + ' %'));
 });
 
 await fin();
