@@ -67,4 +67,21 @@ prueba('app: el pilar no escribe «null» y nada se sale a 390 px', con(async a 
   afirma(await a.page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), 'scroll lateral');
 }));
 
+prueba('perspectiva: el rinconero recto primero de la C lleva la puerta a la derecha (lo tapado, en la esquina)', async () => {
+  const { escenaPerspectiva } = await import('../docs/js/perspectiva.js');
+  const f = fichaNueva('cocina', null, 't'), d = f.datos;
+  // La cocina «COCINA CASA» del usuario: B 2,05 con bajo 60 + placa 80; C 2,60 empezando por el rinconero recto de 100
+  d.plano = { cerrada: false, esquinas: [], diagonales: [], vertices: [{ x: 231, y: 545 }, { x: 231, y: 171.5 }, { x: 685, y: 171.5 }, { x: 685, y: 534.5 }, { x: 824.5, y: 534.5 }] };
+  d.paredes = [pared('A', 2600, []), pared('B', 2050, [mod('bajo', 600), mod('placa', 800)]),
+    pared('C', 2600, [mod('rinconero', 1000, { forma: 'recto', gira: 'der' }), mod('bajo', 200), mod('fregadero', 800), mod('lavavajillas', 600)]), pared('D', 250, [])];
+  const rc = escenaPerspectiva(d).cajas.find(c => c.texto && /^Rinconero/.test(c.texto.texto));
+  afirma(rc, 'hay rinconero en la escena');
+  const ys = rc.huella.map(p => p.y), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const hoja = rc.caras.find(c => c.fill === '#fbf6f0');
+  afirma(hoja, 'el rinconero tiene puerta');
+  // La esquina con B está en la punta de menor y: la puerta, en el 40 % del otro lado
+  const h0 = Math.min(...hoja.pts.map(p => p[1]));
+  afirma(h0 > y0 + (y1 - y0) * 0.55, 'la puerta empieza pasada la parte tapada: ' + Math.round((h0 - y0) / (y1 - y0) * 100) + ' %');
+});
+
 await fin();
