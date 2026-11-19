@@ -15,7 +15,9 @@ function cocina(extra = {}) {
   f.datos.alto_techo = 2500;
   f.datos.paredes = [
     pared('A', 3600, { bajos: [mod('bajo', 600), mod('fregadero', 800), mod('placa', 600), mod('bajo', 600)], altos: [mod('alto', 600), mod('alto', 800), mod('alto_campana', 600)],
-      elementos: [el('desague', { distancia: 900, altura: 400 }), el('humos', { distancia: 1700, altura: 2200 }), el('enchufe', { para: 'campana', distancia: 1700, altura: 1900 })] }),
+      elementos: [el('desague', { distancia: 900, altura: 400 }), el('humos', { distancia: 1700, altura: 2200 }), el('enchufe', { para: 'campana', distancia: 1700, altura: 1900 }),
+        // (1.40: con su agua y el enchufe de la placa, que si no se avisa de que faltan)
+        el('toma', { para: 'agua', distancia: 1000, altura: 500 }), el('enchufe', { para: 'placa', distancia: 1700, altura: 500 })] }),
     pared('B', 2000)];
   Object.assign(f.datos, extra);
   return f;

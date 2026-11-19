@@ -12,6 +12,7 @@ import { geometriaPlanta, svgPlanta } from '../plano-vista.js';
 import { generarPdf, aclararDibujos } from '../pdf.js';
 import { geometriaAlzado, svgAlzado, fijarCocinaTipo, alturasCocina } from '../alzado.js';
 import { tablerosFichas } from '../material.js';
+import { instalacionesQueFaltan, textoFalta } from '../avisos-obra.js';
 import { pedidoCascos, pedidoFrentes, pedidoJuntos, textoPedido, MODOS_PEDIDO, MODO_PUERTAS, pedidoPuertas, textoPedidoPuertas } from '../pedido.js';
 const ORDEN_PEDIDO = ['Bajos', 'Columnas', 'Altos', 'Remates'];
 
@@ -43,7 +44,7 @@ const cabecera = trabajo => h('header', {},
 // Tomas, desagües, salidas de humos y enchufes en una tabla: dónde va cada uno y a qué altura.
 // Es lo que necesita el albañil, el fontanero o el electricista si aún no están sacadas.
 const INSTALACIONES = ['humos', 'desague', 'toma', 'agua', 'gas', 'enchufe'];
-function tablaInstalaciones(d, u) {
+function tablaInstalaciones(d, u, cocina = false) {
   const filas = [];
   (d.paredes || []).forEach(p => {
     const vec = paredesVecinas(d, p);
@@ -60,10 +61,15 @@ function tablaInstalaciones(d, u) {
       filas.push([p.letra, que, donde, alt]);
     });
   });
+  // Lo que falta (un mueble o electrodoméstico sin su toma, enchufe, desagüe o humos): por dónde, orientativo.
+  if (cocina) instalacionesQueFaltan(d).forEach(x => {
+    const t = textoFalta(x, d).replace(/^pared \S+, /, '');
+    filas.push([x.pared.letra, 'FALTA ' + x.que, t, x.altura.replace(/^a unos /, 'unos '), true]);
+  });
   if (!filas.length) return null;
   return h('section', { class: 'instalaciones' }, h('h3', {}, 'Tomas e instalaciones'),
     h('table', {}, h('thead', {}, h('tr', {}, ['Pared', 'Qué', 'Dónde (al centro)', 'Altura del suelo'].map(t => h('th', {}, t)))),
-      h('tbody', {}, filas.map(f => h('tr', {}, f.map(t => h('td', {}, t)))))));
+      h('tbody', {}, filas.map(f => h('tr', f[4] ? { class: 'falta' } : {}, f.slice(0, 4).map(t => h('td', {}, t)))))));
 }
 
 // Puertas en una tabla compacta: ancho × alto juntos, condena y vidriera como C y V, y sin las columnas que nadie usa.
@@ -155,7 +161,7 @@ async function nodosFicha(App, ficha, trabajo, AJ, ver = partesGuardadas()) {
     if (esc) pareja.append(h('div', { class: 'alzado-resumen perspectiva-resumen' }, h('p', { class: 'tit' }, h('b', {}, 'Perspectiva'), ' ', h('small', {}, '(de pie, ojos a ' + Math.round(((d.vista && d.vista.ojos) || OJOS) / 10) + ' cm; alturas orientativas)')), svgPerspectiva(esc, vistaDe(esc, d.vista))));
     if (pareja.childNodes.length) nodos.push(pareja);
     nodos.push(...frentes);
-    const t = ver.instalaciones ? tablaInstalaciones(d, u) : null;
+    const t = ver.instalaciones ? tablaInstalaciones(d, u, ficha.tipo === 'cocina') : null;
     if (t) { nodos.push(t); conTabla = true; }
   }
   // El resto, con los mismos bloques que el texto de WhatsApp (sin la cabecera del trabajo ni el título).

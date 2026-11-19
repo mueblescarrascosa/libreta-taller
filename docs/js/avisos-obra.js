@@ -1,8 +1,9 @@
 // Avisos de obra: lo que choca en una pared (muebles con ventanas o puertas), instalaciones fuera de sitio
 // (desagüe lejos del fregadero, humos que no caen encima de la placa, enchufes sin su mueble) y alturas raras.
 // Se calculan sobre el alzado de cada pared (las alturas de los muebles son las orientativas de alzado.js).
-import { geometriaAlzado, ALTURAS } from './alzado.js';
+import { geometriaAlzado, ALTURAS, campanasPared, salidaCampana } from './alzado.js';
 import { verMedida } from './unidades.js';
+import { situarMuebles, paredesVecinas, electrosColumna, placaConHorno } from './modulos.js';
 
 const hay = v => v !== null && v !== undefined;
 const MUEBLES = ['bajo', 'columna', 'alto', 'cuerpo'];
@@ -86,4 +87,104 @@ export function avisosObra(ficha, unidad) {
     if (top && d.alto_techo < top) l.push({ campo: 'alto_techo', texto: 'El techo (' + v(d.alto_techo) + ') es más bajo que ' + (cocina ? 'las columnas y los altos' : 'los cuerpos') + ' (' + v(top) + '): hay que recortarlos' });
   }
   return l;
+}
+
+// ── Lo que falta: muebles y electrodomésticos sin su toma, enchufe, desagüe o salida de humos, y por dónde ponerla.
+// Vale una instalación de la misma pared a menos de CERCA de su mueble, o de la pared de al lado junto a la esquina.
+// Enchufes: vale el de su aparato (también por el nombre de un uso propio: «Placa y horno»), uno general o sin uso.
+const norma = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const usoDe = e => norma((e.para || '') + ' ' + (e.para_nombre || ''));
+const sinUso = e => !e.para || e.para === 'general';
+const USO = { placa: /placa|vitro|induc/, horno: /horno|hmo|h\/mo/, micro: /micro|hmo|h\/mo/, frigo: /frigo|nevera/, lavavajillas: /lavavaj/, lavadora: /lavadora/, campana: /campana|extractor/ };
+const VALE = {
+  desague: e => e.tipo === 'desague',
+  agua: e => e.tipo === 'agua' || (e.tipo === 'toma' && (/agua/.test(usoDe(e)) || !e.para)),
+  gas: e => e.tipo === 'gas' || (e.tipo === 'toma' && /gas/.test(usoDe(e))),
+  humos: e => e.tipo === 'humos' && e.humos_forma !== 'recirculacion',
+};
+const enchufe = clave => e => e.tipo === 'enchufe' && (sinUso(e) || USO[clave].test(usoDe(e)));
+// Qué se dice de cada instalación: nombre y altura orientativa (o dónde).
+const QUE = {
+  desague: ['el desagüe', 'a unos 40 cm del suelo'], agua: ['la toma de agua', 'a unos 50 cm del suelo'],
+  gas: ['la toma de gas', 'a unos 50 cm del suelo'], humos: ['la salida de humos', 'encima de la placa, por la pared o el techo'],
+};
+const DE = { fregadero: 'del fregadero', lavavajillas: 'del lavavajillas', lavadora: 'de la lavadora', placa: 'de la placa', horno: 'del horno', micro: 'del microondas', frigo: 'del frigo', campana: 'de la campana' };
+
+export function instalacionesQueFaltan(d) {
+  const r = [], paredes = (d && d.paredes) || [];
+  const gasEnElectro = (d.electro || []).some(e => e.clave === 'placa' && e.tipo === 'gas');
+  // Puntos de cada pared con su sitio a lo largo de ella (mm desde la izquierda).
+  const puntos = new Map(paredes.map(p => { const g = geometriaAlzado(d, p); return [p, g ? g.puntos.filter(q => q.dato) : []]; }));
+  const humosEnCocina = paredes.some(p => (p.elementos || []).some(VALE.humos));
+  paredes.forEach(p => {
+    if (!(p.largo > 0)) return;
+    const L = p.largo, sit = situarMuebles(p, d), vec = paredesVecinas(d, p);
+    // ¿Hay una instalación que valga cerca del tramo [a, b] de esta pared (o en la de al lado, junto a la esquina)?
+    const cerca = (vale, a, b, tol) => {
+      if (puntos.get(p).some(q => vale(q.dato) && lejos(q.x, { x: a, w: b - a }) <= tol)) return true;
+      const izq = vec.izq, der = vec.der;
+      if (izq && izq !== p && a < tol && izq.largo > 0 && (puntos.get(izq) || []).some(q => vale(q.dato) && a + (izq.largo - q.x) <= tol)) return true;
+      if (der && der !== p && L - b < tol && (puntos.get(der) || []).some(q => vale(q.dato) && (L - b) + q.x <= tol)) return true;
+      return false;
+    };
+    const falta = (que, de, a, b, altura) => r.push({ pared: p, que: que + ' ' + de, desde: Math.max(0, a), hasta: Math.min(L, b), altura });
+    const pide = (clave, a, b, altura) => { if (!cerca(enchufe(clave), a, b, CERCA.enchufe)) falta('el enchufe', DE[clave], a, b, altura); };
+    const pideInst = (k, de, a, b, extra = '') => { if (!cerca(VALE[k], a, b, CERCA.agua)) falta(QUE[k][0], DE[de] + extra, a, b, QUE[k][1]); };
+    const fregaderos = sit.bajos.filter(b => b.m.tipo === 'fregadero');
+    // Con el mueble de al lado (el enchufe del lavavajillas o la lavadora mejor no va detrás del aparato).
+    const conVecino = (i, b) => {
+      const ant = sit.bajos[i - 1], sig = sit.bajos[i + 1], v = [ant, sig].find(x => x && x.m.tipo === 'fregadero') || sig || ant;
+      return v ? [Math.min(b.desde, v.desde), Math.max(b.hasta, v.hasta)] : [b.desde, b.hasta];
+    };
+    sit.bajos.forEach((b, i) => {
+      const m = b.m, a = b.desde, z = b.hasta;
+      const agua = de => {
+        // Junto a un fregadero usa su agua y su desagüe (si le faltan, ya se avisa en el fregadero)
+        if (de !== 'fregadero' && fregaderos.some(f => lejos((a + z) / 2, { x: f.desde, w: f.hasta - f.desde }) <= CERCA.agua)) return;
+        pideInst('desague', de, a, z); pideInst('agua', de, a, z);
+      };
+      if (m.tipo === 'fregadero') agua('fregadero');
+      if (m.tipo === 'lavavajillas' || m.tipo === 'lavadora') {
+        agua(m.tipo);
+        const [x0, x1] = conVecino(i, b);
+        if (!cerca(enchufe(m.tipo), a, z, CERCA.enchufe)) falta('el enchufe', DE[m.tipo], x0, x1, 'a unos 50 cm del suelo (mejor en el mueble de al lado)');
+      }
+      if (m.tipo === 'placa') {
+        const gas = m.placa_tipo === 'gas' || (!m.placa_tipo && gasEnElectro);
+        if (gas) pideInst('gas', 'placa', a, z, ' (si no va con bombona)');
+        else pide('placa', a, z, 'a unos 50 cm del suelo, debajo de la placa');
+        if (gas && placaConHorno(m)) pide('horno', a, z, 'a unos 50 cm del suelo, detrás del horno');
+      }
+      if (m.tipo === 'columna_frigo') pide('frigo', a, z, 'detrás del frigo');
+      if (['columna_hmo', 'semicolumna', 'columna_electro'].includes(m.tipo)) {
+        const e = electrosColumna(m);
+        if (e.horno) pide('horno', a, z, 'dentro de la columna, detrás del horno');
+        else if (e.micro) pide('micro', a, z, 'dentro de la columna, detrás del microondas');
+        if (m.tipo === 'columna_electro' && (m.abajo === 'lavadora' || m.abajo === 'lavavajillas')) { agua(m.abajo); pide(m.abajo, a, z, 'a unos 50 cm del suelo'); }
+      }
+    });
+    sit.altos.forEach(({ m, desde, hasta }) => { if (m.tipo === 'alto_micro') pide('micro', desde, hasta, 'dentro del alto, detrás del microondas'); });
+    // Campanas: las de encima de la placa, las de un «Campana decorativa» y los «Alto campana».
+    const campanas = campanasPared(p, d, sit).map(c => ({ m: c.alto || c.placa, a: c.desde, z: c.hasta }))
+      .concat(sit.altos.filter(x => x.m.tipo === 'alto_campana').map(x => ({ m: x.m, a: x.desde, z: x.hasta })));
+    campanas.forEach(({ m, a, z }) => {
+      pide('campana', a, z, 'a unos 2,10 m del suelo, por encima de la campana');
+      if (salidaCampana(m, p, d) !== 'recirculacion' && !humosEnCocina) falta(QUE.humos[0], DE.campana, a, z, QUE.humos[1]);
+    });
+  });
+  return r;
+}
+
+// «pared B, entre 60 y 140 cm de A»: el tramo contado desde la esquina más cercana (con la letra de la pared de al lado).
+export function textoFalta(x, d) {
+  const p = x.pared, L = p.largo, vec = paredesVecinas(d, p), c = (x.desde + x.hasta) / 2, der = L - c < c;
+  const [a, b] = der ? [L - x.hasta, L - x.desde] : [x.desde, x.hasta], v = vec[der ? 'der' : 'izq'];
+  const cm = mm => verMedida(Math.round(mm / 10) * 10, 'cm');
+  return 'pared ' + p.letra + ', entre ' + cm(a) + ' y ' + cm(b) + ' cm ' + (v && v.letra ? 'de ' + v.letra : der ? 'de la dcha.' : 'de la izq.');
+}
+
+export function avisosFaltan(ficha) {
+  if (ficha.tipo !== 'cocina') return [];
+  const d = ficha.datos;
+  return instalacionesQueFaltan(d).map(x => ({ campo: 'pared.' + x.pared.id, texto: 'Falta ' + x.que + ': ' + textoFalta(x, d) + ', ' + x.altura }));
 }

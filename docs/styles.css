@@ -237,6 +237,7 @@ button.mini { min-height: 36px; padding: 4px 10px; font-size: 14px; }
 .resumen-doc h1 { font-size: 22px; margin: 0; }
 .resumen-doc .empresa { margin: 0 0 4px; font-size: 13px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #92400e; }
 .resumen-doc .instalaciones h3 { margin-top: 8px; }
+.resumen-doc .instalaciones tr.falta td { color: #b91c1c; font-weight: 600; }
 .resumen-doc header p { margin: 2px 0; color: #374151; }
 .resumen-doc .fecha { color: var(--tenue); font-size: 13px; }
 .resumen-doc h2 { font-size: 18px; margin: 12px 0 8px; color: #78350f; }
