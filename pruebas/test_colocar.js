@@ -51,6 +51,22 @@ prueba('campana: enchufe a 2,10 y humos a 2,30; con techo bajo, humos 10 cm bajo
   igual(colocarPropuestas(b).find(e => e.tipo === 'humos').altura, 2250);
 });
 
+prueba('enchufe del horno/micro en columna a 1,15 m', () => {
+  const d = cocina([pared('A', 3000, { bajos: [mod('columna_hmo', 600)] })]);
+  igual(colocarPropuestas(d).find(e => e.para === 'hmo').altura, 1150);
+});
+
+prueba('no se pone nada encima de una ventana: se aparta al lado libre', () => {
+  // fregadero de 640 a 1440 con ventana encima (700-1400); encimera libre de 1440 a 2640 (enchufe a 2040) con otra ventana (1800-2300)
+  const d = cocina([pared('A', 3000, { bajos: [mod('bajo', 600), mod('fregadero', 800), mod('bajo', 600), mod('bajo', 600)],
+    elementos: [el('ventana', { distancia: 700, ancho: 700, altura: 1000, alto: 1000 }), el('ventana', { distancia: 1800, ancho: 500, altura: 1000, alto: 1000 })] })]);
+  const n = colocarPropuestas(d);
+  const pisa = e => { const x = e.ref === 'der' ? 3000 - e.distancia : e.distancia; return ((x > 600 && x < 1500) || (x > 1700 && x < 2400)) && e.altura > 900 && e.altura < 2100; };
+  igual(n.filter(pisa).map(e => e.tipo + ' ' + e.para + ' ' + e.distancia), []);
+  afirma(n.some(e => e.tipo === 'desague'), 'el desagüe (bajo la ventana) sigue');
+  afirma(n.some(e => e.para === 'general' && Math.abs((e.ref === 'der' ? 3000 - e.distancia : e.distancia) - 1700) <= 10), 'enchufe de encimera apartado a 1700: ' + JSON.stringify(n.filter(e => e.para === 'general')));
+});
+
 prueba('placa de gas: toma de gas 20 cm al lado', () => {
   const d = cocina([pared('A', 3000, { bajos: [mod('placa', 800, { placa_tipo: 'gas' })] })]);
   const g = colocarPropuestas(d).find(e => e.tipo === 'toma' && e.para === 'gas');

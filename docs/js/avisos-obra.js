@@ -173,8 +173,8 @@ export function instalacionesQueFaltan(d) {
       if (m.tipo === 'columna_frigo') pide('frigo', a, z, 'detrás del frigo');
       if (['columna_hmo', 'semicolumna', 'columna_electro'].includes(m.tipo)) {
         const e = electrosColumna(m);
-        if (e.horno) pide('horno', a, z, 'dentro de la columna, detrás del horno');
-        else if (e.micro) pide('micro', a, z, 'dentro de la columna, detrás del microondas');
+        if (e.horno) pide('horno', a, z, 'dentro de la columna, a unos 115 cm del suelo', 1150);
+        else if (e.micro) pide('micro', a, z, 'dentro de la columna, a unos 115 cm del suelo', 1150);
         if (m.tipo === 'columna_electro' && (m.abajo === 'lavadora' || m.abajo === 'lavavajillas')) { agua(m.abajo); pide(m.abajo, a, z, 'a unos 50 cm del suelo'); }
       }
     });
@@ -194,7 +194,7 @@ export function instalacionesQueFaltan(d) {
       const n = Math.max(1, Math.round((z - a) / 1200));
       for (let k = 0; k < n; k++) {
         const x = Math.round(a + (z - a) * (k + 0.5) / n);
-        if (!cerca(VALE.encimera, x, x, CERCA.encimera)) falta('el enchufe', 'de encimera', x - 300, x + 300, 'a unos ' + (yEnc / 10) + ' cm del suelo, sobre la encimera', { tipo: 'enchufe', para: 'general', x, y: yEnc }, true);
+        if (!cerca(VALE.encimera, x, x, CERCA.encimera)) falta('el enchufe', 'de encimera', x - 300, x + 300, 'a unos ' + (yEnc / 10) + ' cm del suelo, sobre la encimera', { tipo: 'enchufe', para: 'general', x, y: yEnc, entre: [a + 50, z - 50] }, true);
       }
     });
     sit.altos.forEach(({ m, desde, hasta }) => { if (m.tipo === 'alto_micro') pide('micro', desde, hasta, 'dentro del alto, detrás del microondas', ALTURAS.altos_desde + 100); });
@@ -226,16 +226,33 @@ export function avisosFaltan(ficha) {
 // ── Propuestas para el electricista y el fontanero (reformas): lo que falta, puesto en la pared como elemento
 // con «propuesta: true». Se mide desde la esquina más cercana. Devuelve los elementos nuevos.
 export function colocarPropuestas(d) {
-  const nuevos = [];
+  const nuevos = [], estorbos = new Map();
+  // Ventanas, puertas y pilares de cada pared: lo propuesto no se pone encima.
+  const estorbosDe = p => {
+    if (!estorbos.has(p)) { const g = geometriaAlzado(d, p); estorbos.set(p, g ? g.piezas.filter(q => ['ventana', 'puerta', 'pilar'].includes(q.clase)) : []); }
+    return estorbos.get(p);
+  };
   instalacionesQueFaltan(d).forEach(x => {
     if (!x.pon) return;
-    const p = x.pared, L = p.largo, der = x.pon.x > L / 2, dist = Math.round((der ? L - x.pon.x : x.pon.x) / 10) * 10;
+    const p = x.pared, L = p.largo, px = libreDeHuecos(estorbosDe(p), x.pon.x, x.pon.y, L);
+    if (px === null || (x.pon.entre && (px < x.pon.entre[0] || px > x.pon.entre[1]))) return;
+    const der = px > L / 2, dist = Math.round((der ? L - px : px) / 10) * 10;
     const e = Object.assign(elementoNuevo(x.pon.tipo, der ? 'der' : 'izq'), { distancia: dist, altura: x.pon.y, propuesta: true }, x.pon.para ? { para: x.pon.para } : {});
     p.elementos = p.elementos || [];
     p.elementos.push(e);
     nuevos.push(e);
   });
   return nuevos;
+}
+// Sitio a lo largo de la pared que no pisa ventanas, puertas ni pilares (con 10 cm de holgura): el mismo si está libre,
+// si no el lado libre más cercano. null si no cabe en ninguno.
+const HOLGURA = 100;
+function libreDeHuecos(piezas, x, y, L) {
+  const pisa = v => piezas.some(q => v > q.x - HOLGURA && v < q.x + q.w + HOLGURA && y > q.y - HOLGURA && y < q.y + q.h + HOLGURA);
+  if (!pisa(x)) return x;
+  const lados = piezas.filter(q => y > q.y - HOLGURA && y < q.y + q.h + HOLGURA).flatMap(q => [q.x - HOLGURA, q.x + q.w + HOLGURA])
+    .filter(v => v >= 50 && v <= L - 50 && !pisa(v)).sort((a, b) => Math.abs(a - x) - Math.abs(b - x));
+  return lados.length ? lados[0] : null;
 }
 // Quita solo las propuestas (lo medido no se toca). Devuelve cuántas quitó.
 export function quitarPropuestas(d) {
