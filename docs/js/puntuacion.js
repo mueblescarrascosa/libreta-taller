@@ -18,7 +18,15 @@ export const UTIL = {
   despensero: 3.0, escobero: 2.0, columna_hmo: 0.8, columna_frigo: 0.3, columna_electro: 0.6, semicolumna: 1.6,
   alto: 0.8, alto_abierto: 0.5, alto_micro: 0.3, alto_campana: 0.3, alto_frigo: 0.3, campana_deco: 0,
 };
-const CON_CAJONES = /GAVETERO|CACEROLERO/;
+// Cómo es el frente de un bajo: «cajones», «mixto» (cajón y puerta) o «puertas». Sin modelo elegido, el que se dibuja:
+// cajonero y placa sin horno, cajones.
+const ELECTRO_V = /SOPORTE|HORNO|H\/MO|ELECTRODOM/;
+function frenteDe(m, d) {
+  const v = varianteDe(m, d) || (m.tipo === 'cajonero' || (m.tipo === 'placa' && !m.horno) ? '4 GAVETEROS' : 'PUERTAS');
+  if (ELECTRO_V.test(v) || !/GAVETERO|CACER/.test(v)) return 'puertas';
+  return /PUERTA/.test(v) ? 'mixto' : 'cajones';
+}
+const BAJO_BASE = { bajo: 1.0, cajonero: 1.0, placa: 0.8, fregadero: 0.5 };
 export const DENSIDAD_BUENA = 2.0;   // metros útiles por metro de cocina que dan 100 en almacenaje
 const RESTA_CONSEJO = 9;
 const GRUPOS_USO = ['placa', 'agua', 'frio', 'encimera', 'paso'];
@@ -27,8 +35,12 @@ const m1 = v => Math.round(v / 100) / 10;   // mm → metros con un decimal
 function utilDe(m, ancho, d) {
   if (placaConHorno(m)) return 0.2 * ancho;
   if (m.tipo === 'rinconero') return (m.forma === 'recto' ? 0.5 : 0.9) * ancho;
-  const v = varianteDe(m, d);
-  if (v && CON_CAJONES.test(v) && ['bajo', 'placa', 'fregadero', 'cajonero'].includes(m.tipo)) return 1.3 * ancho;
+  const v = varianteDe(m, d) || '';
+  // Bajos: los cajones guardan un 30 % más que las puertas (con cajón y puerta, la mitad)
+  if (m.tipo in BAJO_BASE) { const f = frenteDe(m, d); return (BAJO_BASE[m.tipo] + (f === 'cajones' ? 0.3 : f === 'mixto' ? 0.15 : 0)) * ancho; }
+  if (m.tipo === 'semicolumna') return (v === '4-5 CACEROLEROS' ? 1.9 : v === 'HORNO + 1 PUERTA' ? 0.8 : v.startsWith('HORNO/MICRO') ? 0.6 : UTIL.semicolumna) * ancho;
+  if (m.tipo === 'columna_hmo') return (/\+ PUERTA$/.test(v) ? 0.8 : 0.9) * ancho;   // con caceroleros abajo, algo más
+  if (m.tipo === 'alto' && /DECORATIVO/.test(v)) return UTIL.alto_abierto * ancho;
   return (UTIL[m.tipo] ?? 0.5) * ancho;
 }
 
@@ -45,8 +57,8 @@ export function puntuarCocina(ficha) {
     sit.bajos.forEach(({ m, desde, hasta }) => {
       const w = hasta - desde, u = utilDe(m, w, d); util += u;
       if (esColumna(m)) { if (m.tipo === 'despensero' || m.tipo === 'escobero') columnas += w; }
-      else if (u >= 1.3 * w - 1) cajones += w;
-      else if (['bajo', 'fregadero', 'rinconero'].includes(m.tipo)) puertasBajas += w;
+      else if (m.tipo in BAJO_BASE && !placaConHorno(m) && frenteDe(m, d) === 'cajones') cajones += w;
+      else if (['bajo', 'fregadero', 'rinconero', 'placa'].includes(m.tipo)) puertasBajas += w;
     });
     sit.altos.forEach(({ m, desde, hasta }) => { const w = hasta - desde; util += utilDe(m, w, d); if (m.tipo === 'alto') altos += w; });
   });
@@ -102,8 +114,8 @@ export function mejorCocina(ficha, { pasos = 6 } = {}) {
     (actual.datos.paredes || []).forEach((p, ip) => {
       // Bajo de puertas → cajonero
       (p.bajos || []).forEach((m, i) => {
-        if (m.tipo !== 'bajo' || m.variante) return;
-        const n = copiar(actual); n.datos.paredes[ip].bajos[i].tipo = 'cajonero';
+        if (m.tipo !== 'bajo' || (m.variante && m.variante !== 'PUERTAS')) return;
+        const n = copiar(actual); n.datos.paredes[ip].bajos[i].tipo = 'cajonero'; n.datos.paredes[ip].bajos[i].variante = null;
         probar(n, 'Pared ' + p.letra + ': el bajo de ' + Math.round(m.ancho / 10) + ' a cajonero');
       });
       // Mover un bajo o cajonero a otro sitio de la misma pared

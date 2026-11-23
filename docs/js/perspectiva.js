@@ -17,7 +17,7 @@ const COLOR = {
   bajo: ['#f5ede4', '#92400e'], cuerpo: ['#f5ede4', '#92400e'], barra: ['#57534e', '#44403c'], estante: ['#c08a4a', '#92400e'], zapato: ['#a8a29e', '#78716c'],
   cajon: ['#fde68a', '#92400e'], hoja: ['#fbf6f0', '#92400e'], hoja_alto: ['#e8f0fe', '#1d4ed8'], hoja_columna: ['#fbf6f0', '#92400e'], tirador: ['#57534e', '#44403c'], electro: ['#3f3f46', '#18181b'],
   placa: ['#1f2328', '#0b0d10'], fuego: ['#2f343b', '#8b929b'], seno: ['#9aa5b1', '#64748b'], grifo: ['#cbd5e1', '#475569'],
-  cristal: ['#52525b', '#a1a1aa'], hueco: ['#ece6dc', '#a8a29e'], acero: ['#e2e8f0', '#64748b'], campana: ['#a1a1aa', '#52525b'], zocalo: ['#d6c3ae', '#92400e'], tablero: ['#e2cdb5', '#92400e'], pantalonero: ['#fef3c7', '#78350f'], encimera: ['#9ca3af', '#4b5563'], columna: ['#e7d8c9', '#92400e'], alto: ['#dbeafe', '#1d4ed8'], pilar: ['#d1d5db', '#6b7280'], isla: ['#fef3c7', '#b45309'],
+  cristal: ['#52525b', '#a1a1aa'], vidrio: ['#e0f2fe', '#7dd3fc'], hueco: ['#ece6dc', '#a8a29e'], acero: ['#e2e8f0', '#64748b'], campana: ['#a1a1aa', '#52525b'], zocalo: ['#d6c3ae', '#92400e'], tablero: ['#e2cdb5', '#92400e'], pantalonero: ['#fef3c7', '#78350f'], encimera: ['#9ca3af', '#4b5563'], columna: ['#e7d8c9', '#92400e'], alto: ['#dbeafe', '#1d4ed8'], pilar: ['#d1d5db', '#6b7280'], isla: ['#fef3c7', '#b45309'],
 };
 
 // Colores elegidos (guía de colores de Presupuestos): { altos, bajos, columnas, encimera, tirador, suelo, pared } en #rrggbb.

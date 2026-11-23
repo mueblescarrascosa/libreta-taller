@@ -385,6 +385,7 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
     f_acero: { fill: '#e2e8f0', stroke: '#64748b', 'stroke-width': s * 0.3 },
     f_tirador: { fill: '#57534e', stroke: 'none' },
     f_electro: { fill: '#3f3f46', stroke: '#18181b', 'stroke-width': s * 0.25 },
+    f_vidrio: { fill: '#e0f2fe', stroke: '#7dd3fc', 'stroke-width': s * 0.2 },
     f_cristal: { fill: '#52525b', stroke: '#a1a1aa', 'stroke-width': s * 0.2 },
     f_campana: { fill: '#a1a1aa', stroke: '#52525b', 'stroke-width': s * 0.25 },
     f_placa: { fill: '#1f2328', stroke: '#0b0d10', 'stroke-width': s * 0.2 },
@@ -392,7 +393,7 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
     ventana: { fill: '#e0f2fe', stroke: '#0284c7', 'stroke-width': s * 0.5 },
     puerta: { fill: '#fef3c7', stroke: '#92400e', 'stroke-width': s * 0.5 },
   };
-  const orden = ['azulejo', 'pilar', 'ventana', 'puerta', 'zocalo', 'bajo', 'encimera', 'columna', 'cuerpo', 'int_estante', 'int_zapato', 'int_cajon', 'int_pantalonero', 'int_barra', 'hueco', 'alto', 'f_zocalo', 'f_hueco', 'f_tablero', 'f_hoja', 'f_hoja_alto', 'f_acero', 'f_electro', 'f_cristal', 'f_campana', 'f_placa', 'f_tirador'];
+  const orden = ['azulejo', 'pilar', 'ventana', 'puerta', 'zocalo', 'bajo', 'encimera', 'columna', 'cuerpo', 'int_estante', 'int_zapato', 'int_cajon', 'int_pantalonero', 'int_barra', 'hueco', 'alto', 'f_zocalo', 'f_hueco', 'f_tablero', 'f_hoja', 'f_hoja_alto', 'f_acero', 'f_electro', 'f_vidrio', 'f_cristal', 'f_campana', 'f_placa', 'f_tirador'];
   const rotulos = [];
   orden.forEach(clase => g.piezas.filter(p => p.clase === clase).forEach(p => {
     if (p.trap) svg.append(el('polygon', Object.assign({ points: [[p.x, p.y], [p.x + p.w, p.y], [p.x + (p.w + p.trap) / 2, p.y + p.h], [p.x + (p.w - p.trap) / 2, p.y + p.h]].map(([x, y]) => x + ',' + Y(y)).join(' '), 'data-pieza': p.clase }, ESTILO[clase])));

@@ -20,6 +20,18 @@ function puertas(r, x0, x1, z0, z1, tirador, una = false) {
     r.push({ k: 'tirador', x0: tx, x1: tx + GRUESO_T, z0: tz, z1: tz + largo });
   });
 }
+// Vitrina: las puertas con su cristal.
+function vitrina(r, x0, x1, z0, z1, tirador) {
+  const i = r.length;
+  puertas(r, x0, x1, z0, z1, tirador);
+  r.slice(i).filter(q => q.k === 'hoja').forEach(q => { if (q.x1 - q.x0 > 160 && q.z1 - q.z0 > 160) r.push({ k: 'vidrio', x0: q.x0 + 60, x1: q.x1 - 60, z0: q.z0 + 60, z1: q.z1 - 60 }); });
+}
+// Hueco abierto con baldas (n) y, si se pide, separaciones verticales cada ~15 cm (botellero).
+function abierto(r, ancho, z0, z1, n, botellero = false) {
+  const h = z1 - z0;
+  for (let k = 1; k <= n; k++) r.push({ k: 'tablero', x0: 0, x1: ancho, z0: z0 + h * k / (n + 1) - 10, z1: z0 + h * k / (n + 1) + 10 });
+  if (botellero) { const c = Math.max(2, Math.round(ancho / 150)); for (let k = 1; k < c; k++) r.push({ k: 'tablero', x0: ancho * k / c - 8, x1: ancho * k / c + 8, z0, z1 }); }
+}
 // Cajones de abajo arriba, con el tirador horizontal arriba en el centro. n: cuántos iguales, o una lista de pesos
 // (cacerolero 2, gavetero 1: «1 gavetero 2 caceroleros» = [2, 2, 1]).
 function cajones(r, x0, x1, z0, z1, n) {
@@ -69,6 +81,8 @@ export function frenteModulo(tipo, ancho, z0, z1, { columna = false, variante = 
   // Bajos con un modelo elegido que cambia el frente.
   if (variante && ['bajo', 'cajonero', 'placa', 'fregadero'].includes(tipo)) {
     if (CAJONES_DE[variante]) { cajones(r, 0, ancho, base, z1, CAJONES_DE[variante]); return r; }
+    if (variante === 'PUERTAS') { puertas(r, 0, ancho, base, z1, 'arriba'); return r; }
+    if (variante === 'VITRINA') { vitrina(r, 0, ancho, base, z1, 'arriba'); return r; }
     if (variante === '1 GAVETERO 1 PUERTA') { const c = base + (z1 - base) * 0.78; puertas(r, 0, ancho, base, c, 'arriba'); cajones(r, 0, ancho, c, z1, 1); return r; }
     if (variante === 'ESPECIERO' || variante === 'PANERO') { puertas(r, 0, ancho, base, z1, 'medio'); return r; }
     if (variante.startsWith('SOPORTE HORNO')) {
@@ -156,8 +170,10 @@ export function frenteModulo(tipo, ancho, z0, z1, { columna = false, variante = 
       break;
     }
     case 'escobero': case 'despensero': {
+      // 1/4 + 3/4: puerta grande abajo y una corta arriba
+      if (variante === '1/4+3/4') { const c = base + (z1 - base) * 0.75; puertas(r, 0, ancho, base, c, 'arriba'); puertas(r, 0, ancho, c, z1, 'abajo'); break; }
       const top = z1 - base > 1900 ? base + 1750 : z1;
-      puertas(r, 0, ancho, base, top, 'medio');
+      (variante === 'VITRINA' ? vitrina : puertas)(r, 0, ancho, base, top, 'medio');
       if (z1 > top + 50) puertas(r, 0, ancho, top, z1, 'abajo');
       break;
     }
@@ -190,6 +206,15 @@ export function frenteModulo(tipo, ancho, z0, z1, { columna = false, variante = 
       break;
     }
     case 'alto': case 'alto_frigo':
+      if (tipo === 'alto' && variante === 'VITRINA') { vitrina(r, 0, ancho, base, z1, 'abajo'); break; }
+      if (tipo === 'alto' && variante === 'ABATIBLE') {
+        // Una sola hoja que abre hacia arriba, con el tirador abajo, tumbado (va antes de la hoja: cuenta como puerta, no cajón)
+        const g = FRENTE.holgura, w = Math.min(TIRADOR * 1.5, ancho / 2);
+        r.push({ k: 'tirador', x0: ancho / 2 - w / 2, x1: ancho / 2 + w / 2, z0: base + g + 40, z1: base + g + 40 + GRUESO_T }, { k: 'hoja', x0: g, x1: ancho - g, z0: base + g, z1: z1 - g });
+        break;
+      }
+      if (tipo === 'alto' && variante === '2 ESTANTES DECORATIVO') { abierto(r, ancho, base, z1, 2); break; }
+      if (tipo === 'alto' && variante === 'BOTELLERO DECORATIVO') { abierto(r, ancho, base, z1, 1, true); break; }
       puertas(r, 0, ancho, base, z1, 'abajo'); break;
     case 'alto_abierto': {
       // Sin puerta: se ven las dos baldas.
@@ -270,7 +295,8 @@ export function frenteFrigoLibre(ancho, americano) {
 // Variante con la que se dibuja un mueble: la elegida o, en la placa con horno debajo, el soporte de horno.
 // Variante de un alto de campana: la elegida o, si no, la que pide la campana de los electrodomésticos.
 export function varianteAlto(m, d) {
-  if (!m || m.tipo !== 'alto_campana') return null;
+  if (!m) return null;
+  if (m.tipo !== 'alto_campana') return m.variante || null;   // vitrina, abatible, decorativos…
   if (m.variante) return m.variante;
   const c = ((d && d.electro) || []).find(e => e.clave === 'campana');
   return c && c.tipo === 'integrada' ? 'CAMPANA INTEGRABLE' : 'CAMPANA EXTRAÍBLE';
