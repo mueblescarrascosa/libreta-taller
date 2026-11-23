@@ -1,7 +1,9 @@
 // 1.41.2: cada modelo elegido cambia el dibujo y la puntuación (placa con puertas, vitrinas, 1/4+3/4, abatible, decorativos).
 import { prueba, afirma, igual, fin } from './mini.js';
 import { frenteModulo } from '../docs/js/frentes.js';
-import { puntuarCocina } from '../docs/js/puntuacion.js';
+import { puntuarCocina, mejorCocina } from '../docs/js/puntuacion.js';
+import { avisosObra } from '../docs/js/avisos-obra.js';
+import { elementoNuevo } from '../docs/js/modelo.js';
 import { fichaNueva, paredNueva } from '../docs/js/modelo.js';
 import { moduloNuevo } from '../docs/js/modulos.js';
 
@@ -28,5 +30,14 @@ prueba('vitrinas con cristal; 1/4+3/4 con dos puertas en alto; abatible una hoja
   igual(k(a, 'hoja').length, 1); igual(cajonesDe(a), 0, 'cuenta como puerta');
   igual(k(frenteModulo('alto', 600, 1450, 2150, { variante: '2 ESTANTES DECORATIVO' }), 'hoja').length, 0);
   afirma(k(frenteModulo('alto', 600, 1450, 2150, { variante: 'BOTELLERO DECORATIVO' }), 'tablero').length >= 3, 'botellero');
+});
+prueba('la mejor cocina no pone altos encima de una ventana', () => {
+  const f = cocina(['bajo', 600], ['fregadero', 800], ['bajo', 600], ['bajo', 600]);
+  const p = f.datos.paredes[0];
+  p.altos = [Object.assign(moduloNuevo('alto'), { ancho: 600 })];
+  p.elementos = [Object.assign(elementoNuevo('ventana', 'izq'), { distancia: 800, ancho: 1000, altura: 1100, alto: 1100 })];
+  const r = mejorCocina(f), tapa = x => avisosObra(x, 'mm').filter(a => /tapa la ventana/.test(a.texto)).length;
+  igual(tapa(f), 0, 'antes no tapa');
+  igual(tapa(r.ficha), 0, 'la propuesta tampoco: ' + r.cambios.join(' | '));
 });
 await fin();

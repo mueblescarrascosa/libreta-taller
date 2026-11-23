@@ -9,6 +9,9 @@ import { avisosObra } from './avisos-obra.js';
 // Instalaciones que se quedan sin su mueble (desagüe y agua del fregadero, humos de la placa, enchufes): sin números,
 // para comparar antes y después de un cambio.
 const INSTALACION = /Desagüe|Toma de agua|salida de humos|Salida de humos|Enchufe/;
+// Muebles que tapan una ventana o chocan con una puerta: un cambio no puede añadir ninguno.
+const CHOQUE = /tapa la ventana|choca con la puerta|por debajo de la encimera/;
+const choques = f => avisosObra(f, 'mm').filter(a => CHOQUE.test(a.texto)).length;
 const fueraDeSitio = f => new Set(avisosObra(f, 'mm').map(a => a.texto).filter(t => INSTALACION.test(t)).map(t => t.replace(/\d+([.,]\d+)?/g, '#')));
 
 const hay = v => v !== null && v !== undefined && v !== '';
@@ -106,11 +109,11 @@ export function mejorCocina(ficha, { pasos = 6 } = {}) {
   const p0 = puntuarCocina(ficha);
   if (!p0) return null;
   let actual = copiar(ficha), nota = p0.total;
-  const malAntes = fueraDeSitio(ficha);   // un cambio no puede dejar una toma, el desagüe o un enchufe lejos de su mueble
+  const malAntes = fueraDeSitio(ficha), choquesAntes = choques(ficha);   // un cambio no puede dejar una toma, el desagüe o un enchufe lejos de su mueble
   const cambios = [];
   for (let paso = 0; paso < pasos; paso++) {
     let mejor = null;
-    const probar = (nueva, texto) => { if ([...fueraDeSitio(nueva)].some(t => !malAntes.has(t))) return; const pu = puntuarCocina(nueva); if (pu && pu.total > (mejor ? mejor.nota : nota)) mejor = { ficha: nueva, nota: pu.total, texto }; };
+    const probar = (nueva, texto) => { if ([...fueraDeSitio(nueva)].some(t => !malAntes.has(t)) || choques(nueva) > choquesAntes) return; const pu = puntuarCocina(nueva); if (pu && pu.total > (mejor ? mejor.nota : nota)) mejor = { ficha: nueva, nota: pu.total, texto }; };
     (actual.datos.paredes || []).forEach((p, ip) => {
       // Bajo de puertas → cajonero
       (p.bajos || []).forEach((m, i) => {
@@ -131,9 +134,12 @@ export function mejorCocina(ficha, { pasos = 6 } = {}) {
       // Altos donde quede pared libre arriba
       const c = cuadreAltos(p, actual.datos);
       if ((p.altos || []).length && c.resto >= 300) {
-        const w = Math.min(900, Math.floor(c.resto / 50) * 50), n = copiar(actual);
-        n.datos.paredes[ip].altos.push(Object.assign(moduloNuevo('alto'), { ancho: w }));
-        probar(n, 'Pared ' + p.letra + ': un alto de ' + Math.round(w / 10) + ' en la pared libre');
+        // Del más ancho que cabe al de 30: si el ancho tapa una ventana, uno más estrecho puede no taparla
+        for (let w = Math.min(900, Math.floor(c.resto / 50) * 50); w >= 300; w -= 100) {
+          const n = copiar(actual);
+          n.datos.paredes[ip].altos.push(Object.assign(moduloNuevo('alto'), { ancho: w }));
+          probar(n, 'Pared ' + p.letra + ': un alto de ' + Math.round(w / 10) + ' en la pared libre');
+        }
       }
     });
     if (!mejor) break;
