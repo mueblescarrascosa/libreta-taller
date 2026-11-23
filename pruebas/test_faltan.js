@@ -89,7 +89,7 @@ prueba('la cocina «COCINA CASA» del usuario: le faltan la toma de gas de la pl
   pared('C', 2600, { bajos: [mod('rinconero', 1000, { forma: 'recto', gira: 'izq' }), mod('bajo', 200), mod('fregadero', 800), mod('lavavajillas', 600)],
     elementos: [el('desague', { distancia: 1600, altura: 500 }), el('toma', { para: 'agua', para_nombre: 'Agua', distancia: 1700, altura: 500 }), el('enchufe', { para: 'lavavajillas', distancia: 1900, altura: 500 })] }),
   pared('D', 250), pared('E', 3000, { bajos: [mod('columna_frigo', 700)], elementos: [el('enchufe', { para: 'frigo', distancia: 400, altura: 500 })] })]);
-  const t = instalacionesQueFaltan(f.datos).map(x => x.que);
+  const t = instalacionesQueFaltan(f.datos).filter(x => !x.opcional).map(x => x.que);
   igual(t, ['la toma de gas de la placa (si no va con bombona)', 'el enchufe de la campana']);
 });
 

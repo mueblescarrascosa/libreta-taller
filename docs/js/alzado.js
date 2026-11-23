@@ -12,6 +12,8 @@ const hay = v => v !== null && v !== undefined;
 // Alturas orientativas (mm desde el suelo).
 // Cocina tipo del taller: zócalo 15 + mueble 70 + encimera 4 = 89 cm; altos de 70 desde 145 (56 cm sobre la encimera) hasta 215, como las columnas.
 // La guía de medidas y los consejos de diseño leen de aquí.
+// Color de las instalaciones propuestas («A poner»).
+export const PROPUESTA = '#f97316';
 export const ALTURAS = { techo: 2500, zocalo: 150, mueble_bajo: 700, encimera: 890, grueso_encimera: 40, altos_desde: 1450, altos_hasta: 2150, columna: 2150, frigo: 1850 };
 // La cocina tipo de los ajustes (cocina_tipo: zócalo, mueble, grueso, alto de los altos y su separación de la encimera).
 export function fijarCocinaTipo(ct) {
@@ -432,8 +434,9 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
   // Tampoco pisan los nombres de dentro (pilar, ventana…) ni el punto de otra toma.
   puestos.push(...ocupados, ...g.puntos.map(q => { const py = Y(q.y === null ? 0 : q.y); return { x: q.x - s * 2, y: py - s * 2, w: s * 4, h: s * 4 }; }));
   g.puntos.forEach(q => {
-    const col = COLOR[q.tipo] || '#111827', y = q.y === null ? 0 : q.y, py = Y(y);
-    const t = q.techo ? q.texto : q.texto + ' ' + (q.y === null ? '(sin altura)' : verMedida(q.y, unidad)), tam = 3, w = t.length * s * tam * 0.58, hh = s * tam * 1.3;
+    // Propuestas («A poner», para el electricista y el fontanero): en naranja, punto hueco discontinuo.
+    const col = q.dato && q.dato.propuesta ? PROPUESTA : COLOR[q.tipo] || '#111827', y = q.y === null ? 0 : q.y, py = Y(y);
+    const t = (q.techo ? q.texto : q.texto + ' ' + (q.y === null ? '(sin altura)' : verMedida(q.y, unidad))) + (q.dato && q.dato.propuesta ? ' ·a poner' : ''), tam = 3, w = t.length * s * tam * 0.58, hh = s * tam * 1.3;
     const abajo = q.techo || q.tipo === 'desague', dir = abajo ? 1 : -1;
     let paso = 0, caja;
     do { caja = { x: q.x - w / 2, y: (abajo ? py + s * 2.5 : py - s * 4 - hh / 2) + dir * paso * hh, w, h: hh }; paso++; } while (paso < 12 && puestos.some(b => pisa(caja, b)));
@@ -443,7 +446,8 @@ export function svgAlzado(g, { unidad = 'cm' } = {}) {
   colocados.forEach(({ q, col, py, hh, caja, paso, abajo }) => {
     if (paso > 1) svg.append(el('line', { x1: q.x, y1: abajo ? py + s * 1.5 : py - s * 1.5, x2: q.x, y2: abajo ? caja.y : caja.y + hh, stroke: col, 'stroke-width': s * 0.3, opacity: 0.7 }));
   });
-  colocados.forEach(({ q, col, py }) => svg.append(el('circle', { cx: q.x, cy: py, r: s * 1.5, fill: q.y === null ? '#fff' : col, stroke: col, 'stroke-width': s * 0.5, 'data-punto': q.tipo })));
+  colocados.forEach(({ q, col, py }) => svg.append(el('circle', Object.assign({ cx: q.x, cy: py, r: s * 1.5, fill: q.y === null ? '#fff' : col, stroke: col, 'stroke-width': s * 0.5, 'data-punto': q.tipo },
+    q.dato && q.dato.propuesta ? { fill: '#fff', 'stroke-dasharray': s * 0.9 + ' ' + s * 0.5, 'stroke-width': s * 0.6, 'data-propuesta': '' } : {}))));
   colocados.forEach(({ q, col, t, tam, hh, caja }) => {
     // Con fondo blanco: las puertas y los tiradores pasan por detrás y no tachan el nombre.
     svg.append(fondoRotulo(el, { caja }, s * tam));

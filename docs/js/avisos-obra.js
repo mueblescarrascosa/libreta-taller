@@ -3,12 +3,13 @@
 // Se calculan sobre el alzado de cada pared (las alturas de los muebles son las orientativas de alzado.js).
 import { geometriaAlzado, ALTURAS, campanasPared, salidaCampana } from './alzado.js';
 import { verMedida } from './unidades.js';
-import { situarMuebles, paredesVecinas, electrosColumna, placaConHorno } from './modulos.js';
+import { situarMuebles, paredesVecinas, electrosColumna, placaConHorno, esColumna } from './modulos.js';
+import { elementoNuevo } from './modelo.js';
 
 const hay = v => v !== null && v !== undefined;
 const MUEBLES = ['bajo', 'columna', 'alto', 'cuerpo'];
 // Cuánto puede separarse una instalación de su mueble (mm, en horizontal) antes de avisar.
-export const CERCA = { agua: 600, humos: 150, enchufe: 600 };
+export const CERCA = { agua: 600, humos: 150, enchufe: 600, encimera: 400 };
 // Enchufes: de qué mueble son (tipos de módulo que les valen).
 const ENCHUFE_DE = { hmo: ['columna_hmo', 'semicolumna', 'columna_electro'], placa: ['placa'], campana: ['alto_campana', 'placa'], frigo: ['columna_frigo', 'alto_frigo'], lavavajillas: ['lavavajillas', 'columna_electro'] };
 const NOMBRE_DE = { columna_hmo: 'la columna H/MO', semicolumna: 'la semicolumna', columna_electro: 'la columna del electrodoméstico', placa: 'la placa', alto_campana: 'el alto de la campana', columna_frigo: 'la columna del frigo', alto_frigo: 'el alto sobre frigo', lavavajillas: 'el lavavajillas' };
@@ -101,13 +102,25 @@ const VALE = {
   agua: e => e.tipo === 'agua' || (e.tipo === 'toma' && (/agua/.test(usoDe(e)) || !e.para)),
   gas: e => e.tipo === 'gas' || (e.tipo === 'toma' && /gas/.test(usoDe(e))),
   humos: e => e.tipo === 'humos' && e.humos_forma !== 'recirculacion',
+  // Enchufe de encimera: uno general o sin uso por encima de la encimera (o sin altura apuntada).
+  encimera: e => e.tipo === 'enchufe' && sinUso(e) && !(e.altura > 0 && e.altura < ALTURAS.encimera - 50),
 };
+// Sobre estos bajos no se pone enchufe de encimera.
+const SIN_ENCIMERA = ['placa', 'fregadero', 'hueco'];
 const enchufe = clave => e => e.tipo === 'enchufe' && (sinUso(e) || USO[clave].test(usoDe(e)));
 // Qué se dice de cada instalación: nombre y altura orientativa (o dónde).
 const QUE = {
   desague: ['el desagüe', 'a unos 40 cm del suelo'], agua: ['la toma de agua', 'a unos 50 cm del suelo'],
   gas: ['la toma de gas', 'a unos 50 cm del suelo'], humos: ['la salida de humos', 'encima de la placa, por la pared o el techo'],
 };
+// Propuesta de cada instalación: el desagüe al centro del mueble, el agua 15 cm al lado y el gas 20 cm.
+const PON = {
+  desague: (a, b, medio) => ({ tipo: 'desague', x: medio(a, b), y: 400 }),
+  agua: (a, b, medio) => ({ tipo: 'toma', para: 'agua', x: medio(a, b, 150), y: 500 }),
+  gas: (a, b, medio) => ({ tipo: 'toma', para: 'gas', x: medio(a, b, 200), y: 500 }),
+};
+// Uso del enchufe propuesto (los de usos_enchufe).
+const PARA = { placa: 'placa', horno: 'hmo', micro: 'hmo', frigo: 'frigo', lavavajillas: 'lavavajillas', lavadora: 'lavadora', campana: 'campana' };
 const DE = { fregadero: 'del fregadero', lavavajillas: 'del lavavajillas', lavadora: 'de la lavadora', placa: 'de la placa', horno: 'del horno', micro: 'del microondas', frigo: 'del frigo', campana: 'de la campana' };
 
 export function instalacionesQueFaltan(d) {
@@ -127,14 +140,16 @@ export function instalacionesQueFaltan(d) {
       if (der && der !== p && L - b < tol && (puntos.get(der) || []).some(q => vale(q.dato) && (L - b) + q.x <= tol)) return true;
       return false;
     };
-    const falta = (que, de, a, b, altura) => r.push({ pared: p, que: que + ' ' + de, desde: Math.max(0, a), hasta: Math.min(L, b), altura });
-    const pide = (clave, a, b, altura) => { if (!cerca(enchufe(clave), a, b, CERCA.enchufe)) falta('el enchufe', DE[clave], a, b, altura); };
-    const pideInst = (k, de, a, b, extra = '') => { if (!cerca(VALE[k], a, b, CERCA.agua)) falta(QUE[k][0], DE[de] + extra, a, b, QUE[k][1]); };
+    // «pon»: dónde se propondría (para el botón «Colocar lo que falta»): tipo, uso, sitio a lo largo de la pared y altura.
+    const falta = (que, de, a, b, altura, pon, opcional = false) => r.push(Object.assign({ pared: p, que: que + ' ' + de, desde: Math.max(0, a), hasta: Math.min(L, b), altura, pon }, opcional ? { opcional } : {}));
+    const medio = (a, b, mas = 0) => Math.max(0, Math.min(L, (a + b) / 2 + mas));
+    const pide = (clave, a, b, altura, y = 500, mas = 0) => { if (!cerca(enchufe(clave), a, b, CERCA.enchufe)) falta('el enchufe', DE[clave], a, b, altura, { tipo: 'enchufe', para: PARA[clave], x: medio(a, b, mas), y }); };
+    const pideInst = (k, de, a, b, extra = '') => { if (!cerca(VALE[k], a, b, CERCA.agua)) falta(QUE[k][0], DE[de] + extra, a, b, QUE[k][1], PON[k](a, b, medio)); };
     const fregaderos = sit.bajos.filter(b => b.m.tipo === 'fregadero');
     // Con el mueble de al lado (el enchufe del lavavajillas o la lavadora mejor no va detrás del aparato).
     const conVecino = (i, b) => {
       const ant = sit.bajos[i - 1], sig = sit.bajos[i + 1], v = [ant, sig].find(x => x && x.m.tipo === 'fregadero') || sig || ant;
-      return v ? [Math.min(b.desde, v.desde), Math.max(b.hasta, v.hasta)] : [b.desde, b.hasta];
+      return v ? [Math.min(b.desde, v.desde), Math.max(b.hasta, v.hasta), medio(v.desde, v.hasta)] : [b.desde, b.hasta, medio(b.desde, b.hasta)];
     };
     sit.bajos.forEach((b, i) => {
       const m = b.m, a = b.desde, z = b.hasta;
@@ -146,14 +161,14 @@ export function instalacionesQueFaltan(d) {
       if (m.tipo === 'fregadero') agua('fregadero');
       if (m.tipo === 'lavavajillas' || m.tipo === 'lavadora') {
         agua(m.tipo);
-        const [x0, x1] = conVecino(i, b);
-        if (!cerca(enchufe(m.tipo), a, z, CERCA.enchufe)) falta('el enchufe', DE[m.tipo], x0, x1, 'a unos 50 cm del suelo (mejor en el mueble de al lado)');
+        const [x0, x1, xv] = conVecino(i, b);
+        if (!cerca(enchufe(m.tipo), a, z, CERCA.enchufe)) falta('el enchufe', DE[m.tipo], x0, x1, 'a unos 50 cm del suelo (mejor en el mueble de al lado)', { tipo: 'enchufe', para: m.tipo, x: xv, y: 500 });
       }
       if (m.tipo === 'placa') {
         const gas = m.placa_tipo === 'gas' || (!m.placa_tipo && gasEnElectro);
         if (gas) pideInst('gas', 'placa', a, z, ' (si no va con bombona)');
         else pide('placa', a, z, 'a unos 50 cm del suelo, debajo de la placa');
-        if (gas && placaConHorno(m)) pide('horno', a, z, 'a unos 50 cm del suelo, detrás del horno');
+        if (gas && placaConHorno(m)) pide('horno', a, z, 'a unos 50 cm del suelo, detrás del horno', 500, -150);
       }
       if (m.tipo === 'columna_frigo') pide('frigo', a, z, 'detrás del frigo');
       if (['columna_hmo', 'semicolumna', 'columna_electro'].includes(m.tipo)) {
@@ -163,13 +178,32 @@ export function instalacionesQueFaltan(d) {
         if (m.tipo === 'columna_electro' && (m.abajo === 'lavadora' || m.abajo === 'lavavajillas')) { agua(m.abajo); pide(m.abajo, a, z, 'a unos 50 cm del suelo'); }
       }
     });
-    sit.altos.forEach(({ m, desde, hasta }) => { if (m.tipo === 'alto_micro') pide('micro', desde, hasta, 'dentro del alto, detrás del microondas'); });
+    // Enchufes de encimera: en cada tramo libre de encimera (sin placa, fregadero, hueco ni columnas) de 60 cm o más,
+    // uno cada 1,20 m más o menos, repartidos, a 20 cm sobre la encimera. Son opcionales: no salen como «Falta»,
+    // solo los pone el botón «Colocar lo que falta».
+    const tramos = [];
+    let tramo = null;
+    sit.bajos.forEach(b => {
+      const libre = !esColumna(b.m) && !SIN_ENCIMERA.includes(b.m.tipo);
+      if (libre && tramo && b.desde - tramo[1] < 50) tramo[1] = b.hasta;
+      else if (libre) tramos.push(tramo = [b.desde, b.hasta]);
+      else tramo = null;
+    });
+    const yEnc = Math.round((ALTURAS.encimera + 200) / 50) * 50;
+    tramos.filter(([a, z]) => z - a >= 600).forEach(([a, z]) => {
+      const n = Math.max(1, Math.round((z - a) / 1200));
+      for (let k = 0; k < n; k++) {
+        const x = Math.round(a + (z - a) * (k + 0.5) / n);
+        if (!cerca(VALE.encimera, x, x, CERCA.encimera)) falta('el enchufe', 'de encimera', x - 300, x + 300, 'a unos ' + (yEnc / 10) + ' cm del suelo, sobre la encimera', { tipo: 'enchufe', para: 'general', x, y: yEnc }, true);
+      }
+    });
+    sit.altos.forEach(({ m, desde, hasta }) => { if (m.tipo === 'alto_micro') pide('micro', desde, hasta, 'dentro del alto, detrás del microondas', ALTURAS.altos_desde + 100); });
     // Campanas: las de encima de la placa, las de un «Campana decorativa» y los «Alto campana».
     const campanas = campanasPared(p, d, sit).map(c => ({ m: c.alto || c.placa, a: c.desde, z: c.hasta }))
       .concat(sit.altos.filter(x => x.m.tipo === 'alto_campana').map(x => ({ m: x.m, a: x.desde, z: x.hasta })));
     campanas.forEach(({ m, a, z }) => {
-      pide('campana', a, z, 'a unos 2,10 m del suelo, por encima de la campana');
-      if (salidaCampana(m, p, d) !== 'recirculacion' && !humosEnCocina) falta(QUE.humos[0], DE.campana, a, z, QUE.humos[1]);
+      pide('campana', a, z, 'a unos 2,10 m del suelo, por encima de la campana', 2100);
+      if (salidaCampana(m, p, d) !== 'recirculacion' && !humosEnCocina) falta(QUE.humos[0], DE.campana, a, z, QUE.humos[1], { tipo: 'humos', x: medio(a, z), y: Math.min(2300, (d.alto_techo > 0 ? d.alto_techo : ALTURAS.techo) - 100) });
     });
   });
   return r;
@@ -186,5 +220,27 @@ export function textoFalta(x, d) {
 export function avisosFaltan(ficha) {
   if (ficha.tipo !== 'cocina') return [];
   const d = ficha.datos;
-  return instalacionesQueFaltan(d).map(x => ({ campo: 'pared.' + x.pared.id, texto: 'Falta ' + x.que + ': ' + textoFalta(x, d) + ', ' + x.altura }));
+  return instalacionesQueFaltan(d).filter(x => !x.opcional).map(x => ({ campo: 'pared.' + x.pared.id, texto: 'Falta ' + x.que + ': ' + textoFalta(x, d) + ', ' + x.altura }));
 }
+
+// ── Propuestas para el electricista y el fontanero (reformas): lo que falta, puesto en la pared como elemento
+// con «propuesta: true». Se mide desde la esquina más cercana. Devuelve los elementos nuevos.
+export function colocarPropuestas(d) {
+  const nuevos = [];
+  instalacionesQueFaltan(d).forEach(x => {
+    if (!x.pon) return;
+    const p = x.pared, L = p.largo, der = x.pon.x > L / 2, dist = Math.round((der ? L - x.pon.x : x.pon.x) / 10) * 10;
+    const e = Object.assign(elementoNuevo(x.pon.tipo, der ? 'der' : 'izq'), { distancia: dist, altura: x.pon.y, propuesta: true }, x.pon.para ? { para: x.pon.para } : {});
+    p.elementos = p.elementos || [];
+    p.elementos.push(e);
+    nuevos.push(e);
+  });
+  return nuevos;
+}
+// Quita solo las propuestas (lo medido no se toca). Devuelve cuántas quitó.
+export function quitarPropuestas(d) {
+  let n = 0;
+  ((d && d.paredes) || []).forEach(p => { const antes = (p.elementos || []).length; p.elementos = (p.elementos || []).filter(e => !e.propuesta); n += antes - p.elementos.length; });
+  return n;
+}
+export const hayPropuestas = d => ((d && d.paredes) || []).some(p => (p.elementos || []).some(e => e.propuesta));

@@ -396,7 +396,7 @@ export function svgPlanta(geo) {
     nombres.push(() => texto(caja.cx, caja.cy, t, Object.assign({ fill: col, 'font-size': s * tam }, tipo ? { 'data-elemento': tipo } : {})));
   };
   geo.elementos.forEach(e => {
-    const col = colorDe(e.tipo), d = e.dentro;
+    const prop = e.dato && e.dato.propuesta, col = prop ? '#f97316' : colorDe(e.tipo), d = e.dentro;
     if (e.tipo === 'zona' && e.a) {
       const f = s * 2.4, a = { x: e.a.x - d.x * f, y: e.a.y - d.y * f }, b = { x: e.b.x - d.x * f, y: e.b.y - d.y * f };
       svg.append(el('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: '#0f766e', 'stroke-width': s * 0.7, 'stroke-dasharray': s * 1.5 + ' ' + s, opacity: 0.8, 'data-zona': '' }));
@@ -407,10 +407,11 @@ export function svgPlanta(geo) {
     if (e.rect) { svg.append(el('polygon', { points: e.rect.map(p => p.x + ',' + p.y).join(' '), fill: '#d1d5db', stroke: col, 'stroke-width': s * 0.6 })); c = { x: (e.rect[0].x + e.rect[2].x) / 2, y: (e.rect[0].y + e.rect[2].y) / 2 }; }
     else if (e.caja) {
       const f = s * 2, [p, q] = e.caja;
-      svg.append(el('polygon', { points: [p, q, { x: q.x + d.x * f, y: q.y + d.y * f }, { x: p.x + d.x * f, y: p.y + d.y * f }].map(z => z.x + ',' + z.y).join(' '), fill: col, opacity: 0.85, 'data-caja': e.tipo }));
+      svg.append(el('polygon', Object.assign({ points: [p, q, { x: q.x + d.x * f, y: q.y + d.y * f }, { x: p.x + d.x * f, y: p.y + d.y * f }].map(z => z.x + ',' + z.y).join(' '), fill: col, opacity: 0.85, 'data-caja': e.tipo },
+        prop ? { fill: '#fff', stroke: col, 'stroke-width': s * 0.5, 'stroke-dasharray': s * 0.9 + ' ' + s * 0.5, opacity: 1, 'data-propuesta': '' } : {})));
       c = e.punto;
     }
-    else if (e.punto) { svg.append(el('circle', { cx: e.punto.x, cy: e.punto.y, r: s * 1.8, fill: col })); c = e.punto; }
+    else if (e.punto) { svg.append(el('circle', Object.assign({ cx: e.punto.x, cy: e.punto.y, r: s * 1.8, fill: col }, prop ? { fill: '#fff', stroke: col, 'stroke-width': s * 0.5, 'stroke-dasharray': s * 0.9 + ' ' + s * 0.5, 'data-propuesta': '' } : {}))); c = e.punto; }
     else { svg.append(el('line', { x1: e.a.x, y1: e.a.y, x2: e.b.x, y2: e.b.y, stroke: col, 'stroke-width': s * 2.6 })); c = { x: (e.a.x + e.b.x) / 2, y: (e.a.y + e.b.y) / 2 }; }
     // Ventanas, puertas y pilares: el nombre por fuera de la habitación (no se mete entre los muebles).
     const fuera = e.tipo === 'ventana' || e.tipo === 'puerta' || e.tipo === 'pilar';

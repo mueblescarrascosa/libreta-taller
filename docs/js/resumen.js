@@ -20,6 +20,7 @@ export function unidadesDe(ficha, trabajo, ajustes) {
 function lineaElemento(e, u, delPilar = false) {
   const c = camposDeElemento(e.tipo), ud = e.tipo === 'pilar' ? 'cm' : u, v = mm => verMedida(mm, ud) + ' ' + ud;
   const partes = [], lado = e.ref === 'der' ? 'derecha' : 'izquierda';
+  if (e.propuesta) partes.push('A PONER');
   if (hay(e.distancia)) partes.push('a ' + v(e.distancia) + (delPilar ? ' desde el pilar de la ' + lado : ' desde la ' + lado));
   if (e.tipo === 'humos' && e.humos_sale === 'techo') partes.push('por el techo' + (hay(e.separacion) ? ', separada ' + v(e.separacion) + ' de la pared' : ''));
   else if (c.altura && hay(e.altura) && e.tipo !== 'zona') partes.push('altura ' + v(e.altura));

@@ -20,6 +20,7 @@ import { TAPETAS } from '../pedido.js';
 import { airePlaca, textoAirePlaca } from '../consejos.js';
 import { vistaInteractiva, abrirPerspectivaGrande } from './perspectiva-ui.js';
 import { consejosDiseno, GRUPOS as GRUPOS_CONSEJO } from '../consejos.js';
+import { instalacionesQueFaltan, colocarPropuestas, quitarPropuestas, hayPropuestas } from '../avisos-obra.js';
 import { comoRellenar } from '../ayuda.js';
 
 const RETARDO = 300;
@@ -275,8 +276,10 @@ export async function pintarFicha(App, id) {
     // Las mochetas (pilares) se miden siempre en centímetros.
     const medida = (obj, k, etiqueta, extra) => medidaGeneral(obj, k, etiqueta, Object.assign(e.tipo === 'pilar' ? { unidad: 'cm' } : {}, extra));
     const refExtra = { ref: e.ref, alCambiarRef: r => { e.ref = r; d.ref_ultima = r; cambio(); }, aviso: null };
-    return h('div', { class: 'elemento', 'data-elemento': e.tipo },
-      h('div', { class: 'cab' }, h('b', { 'data-acc': 'nombre-elemento-titulo' }, nombreElemento(e)), h('small', {}, c.punto === 'centro' ? 'medido al centro' : 'medido al borde'),
+    return h('div', { class: 'elemento' + (e.propuesta ? ' propuesta' : ''), 'data-elemento': e.tipo },
+      h('div', { class: 'cab' }, h('b', { 'data-acc': 'nombre-elemento-titulo' }, nombreElemento(e)),
+        e.propuesta ? h('span', { class: 'etiqueta-poner' }, 'A poner') : h('small', {}, c.punto === 'centro' ? 'medido al centro' : 'medido al borde'),
+        e.propuesta ? h('button', { type: 'button', class: 'mini', 'data-acc': 'ya-hecha', title: 'Ya está hecha en la obra: pasa a medida', onclick: () => { delete e.propuesta; cambio(); repintar(); } }, 'Ya está hecha') : null,
         h('button', { type: 'button', class: 'mini', 'data-acc': 'quitar-elemento', onclick: () => { if (confirmarQuitar(nombreElemento(e).toLowerCase())) { lista.splice(lista.indexOf(e), 1); cambio(); repintar(); } } }, 'Quitar')),
       usosDe(e.tipo).length ? h('div', { class: 'chips usos' }, segmentadoChips(e)) : null,
       e.tipo === 'humos' && e.humos_forma !== 'recirculacion' ? h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Sale por'),
@@ -368,10 +371,28 @@ export async function pintarFicha(App, id) {
       (() => { const t = h('b', {}, 'Planta'); return plegarCaja(h('div', { class: 'tarjeta tarjeta-planta' }, h('div', { class: 'cab' }, t, botonForma), zonaPlanta), t, 'lat:planta'); })(),
       (() => { const t = h('b', {}, 'Paredes de frente'); return plegarCaja(h('div', { class: 'tarjeta tarjeta-alzado' }, t, botonesAlzado, zonaAlzado), t, 'lat:alzado'); })(),
       (() => { const t = h('b', {}, 'Perspectiva'); return plegarCaja(h('div', { class: 'tarjeta tarjeta-perspectiva' }, t, zonaPersp), t, 'lat:perspectiva'); })(),
-      tarjetaConsejos()),
+      tarjetaConsejos(), tarjetaInstalaciones(repintar)),
     h('h2', {}, 'Paredes'),
     zona,
     h('button', { type: 'button', class: 'ancho', 'data-acc': 'anadir-pared', onclick: () => { d.paredes.push(paredNueva(d.paredes)); cambio(); repintar(); } }, '+ Añadir pared')];
+  }
+  // Instalaciones para el electricista y el fontanero (reformas): coloca como «A poner» lo que falta según los muebles.
+  function tarjetaInstalaciones(repintar) {
+    if (ficha.tipo !== 'cocina') return null;
+    const t = h('b', {}, 'Instalaciones a poner'), zonaI = h('div', {});
+    const pintar = () => {
+      const n = instalacionesQueFaltan(d).filter(x => x.pon).length, hay = hayPropuestas(d);
+      const colocar = () => { colocarPropuestas(d); cambio(); repintar(); };
+      reemplazar(zonaI,
+        h('small', { class: 'ayuda' }, 'Para reformas: pone los enchufes, tomas, desagües, gas y salida de humos donde deben ir según los muebles. Salen en naranja («A poner») y se pueden mover o quitar.'),
+        h('div', { class: 'chips' },
+          n ? h('button', { type: 'button', 'data-acc': 'colocar-propuestas', onclick: colocar }, 'Colocar lo que falta (' + n + ')') : null,
+          hay ? h('button', { type: 'button', 'data-acc': 'volver-colocar', onclick: () => { quitarPropuestas(d); colocar(); } }, 'Volver a colocar') : null,
+          hay ? h('button', { type: 'button', 'data-acc': 'quitar-propuestas', onclick: () => { if (!confirm('¿Quitar todas las instalaciones «A poner»? Lo medido no se toca.')) return; quitarPropuestas(d); cambio(); repintar(); } }, 'Quitar propuestas') : null),
+        !n && !hay ? h('p', { class: 'ayuda' }, 'No falta nada con los muebles que hay puestos.') : null);
+    };
+    pintar(); refrescos.push(() => { if (zonaI.isConnected) pintar(); });
+    return plegarCaja(h('div', { class: 'tarjeta tarjeta-instalaciones', 'data-acc': 'instalaciones' }, t, zonaI), t, 'lat:instalaciones');
   }
   // Consejos de diseño (cocinas, armarios y vestidores): lo que funcionaría mal al usarlo, con su porqué; se rehacen con cada cambio.
   function tarjetaConsejos() {

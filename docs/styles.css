@@ -562,3 +562,8 @@ button.enlace[data-acc="crear-ejemplo"] { min-height: 40px !important; }
 .grupo-anadir { display: grid; gap: 4px; margin-top: 6px; }
 .grupo-anadir .et-grupo { font-size: .78rem; color: var(--suave, #6b7280); text-transform: uppercase; letter-spacing: .04em; }
 .fila-muebles.fila-altos { border-top: 2px dashed var(--borde, #d6c3ae); margin-top: 14px; padding-top: 12px; }
+/* Instalaciones propuestas («A poner», para el electricista y el fontanero) */
+.sec-pared .elemento.propuesta { border: 1px dashed #f97316; background: #fff7ed; }
+.etiqueta-poner, [data-acc="ya-hecha"] { white-space: nowrap; }
+.etiqueta-poner { background: #f97316; color: #fff; border-radius: 6px; padding: 1px 6px; font-size: .8em; font-weight: 600; }
+.resumen-doc .a-poner h3 { color: #c2410c; }

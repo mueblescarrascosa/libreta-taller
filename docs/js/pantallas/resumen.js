@@ -45,7 +45,7 @@ const cabecera = trabajo => h('header', {},
 // Es lo que necesita el albañil, el fontanero o el electricista si aún no están sacadas.
 const INSTALACIONES = ['humos', 'desague', 'toma', 'agua', 'gas', 'enchufe'];
 function tablaInstalaciones(d, u, cocina = false) {
-  const filas = [];
+  const filas = [], poner = [];
   (d.paredes || []).forEach(p => {
     const vec = paredesVecinas(d, p);
     (p.elementos || []).filter(e => INSTALACIONES.includes(e.tipo)).forEach(e => {
@@ -58,18 +58,20 @@ function tablaInstalaciones(d, u, cocina = false) {
       const que = e.tipo === 'humos' && e.humos_forma === 'recirculacion' ? 'Campana de recirculación (sin salida de humos)' : nombreElemento(e) + (e.tipo === 'humos' && tamanoHumos(e) ? ' ' + tamanoHumos(e) : '');
       const alt = e.tipo === 'humos' && e.humos_sale === 'techo' ? 'techo' + (e.separacion != null ? ', a ' + verMedida(e.separacion, u) + ' ' + u + ' de la pared' : '')
         : e.altura !== null && e.altura !== undefined ? verMedida(e.altura, u) + ' ' + u : '';
-      filas.push([p.letra, que, donde, alt]);
+      (e.propuesta ? poner : filas).push([p.letra, que, donde, alt]);
     });
   });
   // Lo que falta (un mueble o electrodoméstico sin su toma, enchufe, desagüe o humos): por dónde, orientativo.
-  if (cocina) instalacionesQueFaltan(d).forEach(x => {
+  if (cocina) instalacionesQueFaltan(d).filter(x => !x.opcional).forEach(x => {
     const t = textoFalta(x, d).replace(/^pared \S+, /, '');
     filas.push([x.pared.letra, 'FALTA ' + x.que, t, x.altura.replace(/^a unos /, 'unos '), true]);
   });
-  if (!filas.length) return null;
-  return h('section', { class: 'instalaciones' }, h('h3', {}, 'Tomas e instalaciones'),
+  // Las propuestas («A poner») van en su propia tabla, para el electricista y el fontanero.
+  const tabla = (clase, titulo, fs) => fs.length ? h('section', { class: clase }, h('h3', {}, titulo),
     h('table', {}, h('thead', {}, h('tr', {}, ['Pared', 'Qué', 'Dónde (al centro)', 'Altura del suelo'].map(t => h('th', {}, t)))),
-      h('tbody', {}, filas.map(f => h('tr', f[4] ? { class: 'falta' } : {}, f.slice(0, 4).map(t => h('td', {}, t)))))));
+      h('tbody', {}, fs.map(f => h('tr', f[4] ? { class: 'falta' } : {}, f.slice(0, 4).map(t => h('td', {}, t))))))) : null;
+  const r = [tabla('instalaciones', 'Tomas e instalaciones', filas), tabla('instalaciones a-poner', 'Instalaciones a poner (electricista / fontanero)', poner)].filter(Boolean);
+  return r.length ? r : null;
 }
 
 // Puertas en una tabla compacta: ancho × alto juntos, condena y vidriera como C y V, y sin las columnas que nadie usa.
@@ -162,7 +164,7 @@ async function nodosFicha(App, ficha, trabajo, AJ, ver = partesGuardadas()) {
     if (pareja.childNodes.length) nodos.push(pareja);
     nodos.push(...frentes);
     const t = ver.instalaciones ? tablaInstalaciones(d, u, ficha.tipo === 'cocina') : null;
-    if (t) { nodos.push(t); conTabla = true; }
+    if (t) { nodos.push(...t); conTabla = true; }
   }
   // El resto, con los mismos bloques que el texto de WhatsApp (sin la cabecera del trabajo ni el título).
   // Si ya va la tabla de instalaciones, las tomas no se repiten en el texto de cada pared.
