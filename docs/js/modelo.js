@@ -2,6 +2,7 @@
 import { verMedida } from './unidades.js';
 import { avisosModulos, acabadosNuevos } from './modulos.js';
 import { avisosObra, avisosFaltan } from './avisos-obra.js';
+import { PRECIOS_ML, RECARGO_PCT } from './coste.js';
 
 const MAXIMO = 20000;
 const id = () => crypto.randomUUID();
@@ -35,6 +36,8 @@ export const AJUSTES_FABRICA = {
   // Las columnas llegan arriba como los altos. Los dibujos, el material y los consejos siguen estas alturas.
   cocina_tipo: { zocalo: 150, mueble: 700, grueso: 40, alto_alto: 700, separacion: 560 },
   interiores: [['barra', 'Barra'], ['doble_barra', 'Doble barra'], ['estantes', 'Estantes'], ['cajonera', 'Cajonera'], ['zapatero', 'Zapatero'], ['pantalonero', 'Pantalonero'], ['pantalonero_doble', 'Pantalonero doble']],
+  // Coste estimado (solo en pantalla): € por metro lineal sin IVA y recargo por complicación (%).
+  precios_ml: PRECIOS_ML, recargo_pct: RECARGO_PCT,
 };
 export const USOS = { toma: AJUSTES_FABRICA.usos_toma, enchufe: AJUSTES_FABRICA.usos_enchufe };
 
@@ -51,6 +54,8 @@ export function mezclarAjustes(g) {
   ['puerta_anchos', 'puerta_altos', 'puerta_tabiques', 'modulo_anchos', 'premarco_anchos', 'premarco_altos', 'pedido_anchos', 'pedido_anchos_extra', 'pedido_altos', 'encimera_gruesos'].forEach(k => { if (listaNumeros(d[k])) a[k] = copiar(d[k]); });
   ['holgura_ancho', 'holgura_alto', 'rebaje_max'].forEach(k => { if (Number.isInteger(d[k]) && d[k] >= 0) a[k] = d[k]; });
   ['usos_toma', 'usos_enchufe', 'lineales', 'interiores', 'nombres_puerta', 'colores_casco'].forEach(k => { if (listaPares(d[k])) a[k] = copiar(d[k]); });
+  if (d.precios_ml && typeof d.precios_ml === 'object') Object.keys(a.precios_ml).forEach(k => { const x = d.precios_ml[k]; if (Number.isFinite(x) && x >= 0 && x <= 100000) a.precios_ml[k] = x; });
+  if (Number.isFinite(d.recargo_pct) && d.recargo_pct >= 0 && d.recargo_pct <= 300) a.recargo_pct = d.recargo_pct;
   const ct = d.cocina_tipo, entre = (v, a0, b0) => Number.isInteger(v) && v >= a0 && v <= b0;
   if (ct && entre(ct.zocalo, 30, 300) && entre(ct.mueble, 500, 1000) && entre(ct.grueso, 6, 100) && entre(ct.alto_alto, 300, 1300) && entre(ct.separacion, 400, 900)) a.cocina_tipo = copiar(ct);
   return a;

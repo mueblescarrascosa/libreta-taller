@@ -5,6 +5,7 @@ import { bienvenida, crearEjemplo, letraGrande, GUIA } from '../ayuda.js';
 import { AJUSTES_FABRICA, claveDe } from '../modelo.js';
 import { leerMedida, verMedida } from '../unidades.js';
 import { copiaSeguridad } from '../trabajos.js';
+import { PRECIOS_ML, NOMBRE_PRECIO, RECARGO_PCT } from '../coste.js';
 
 // Lista editable: quitar, subir, añadir y volver a los valores de fábrica.
 // numeros: medidas en mm que se ven y se escriben en cm; si no, pares [clave, texto].
@@ -67,6 +68,27 @@ function numeroAjuste(App, clave, etiqueta) {
   return h('div', { class: 'campo' }, h('label', { class: 'et' }, etiqueta), i);
 }
 
+// Precios del coste estimado: € por metro lineal sin IVA de cada clase de mueble y el recargo por complicación.
+function preciosCoste(App) {
+  const caja = h('div', { class: 'tarjeta', 'data-acc': 'precios-coste' });
+  const num = t => { const x = Number(String(t).replace(',', '.')); return Number.isFinite(x) && x >= 0 ? x : null; };
+  const pintar = () => {
+    const A = App.ajustes(), P = A.precios_ml;
+    reemplazar(caja,
+      h('small', { class: 'ayuda' }, 'Para el «Coste estimado» de cada ficha: € por metro lineal, sin IVA. Solo lo ves tú; no sale en el PDF.'),
+      ...Object.keys(NOMBRE_PRECIO).map(k => { const i = h('input', { 'data-acc': 'precio-ml', 'data-v': k, inputmode: 'decimal', value: P[k] });
+        i.addEventListener('input', () => { const x = num(i.value); if (x !== null) App.cambiarAjustes({ precios_ml: Object.assign({}, App.ajustes().precios_ml, { [k]: x }) }); });
+        return h('div', { class: 'campo' }, h('label', { class: 'et' }, NOMBRE_PRECIO[k] + ' (€/m)'), i); }),
+      (() => { const i = h('input', { 'data-acc': 'recargo-pct', inputmode: 'decimal', value: A.recargo_pct });
+        i.addEventListener('input', () => { const x = num(i.value); if (x !== null && x <= 300) App.cambiarAjustes({ recargo_pct: x }); });
+        return h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Recargo por complicación (%)'), i,
+          h('small', {}, 'Cajeado por pilar, tubo o contador, pared descuadrada. Se puede cambiar en cada mueble.')); })(),
+      h('button', { type: 'button', 'data-acc': 'precios-fabrica', onclick: async () => { await App.cambiarAjustes({ precios_ml: Object.assign({}, PRECIOS_ML), recargo_pct: RECARGO_PCT }); pintar(); } }, 'Volver a los de fábrica'));
+  };
+  pintar();
+  return caja;
+}
+
 const PESTANAS = [['general', 'General'], ['puertas', 'Puertas'], ['cocina', 'Cocina y armarios'], ['todo', 'Ver todo']];
 export async function pintarAjustes(App, pestana) {
   const main = App.marco('ajustes', 'Ajustes', '#/'), A = App.ajustes(), msgCopia = h('small', { class: 'ayuda', 'data-acc': 'msg-copia' });
@@ -110,6 +132,8 @@ export async function pintarAjustes(App, pestana) {
     listaEditable(App, 'interiores', 'Interiores de armario', false),
     listaEditable(App, 'colores_casco', 'Colores del interior (cascos)', false),
     listaEditable(App, 'encimera_gruesos', 'Gruesos de encimera', true),
+    h('h2', {}, 'Coste estimado'),
+    preciosCoste(App),
     h('h2', {}, 'Tomas y enchufes'),
     listaEditable(App, 'usos_toma', 'Tomas: de qué son', false),
     listaEditable(App, 'usos_enchufe', 'Enchufes: de qué son', false)];

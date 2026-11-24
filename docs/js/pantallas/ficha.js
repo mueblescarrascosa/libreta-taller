@@ -22,6 +22,7 @@ import { vistaInteractiva, abrirPerspectivaGrande } from './perspectiva-ui.js';
 import { consejosDiseno, GRUPOS as GRUPOS_CONSEJO } from '../consejos.js';
 import { instalacionesQueFaltan, colocarPropuestas, quitarPropuestas, hayPropuestas } from '../avisos-obra.js';
 import { comoRellenar } from '../ayuda.js';
+import { MOTIVOS_CORTOS, NOMBRE_MOTIVO, estimacionRapida, aceptarPropuesta, descartarPropuesta, pctRecargo, pctDe, euros, metros } from '../coste.js';
 
 const RETARDO = 300;
 const nuevoId = () => crypto.randomUUID();
@@ -566,6 +567,20 @@ export async function pintarFicha(App, id) {
   }
 
   // Módulos de una pared: bajos y altos, de izquierda a derecha, en cm, con el cuadre contra el largo.
+  // Recargo por complicación (cajeado por pilar, tubo o contador, pared descuadrada): en el coste estimado suma su % al
+  // precio del mueble. Sin % escrito, el de Ajustes.
+  const marcaRecargo = o => (o && o.recargo ? ' · +' + pctRecargo(o, AJ) + ' %' : '');
+  function editorRecargo(o, alCambiar = () => {}) {
+    const zonaPct = h('div', {});
+    const pintarPct = () => reemplazar(zonaPct, ...(o.recargo ? [h('input', { 'data-acc': 'recargo-pct-mueble', inputmode: 'decimal', placeholder: pctDe(AJ) + ' % (el de Ajustes)', value: Number.isFinite(o.recargo.pct) ? o.recargo.pct : '',
+      oninput: ev => { const x = Number(String(ev.target.value).replace(',', '.')); o.recargo.pct = ev.target.value.trim() === '' || !Number.isFinite(x) || x < 0 ? null : x; cambio(); alCambiar(); } }),
+      h('small', { class: 'ayuda' }, NOMBRE_MOTIVO[o.recargo.motivo] + ': porcentaje sobre el precio de este mueble (vacío: el de Ajustes).')] : []));
+    pintarPct();
+    return h('div', { class: 'campo recargo', 'data-acc': 'recargo' }, h('label', { class: 'et' }, 'Complicación (recargo)'),
+      segmentado({ acc: 'recargo-motivo', opciones: [[null, 'No']].concat(MOTIVOS_CORTOS), valor: o.recargo ? o.recargo.motivo : null, alCambiar: x => {
+        if (x) { o.recargo = { motivo: x, pct: o.recargo ? o.recargo.pct : null }; delete o.recargo_no; } else { delete o.recargo; if (x === null) o.recargo_no = true; }
+        cambio(); pintarPct(); alCambiar(); } }), zonaPct);
+  }
   function muebles(p) {
     const repintarFila = {};
     // Un módulo abierto: su tipo (se puede cambiar), su ancho con las medidas habituales y lo propio de cada tipo.
@@ -697,6 +712,7 @@ export async function pintarFicha(App, id) {
       if (m.tipo === 'columna_hmo' || (m.tipo === 'placa' && v === 'SOPORTE HORNO Y 1 GAVETERO') || (m.tipo === 'semicolumna' && /HORNO/.test(v)) || (m.tipo === 'columna_electro' && ['hmo', 'horno'].includes(m.arriba)))
         n.push(h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Alto del horno'),
           segmentado({ acc: 'horno-alto', opciones: [[600, '60'], [450, '45 (compacto)']], valor: altoHorno(m), alCambiar: x => { m.horno_alto = x === 450 ? 450 : null; cambio(); repintar(); } })));
+      n.push(editorRecargo(m, () => repintarFila[nombre] && repintarFila[nombre]()));
       return n;
     }
     if (!p.bajos) p.bajos = [];
@@ -709,7 +725,7 @@ export async function pintarFicha(App, id) {
       const pintarCuadre = () => { cuadre.textContent = nombre !== 'bajos' && !p[nombre].length ? '' : textoCuadre(nombre === 'bajos' ? cuadreBajos(p, d) : nombre === 'altos' ? cuadreAltos(p, d) : cuadreAltillos(p, d), 'cm'); };
       const repintar = () => {
         reemplazar(zona, ...listaOrdenada({ lista: p[nombre], atributo: 'data-modulo', abierto: () => abiertos[nombre], alAbrir: idm => { abiertos[nombre] = idm; }, repintar,
-          resumen: nombreModulo, detalle: m => (m.ancho ? ' · ' + medidasModulo(m) : ''),
+          resumen: nombreModulo, detalle: m => (m.ancho ? ' · ' + medidasModulo(m) : '') + marcaRecargo(m),
           editor: m => editorModulo(m, nombre, repintar, pintarCuadre) }));
         pintarCuadre(); refrescarAvisos();
       };
@@ -762,7 +778,7 @@ export async function pintarFicha(App, id) {
     };
     const repintar = () => {
       reemplazar(zona, ...listaOrdenada({ lista, atributo: 'data-cuerpo', abierto: () => abierto, alAbrir: idc => { abierto = idc; }, repintar,
-        resumen: c => 'Cuerpo ' + (lista.indexOf(c) + 1) + (c.rincon ? ' · ' + textoRincon(c) : '') + (interioresDe(c).length ? ' · ' + textoInteriores(c, AJ) : '') + (c.puertas ? ' · puertas ' + (c.puertas === 'corredera' ? 'correderas' : 'abatibles') : ''),
+        resumen: c => 'Cuerpo ' + (lista.indexOf(c) + 1) + (c.rincon ? ' · ' + textoRincon(c) : '') + (interioresDe(c).length ? ' · ' + textoInteriores(c, AJ) : '') + (c.puertas ? ' · puertas ' + (c.puertas === 'corredera' ? 'correderas' : 'abatibles') : '') + marcaRecargo(c),
         editor: c => [enPared ? editorRincon(c) : null,
           campoMedida({ etiqueta: c.rincon && c.rincon !== 'recto' ? 'Ancho en esta pared' : 'Ancho', acc: 'ancho', valor: c.ancho, mal: c.mal && c.mal.ancho, unidad: 'cm', rapidos: c.rincon && c.rincon !== 'recto' ? LADOS_RINCON_CUERPO : AJ.modulo_anchos, alCambiar: (v, t) => { anotarMedida(c, 'ancho', v, t); cambio(); pintarCuadre(); } }),
           c.rincon && c.rincon !== 'recto' ? campoMedida({ etiqueta: 'En la pared ' + (vecinaDe(c) ? vecinaDe(c).letra : 'de al lado'), acc: 'lado2', valor: c.lado2, unidad: 'cm', rapidos: LADOS_RINCON_CUERPO, alCambiar: v => { c.lado2 = v; cambio(); pintarCuadre(); } }) : null,
@@ -771,7 +787,8 @@ export async function pintarFicha(App, id) {
           h('div', { class: 'chips' }, interiores.filter(([v]) => !(c.rincon && c.rincon !== 'recto') || INTERIOR_RINCON.includes(v)).map(([v, t]) => h('button', { type: 'button', 'data-acc': 'interior', 'data-v': v, class: interioresDe(c).includes(v) ? 'on' : '', onclick: () => { elegirInterior(c, v); cambio(); repintar(); } }, t))),
           interioresDe(c).includes('otro') ? h('input', { 'data-acc': 'nombre-cuerpo', placeholder: '¿Qué interior?', value: c.nombre || '', oninput: ev => { c.nombre = ev.target.value; cambio(); } }) : null,
           enPared ? h('label', { class: 'et' }, 'Puertas') : null,
-          enPared ? segmentado({ acc: 'puertas-cuerpo', opciones: [['abatible', 'Abatibles'], ['corredera', 'Correderas']], valor: c.puertas || null, permitirVacio: true, alCambiar: v => { c.puertas = v || null; cambio(); repintar(); } }) : null] }));
+          enPared ? segmentado({ acc: 'puertas-cuerpo', opciones: [['abatible', 'Abatibles'], ['corredera', 'Correderas']], valor: c.puertas || null, permitirVacio: true, alCambiar: v => { c.puertas = v || null; cambio(); repintar(); } }) : null,
+          editorRecargo(c, () => repintar())] }));
       pintarCuadre(); refrescarAvisos();
     };
     refrescos.push(pintarCuadre);
@@ -814,6 +831,33 @@ export async function pintarFicha(App, id) {
     const pintar = () => { const l = textoMaterial(ficha, unidad, AJ);
       reemplazar(caja, ...(l.length ? l.map(t => h('p', { class: t.startsWith('- ') ? 'sub' : '' }, t)) : [h('p', { class: 'ayuda' }, 'Aún no hay muebles con medida.')]),
         h('small', { class: 'ayuda' }, 'Orientativo: sale de los muebles medidos. Lo medido y lo pedido mandan.')); };
+    pintar(); refrescos.push(() => { if (caja.isConnected) pintar(); });
+    return caja;
+  }
+  // Coste estimado: por metro lineal con los precios de Ajustes y los recargos de cada mueble. Solo en pantalla.
+  const resumenCoste = () => {
+    const e = estimacionRapida(ficha, AJ);
+    if (e.vacio) return '';
+    return euros(e.total) + ' sin IVA' + (e.propuestas.length ? ' · ' + e.propuestas.length + ' cajeado' + (e.propuestas.length > 1 ? 's' : '') + ' por confirmar' : '');
+  };
+  function costeEstimado() {
+    const caja = h('div', { class: 'tarjeta coste', 'data-acc': 'coste' });
+    const fila = (t, imp, extra = {}) => h('div', Object.assign({ class: 'fila-coste' }, extra), h('span', {}, t), h('b', {}, euros(imp)));
+    const pintar = () => {
+      const e = estimacionRapida(ficha, AJ), armarioEntero = ficha.tipo === 'armario' && ficha.subtipo !== 'vestidor' && !(d.cuerpos || []).some(c => c.ancho > 0);
+      reemplazar(caja,
+        ...e.propuestas.map(x => h('div', { class: 'propuesta-recargo', 'data-acc': 'propuesta-recargo' },
+          h('span', {}, '⚠ ' + x.texto + ' choca con un pilar: ¿cajeado (+' + pctDe(AJ) + ' %)?'),
+          h('div', { class: 'dos' }, h('button', { type: 'button', 'data-acc': 'aceptar-recargo', onclick: () => { aceptarPropuesta(x.obj); cambio(); pintar(); } }, 'Sí, añadir'),
+            h('button', { type: 'button', 'data-acc': 'descartar-recargo', onclick: () => { descartarPropuesta(x.obj); cambio(); pintar(); } }, 'No')))),
+        ...(e.vacio ? [h('p', { class: 'ayuda' }, 'Aún no hay muebles con medida.')] : [
+          ...e.lineas.map(l => fila(l.texto + ': ' + metros(l.metros) + ' × ' + euros(l.precio) + '/m', l.importe, { 'data-linea': l.clase })),
+          ...e.recargos.map(r => fila(r.texto + ' (+' + r.pct + ' %)', r.importe, { 'data-recargo': r.motivo })),
+          h('div', { class: 'fila-coste total', 'data-acc': 'coste-total' }, h('span', {}, 'Total sin IVA'), h('b', {}, euros(e.total))),
+          h('div', { class: 'fila-coste iva', 'data-acc': 'coste-iva' }, h('span', {}, 'Con IVA (21 %)'), h('span', {}, euros(e.conIva)))]),
+        armarioEntero ? editorRecargo(d, pintar) : null,
+        h('small', { class: 'ayuda' }, 'Orientativo, por metro lineal (precios en Ajustes → Cocina y armarios). Solo lo ves tú: no sale en el PDF ni en lo que compartes.'));
+    };
     pintar(); refrescos.push(() => { if (caja.isConnected) pintar(); });
     return caja;
   }
@@ -996,7 +1040,7 @@ export async function pintarFicha(App, id) {
       h('div', { class: 'dos' }, texto(d, 'modelo', 'puertas-modelo', 'Modelo'), texto(d, 'color', 'puertas-color', 'Color')),
       // Tapetas (tapajuntas): de 7, de 9 o a medida; salen en la hoja de pedido de puertas
       campoTapetas()), ...puertas()];
-    if (ficha.tipo === 'cocina') return [...paredes(TIPOS_ELEMENTO.cocina), ...islas(), plegable('acabados', 'Acabados', acabados(), resumenAcabados), plegable('electro', 'Electrodomésticos', electro(), resumenElectro), plegable('material', 'Material', material(), resumenMaterial)];
+    if (ficha.tipo === 'cocina') return [...paredes(TIPOS_ELEMENTO.cocina), ...islas(), plegable('acabados', 'Acabados', acabados(), resumenAcabados), plegable('electro', 'Electrodomésticos', electro(), resumenElectro), plegable('material', 'Material', material(), resumenMaterial), plegable('coste', 'Coste estimado', costeEstimado(), resumenCoste)];
     if (ficha.tipo === 'armario') {
       // El vestidor se mide por paredes: el hueco y la lista general de cuerpos solo se ven si ya tenía datos de antes.
       const ves = ficha.subtipo === 'vestidor';
@@ -1022,6 +1066,7 @@ export async function pintarFicha(App, id) {
       if (ficha.subtipo !== 'vestidor' || (d.enchufes || []).length) r.push(...enchufes());
       if (ficha.subtipo === 'vestidor') r.push(...paredes(TIPOS_ELEMENTO.vestidor), plegable('acabados', 'Acabados', acabados(true), resumenAcabados), plegable('material', 'Material', material(), resumenMaterial));
       else r.push(plegable('material', 'Material', material(), resumenMaterial));   // tableros de casco y puertas
+      r.push(plegable('coste', 'Coste estimado', costeEstimado(), resumenCoste));
       return r;
     }
     return [];

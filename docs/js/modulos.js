@@ -210,7 +210,7 @@ export function cuadreBajos(p, datos) {
 // Lo que ocupan los pilares a lo largo de una pared (mm desde la izquierda): los suyos y lo que sobresalen los de las
 // paredes de al lado pegados a esta esquina.
 const PEGADO = 50;
-function tramosPilar(datos, p) {
+export function tramosPilar(datos, p) {
   const L = p.largo, r = [], pilares = q => (q.elementos || []).filter(x => x.tipo === 'pilar' && hay(x.distancia) && hay(x.ancho));
   pilares(p).forEach(x => {
     const a = x.ref === 'der' ? (hay(L) ? L - x.distancia - x.ancho : null) : x.distancia;
