@@ -31,3 +31,13 @@ export function estimarConTarifa(paquete, { url = urlEstimar(), espera = 30000 }
 
 // Lo que no tiene precio en el resultado: las líneas a 0 € de los grupos libres (Revisar, encimera de piedra…).
 export const sinPrecio = r => (r && r.grupos ? r.grupos.flatMap(g => g.sinPrecio || []) : []);
+
+// Cocina en tres gamas de Presupuestos (las horquillas que se dan al cliente): la misma cocina con la gama de los muebles cambiada.
+export const GAMAS_TARIFA = [['Económica', 'BÁSICO'], ['Media', 'DM-LACA MEDIO'], ['Alta', 'ALTO GAMA']];
+export const conGama = (paquete, cal) => Object.assign({}, paquete, { grupos: paquete.grupos.map(g => (g.tipo === 'muebles' ? Object.assign({}, g, { cal }) : g)) });
+// Una tras otra (el mismo Presupuestos por dentro): [{ nombre, cal, res }].
+export async function estimarGamas(paquete, op) {
+  const r = [];
+  for (const [nombre, cal] of GAMAS_TARIFA) r.push({ nombre, cal, res: await estimarConTarifa(conGama(paquete, cal), op) });
+  return r;
+}

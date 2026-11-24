@@ -22,7 +22,7 @@ import { vistaInteractiva, abrirPerspectivaGrande } from './perspectiva-ui.js';
 import { consejosDiseno, GRUPOS as GRUPOS_CONSEJO } from '../consejos.js';
 import { instalacionesQueFaltan, colocarPropuestas, quitarPropuestas, hayPropuestas } from '../avisos-obra.js';
 import { comoRellenar } from '../ayuda.js';
-import { estimarConTarifa, sinPrecio } from '../tarifa.js';
+import { estimarConTarifa, estimarGamas, sinPrecio } from '../tarifa.js';
 import { IVA, MOTIVOS_CORTOS, NOMBRE_MOTIVO, estimacionRapida, aceptarPropuesta, descartarPropuesta, pctRecargo, pctDe, euros, metros } from '../coste.js';
 
 const RETARDO = 300;
@@ -850,22 +850,34 @@ export async function pintarFicha(App, id) {
     const calcular = async () => {
       const firma = firmaPaquete();
       tarifa = { estado: 'calculando', firma }; pintar();
-      try { tarifa = { estado: 'ok', res: await estimarConTarifa(paquetePresupuesto(ficha, trabajo, AJ)), firma }; }
+      try {
+        const paq = paquetePresupuesto(ficha, trabajo, AJ);
+        // Cocina: tres gamas (económica, media, alta); el desglose, el de la media. Vestidor y armario: uno.
+        if (ficha.tipo === 'cocina') { const gs = await estimarGamas(paq); tarifa = { estado: 'ok', gamas: gs, res: gs[1].res, firma }; }
+        else tarifa = { estado: 'ok', res: await estimarConTarifa(paq), firma };
+      }
       catch (e) { tarifa = { estado: 'error', error: e && e.message, firma }; }
       if (caja.isConnected) pintar();
     };
+    const desglose = r => [...r.grupos.filter(g => g.total > 0).map(g => fila(g.nombre, g.total, { 'data-grupo-tarifa': g.nombre })),
+      r.instalacion > 0 ? fila('Instalación', r.instalacion, { 'data-grupo-tarifa': 'Instalación' }) : null,
+      h('div', { class: 'fila-coste total', 'data-acc': 'tarifa-total' }, h('span', {}, 'Total sin IVA'), h('b', {}, euros(r.total))),
+      h('div', { class: 'fila-coste iva' }, h('span', {}, 'Con IVA (' + IVA + ' %)'), h('span', {}, euros(r.total * (1 + IVA / 100))))];
+    const nomGama = c => (c.charAt(0) + c.slice(1).toLowerCase()).replace(/^Dm-/, 'DM-');
+    // Tres horquillas: total sin IVA y con IVA de cada gama; el desglose de la media, plegado.
+    const gamasTarifa = (gs, media) => [...gs.map(g => h('div', { class: 'fila-coste gama', 'data-acc': 'tarifa-gama', 'data-v': g.cal },
+        h('span', {}, h('b', {}, g.nombre), h('small', {}, ' · ' + nomGama(g.cal))), h('span', { class: 'importes' }, h('b', {}, euros(g.res.total)), h('small', {}, ' · ' + euros(g.res.total * (1 + IVA / 100)) + ' con IVA')))),
+      h('small', { class: 'ayuda' }, 'Sin IVA; detrás, con IVA (' + IVA + ' %).'),
+      h('details', { class: 'desglose-tarifa', 'data-acc': 'tarifa-desglose' }, h('summary', {}, 'Desglose de la gama media'), ...desglose(media))];
     const bloqueTarifa = () => {
       if (!conTarifa) return null;
       const r = tarifa && tarifa.res, cambiado = tarifa && tarifa.estado === 'ok' && tarifa.firma !== firmaPaquete(), sp = sinPrecio(r);
       const boton = t => h('button', { type: 'button', 'data-acc': 'calcular-tarifa', onclick: calcular }, t);
       return h('div', { class: 'tarifa' + (cambiado ? ' viejo' : ''), 'data-acc': 'tarifa' }, h('b', { class: 'titulo-tarifa' }, 'Con la tarifa de Presupuestos'),
-        ...(!tarifa ? [h('small', { class: 'ayuda' }, ficha.tipo === 'cocina' ? 'Mueble a mueble, con los precios de Presupuestos de este móvil (encimera, zócalo e instalación incluidos).' : 'Con la calculadora de armarios de Presupuestos de este móvil (casco, puertas e interior).'), boton('Calcular con la tarifa')]
+        ...(!tarifa ? [h('small', { class: 'ayuda' }, ficha.tipo === 'cocina' ? 'Mueble a mueble, con los precios de Presupuestos de este móvil, en tres gamas: económica (Básico), media (DM-Laca medio) y alta (Alto gama). Encimera, zócalo e instalación incluidos.' : 'Con la calculadora de armarios de Presupuestos de este móvil (casco, puertas e interior).'), boton('Calcular con la tarifa')]
           : tarifa.estado === 'calculando' ? [h('p', { 'data-acc': 'tarifa-calculando' }, 'Calculando con la tarifa…')]
           : tarifa.estado === 'error' ? [h('p', { class: 'aviso-tarifa', 'data-acc': 'tarifa-error' }, 'No se ha podido calcular. Abre Presupuestos una vez en este móvil (con tu sesión) para tener la tarifa, y vuelve a probar.'), boton('Probar otra vez')]
-          : [...r.grupos.filter(g => g.total > 0).map(g => fila(g.nombre, g.total, { 'data-grupo-tarifa': g.nombre })),
-            r.instalacion > 0 ? fila('Instalación', r.instalacion, { 'data-grupo-tarifa': 'Instalación' }) : null,
-            h('div', { class: 'fila-coste total', 'data-acc': 'tarifa-total' }, h('span', {}, 'Total sin IVA'), h('b', {}, euros(r.total))),
-            h('div', { class: 'fila-coste iva' }, h('span', {}, 'Con IVA (' + IVA + ' %)'), h('span', {}, euros(r.total * (1 + IVA / 100)))),
+          : [...(tarifa.gamas ? gamasTarifa(tarifa.gamas, r) : desglose(r)),
             sp.length ? h('details', { class: 'sin-precio', 'data-acc': 'tarifa-sin-precio' }, h('summary', {}, '⚠ ' + sp.length + (sp.length > 1 ? ' cosas' : ' cosa') + ' sin precio (no suman)'), h('ul', {}, sp.map(t => h('li', {}, t)))) : null,
             cambiado ? h('small', { class: 'aviso-tarifa', 'data-acc': 'tarifa-vieja' }, 'Has cambiado algo desde el cálculo.') : null,
             boton('Volver a calcular')]));

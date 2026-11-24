@@ -131,9 +131,16 @@ export function mejorCocina(ficha, { pasos = 6 } = {}) {
           probar(n, 'Pared ' + p.letra + ': mover el ' + nombreModulo(m).toLowerCase() + ' de ' + Math.round(m.ancho / 10) + ' al puesto ' + (j + 1));
         }
       });
-      // Altos donde quede pared libre arriba
+      // Altos donde quede pared libre arriba: en las paredes con altos y en las que tienen bajos y aún ningún alto
       const c = cuadreAltos(p, actual.datos);
-      if ((p.altos || []).length && c.resto >= 300) {
+      if (((p.altos || []).length || (p.bajos || []).length) && c.resto >= 300) {
+        // Llenar lo libre de una vez con altos iguales (de 90 como mucho), si no tapan ninguna ventana
+        const nn = Math.ceil(c.resto / 900), wl = Math.floor(c.resto / nn / 50) * 50;
+        if (nn > 1 && wl >= 300) {
+          const n = copiar(actual);
+          for (let k = 0; k < nn; k++) n.datos.paredes[ip].altos.push(Object.assign(moduloNuevo('alto'), { ancho: wl }));
+          probar(n, 'Pared ' + p.letra + ': ' + nn + ' altos de ' + Math.round(wl / 10) + ' en la pared libre');
+        }
         // Del más ancho que cabe al de 30: si el ancho tapa una ventana, uno más estrecho puede no taparla
         for (let w = Math.min(900, Math.floor(c.resto / 50) * 50); w >= 300; w -= 100) {
           const n = copiar(actual);
