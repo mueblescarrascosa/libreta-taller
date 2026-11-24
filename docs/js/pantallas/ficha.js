@@ -15,7 +15,7 @@ import { huella } from '../sincro.js';
 import { geometriaPlanta, svgPlanta, aplicarPlano, pilarEnParedes, pilaresEnParedes, pasarAPilar } from '../plano-vista.js';
 import { abrirPlano } from '../plano-editor.js';
 import { geometriaAlzado, svgAlzado, campanasPared, salidaCampana, textoHolgurasCampana, centrosCampana, textoCentroCampana, anchoPlaca, anchoCampana, textoTubo, fijarCocinaTipo, alturasCocina, CAMPOS_ALTURA, placaDeGas, SOBRE_GAS, MINIMO_GAS, ALTURAS } from '../alzado.js';
-import { puntuarCocina, mejorCocina } from '../puntuacion.js';
+import { puntuarCocina, mejorCocina, aplicarCambios } from '../puntuacion.js';
 import { TAPETAS } from '../pedido.js';
 import { airePlaca, textoAirePlaca } from '../consejos.js';
 import { vistaInteractiva, abrirPerspectivaGrande } from './perspectiva-ui.js';
@@ -411,14 +411,26 @@ export async function pintarFicha(App, id) {
         h('button', { type: 'button', class: 'mini', 'data-acc': 'buscar-mejor', onclick: ev => {
           const r = mejorCocina(ficha), caja = ev.currentTarget.parentElement.querySelector('.mejor-cocina');
           if (!r || !r.cambios.length) { reemplazar(caja, h('small', { class: 'ayuda' }, 'No encuentro nada mejor sin tocar los electrodomésticos ni alejarlos de sus tomas: está bien así.')); return; }
-          reemplazar(caja, h('p', {}, h('b', {}, 'La mejor que encuentro: ' + r.despues.total + '/100'), ' (la tuya, ' + r.antes.total + ') · almacenaje ' + r.despues.almacenaje.nota + ' · usabilidad ' + r.despues.usabilidad.nota),
-            h('ul', { class: 'consejos' }, r.cambios.map(t => h('li', {}, t))),
+          // Cada cambio con su casilla: se aplican solo los marcados (la nota se recalcula con ellos).
+          const marcados = r.pasos.map(() => true), notaSel = h('p', { 'data-acc': 'nota-marcados' }), elegida = () => aplicarCambios(ficha, r.pasos.filter((x, i) => marcados[i]).map(x => x.op));
+          const aplicar = h('button', { type: 'button', 'data-acc': 'aplicar-mejor', onclick: async () => {
+            const n = marcados.filter(Boolean).length; if (!n) return;
+            if (!confirm('¿Hacer ' + (n === 1 ? 'este cambio' : 'estos ' + n + ' cambios') + ' en la cocina? Los electrodomésticos no cambian ni se alejan de su desagüe, salida de humos o enchufe.')) return;
+            d.paredes = elegida().datos.paredes; cambio(); await guardarYa(); window.dispatchEvent(new HashChangeEvent('hashchange'));
+          } }, 'Aplicar los marcados');
+          const recalcular = () => {
+            const n = marcados.filter(Boolean).length, pu = n ? puntuarCocina(elegida()) : null;
+            reemplazar(notaSel, n ? h('b', {}, 'Con lo marcado: ' + pu.total + '/100') : h('b', {}, 'Nada marcado'), ' (la tuya, ' + r.antes.total + ')' + (pu ? ' · almacenaje ' + pu.almacenaje.nota + ' · usabilidad ' + pu.usabilidad.nota : ''));
+            aplicar.disabled = !n;
+          };
+          reemplazar(caja, h('p', {}, h('b', {}, 'La mejor que encuentro: ' + r.despues.total + '/100'), ' (la tuya, ' + r.antes.total + '). Quita los cambios que no quieras:'),
+            h('ul', { class: 'consejos cambios-mejor' }, r.pasos.map((x, i) => h('li', {}, h('label', {}, h('input', { type: 'checkbox', checked: true, 'data-acc': 'cambio-mejor', 'data-v': String(i),
+              onchange: ev => { marcados[i] = ev.currentTarget.checked; recalcular(); } }), ' ' + x.texto)))),
+            notaSel,
             h('div', { class: 'dos' },
-              h('button', { type: 'button', 'data-acc': 'aplicar-mejor', onclick: async () => {
-                if (!confirm('¿Cambiar los muebles de la cocina por esta combinación? Los electrodomésticos no cambian ni se alejan de su desagüe, salida de humos o enchufe.')) return;
-                d.paredes = r.ficha.datos.paredes; cambio(); await guardarYa(); window.dispatchEvent(new HashChangeEvent('hashchange'));
-              } }, 'Aplicarla'),
+              aplicar,
               h('button', { type: 'button', 'data-acc': 'dejar-mia', onclick: () => caja.replaceChildren() }, 'Dejar la mía')));
+          recalcular();
         } }, 'Buscar la mejor combinación'),
         h('div', { class: 'mejor-cocina', 'data-acc': 'mejor-cocina' })) : null;
       reemplazar(zonaC, ...[nota].filter(Boolean), c.length
