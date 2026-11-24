@@ -43,4 +43,18 @@ prueba('si Presupuestos no puede calcular, lo dice y deja probar otra vez', con(
   afirma(/Abre Presupuestos una vez/.test(await a.page.innerText('[data-acc="tarifa-error"]')));
   afirma(await a.page.$('[data-acc="calcular-tarifa"]'), 'botón para probar otra vez');
 }));
+prueba('armario de correderas: también con la tarifa, con su tramo y el recargo del armario', con({}, async a => {
+  await a.page.route('**/cocinas/**', r => r.fulfill({ contentType: 'text/html', body: falso(true) }));
+  await crearTrabajo(a, 'Casa'); await a.page.click('[data-acc="tipo"][data-v="armario"]'); await a.page.click('[data-acc="subtipo"][data-v="corredera"]');
+  await a.page.waitForSelector('[data-pantalla="ficha"]');
+  await a.page.fill('[data-acc="ancho_medio"]', '2000');
+  await a.page.click('[data-acc="abrir-coste"]');
+  await a.page.click('[data-acc="coste"] [data-acc="recargo-motivo"][data-v="descuadre"]');
+  await a.page.click('[data-acc="calcular-tarifa"]');
+  await a.page.waitForSelector('[data-acc="tarifa-total"]');
+  const p = await a.page.evaluate(() => window.__recibido), t = p.grupos[0].tramos[0];
+  igual([p.grupos[0].tipo, t.clase, t.ancho, t.puertas], ['armario', 'armario', 200, 'corredera_tablero']);
+  igual(t.recargos.map(r => [r.motivo, r.pct]), [['descuadre', 20]]);
+  afirma(await a.page.$('[data-acc="pasar-presupuesto"]'), 'el armario también se pasa a presupuesto');
+}));
 fin();

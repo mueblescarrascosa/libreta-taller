@@ -841,9 +841,9 @@ export async function pintarFicha(App, id) {
     if (e.vacio) return '';
     return euros(e.total) + ' sin IVA' + (e.propuestas.length ? ' · ' + e.propuestas.length + ' cajeado' + (e.propuestas.length > 1 ? 's' : '') + ' por confirmar' : '');
   };
-  // Con la tarifa de Presupuestos (cocina y vestidor): a petición, porque abre Presupuestos por dentro.
+  // Con la tarifa de Presupuestos (cocina, vestidor y armarios): a petición, porque abre Presupuestos por dentro.
   let tarifa = null;   // { estado: 'calculando' | 'ok' | 'error', res, firma }
-  const conTarifa = ficha.tipo === 'cocina' || ficha.subtipo === 'vestidor';
+  const conTarifa = ficha.tipo === 'cocina' || ficha.tipo === 'armario';
   const firmaPaquete = () => JSON.stringify(paquetePresupuesto(ficha, trabajo, AJ).grupos);
   function costeEstimado() {
     const caja = h('div', { class: 'tarjeta coste', 'data-acc': 'coste' });
@@ -859,7 +859,7 @@ export async function pintarFicha(App, id) {
       const r = tarifa && tarifa.res, cambiado = tarifa && tarifa.estado === 'ok' && tarifa.firma !== firmaPaquete(), sp = sinPrecio(r);
       const boton = t => h('button', { type: 'button', 'data-acc': 'calcular-tarifa', onclick: calcular }, t);
       return h('div', { class: 'tarifa' + (cambiado ? ' viejo' : ''), 'data-acc': 'tarifa' }, h('b', { class: 'titulo-tarifa' }, 'Con la tarifa de Presupuestos'),
-        ...(!tarifa ? [h('small', { class: 'ayuda' }, 'Mueble a mueble, con los precios de Presupuestos de este móvil (encimera, zócalo e instalación incluidos).'), boton('Calcular con la tarifa')]
+        ...(!tarifa ? [h('small', { class: 'ayuda' }, ficha.tipo === 'cocina' ? 'Mueble a mueble, con los precios de Presupuestos de este móvil (encimera, zócalo e instalación incluidos).' : 'Con la calculadora de armarios de Presupuestos de este móvil (casco, puertas e interior).'), boton('Calcular con la tarifa')]
           : tarifa.estado === 'calculando' ? [h('p', { 'data-acc': 'tarifa-calculando' }, 'Calculando con la tarifa…')]
           : tarifa.estado === 'error' ? [h('p', { class: 'aviso-tarifa', 'data-acc': 'tarifa-error' }, 'No se ha podido calcular. Abre Presupuestos una vez en este móvil (con tu sesión) para tener la tarifa, y vuelve a probar.'), boton('Probar otra vez')]
           : [...r.grupos.filter(g => g.total > 0).map(g => fila(g.nombre, g.total, { 'data-grupo-tarifa': g.nombre })),
@@ -1146,8 +1146,8 @@ export async function pintarFicha(App, id) {
       h('button', { type: 'button', 'data-acc': 'anadir-nota', onclick: nuevaNota }, '＋ Nota'),
       ...adjuntos.botones),
     h('button', { type: 'button', class: 'prin ancho', 'data-acc': 'terminar', onclick: async () => { await guardarYa(); App.ir('#/resumen/' + id); } }, 'Terminar y ver resumen'),
-    // Cocina o vestidor: a la app de presupuestos (misma web), que crea un presupuesto nuevo con lo medido.
-    ...((ficha.tipo === 'cocina' || ficha.subtipo === 'vestidor') ? [h('button', { type: 'button', class: 'ancho', 'data-acc': 'pasar-presupuesto', onclick: async () => {
+    // Cocina, vestidor o armario: a la app de presupuestos (misma web), que crea un presupuesto nuevo con lo medido.
+    ...((ficha.tipo === 'cocina' || ficha.tipo === 'armario') ? [h('button', { type: 'button', class: 'ancho', 'data-acc': 'pasar-presupuesto', onclick: async () => {
       await guardarYa();
       const t = ficha.trabajo_id ? await App.almacen.leer('trabajos', ficha.trabajo_id) : null;
       try { localStorage.setItem(CLAVE_PASO, JSON.stringify(paquetePresupuesto(ficha, t, AJ))); } catch (e) { alert('No se ha podido preparar el paso a presupuestos.'); return; }

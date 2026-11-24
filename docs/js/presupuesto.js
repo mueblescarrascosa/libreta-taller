@@ -182,6 +182,26 @@ export function paquetePresupuesto(ficha, trabajo, ajustes) {
       sc.cuerpos.forEach(({ c }, i) => { if (c.rincon) revisar.push('Pared ' + p.letra + ', cuerpo ' + (i + 1) + ': de rincón (' + c.rincon + '), revisar'); });
     }
   });
+  // Armario empotrado (correderas o abatibles): un tramo de armario con el hueco, sus cuerpos y las hojas (en cm).
+  const empotrado = ficha.tipo === 'armario' && ficha.subtipo !== 'vestidor';
+  if (empotrado) {
+    const A = d.ancho_medio || d.ancho_arriba || d.ancho_abajo, altos = [d.alto_izq, d.alto_der].filter(x => x > 0), H = altos.length ? Math.min(...altos) : 2500, cm = x => Math.round(x) / 10;
+    const cs = (d.cuerpos || []).filter(c => c.ancho > 0), suma = cs.reduce((s, c) => s + c.ancho, 0);
+    const cuerpoDe = c => { const pz = piezasInterior(c, H), n = k => pz.filter(q => q.tipo === k).length; return { ancho: cm(c.ancho), barra: n('barra'), cajones: n('cajon'), estantes: n('estante') + n('zapato') }; };
+    // Sin interior apuntado: barra y maletero, como un armario normal.
+    const tipico = ancho => ({ ancho: cm(ancho), barra: 1, cajones: 0, estantes: 0, maletero: true });
+    if (A || suma) {
+      const ancho = Math.max(A || 0, suma), cuerpos = cs.map(c => (c.interior ? cuerpoDe(c) : tipico(c.ancho)));
+      if (!cs.length) { const n = Math.max(1, Math.round(ancho / 1000)); for (let i = 0; i < n; i++) cuerpos.push(tipico(ancho / n)); }
+      else if (ancho - suma > 1) cuerpos.push(tipico(ancho - suma));
+      const recargos = cs.filter(c => c.recargo).map((c, i) => ({ ancho: cm(c.ancho), motivo: c.recargo.motivo, pct: pctRecargo(c, ajustes), texto: (NOMBRE_MOTIVO[c.recargo.motivo] || 'Complicación') + ' – Cuerpo ' + (d.cuerpos.indexOf(c) + 1) + ' ' + Math.round(c.ancho / 10) }));
+      if (!cs.length && d.recargo) recargos.push({ ancho: cm(ancho), motivo: d.recargo.motivo, pct: pctRecargo(d, ajustes), texto: (NOMBRE_MOTIVO[d.recargo.motivo] || 'Complicación') + ' – Armario ' + Math.round(ancho / 10) });
+      const corr = ficha.subtipo !== 'abatible';
+      tramos.push(Object.assign({ clase: 'armario', nombre: ficha.nombre || '', ancho: cm(ancho), alto: cm(H), cuerpos, puertas: corr ? 'corredera_tablero' : 'abatible_tablero' },
+        d.fondo > 0 ? { fondo: cm(d.fondo) } : {}, corr && d.hojas > 0 ? { hojas: d.hojas } : {}, recargos.length ? { recargos } : {}));
+      if (!altos.length) revisar.push('Armario: falta el alto del hueco, puesto 250 cm');
+    }
+  }
   // Electrodomésticos, encimera y lineales: para elegir modelo o ponerles precio.
   (d.electro || []).forEach(e => revisar.push('Electrodoméstico: ' + [e.clave === 'otro' ? e.nombre || 'otro' : e.clave, e.tipo, e.modelo].filter(Boolean).join(' ') + ' (elegir modelo)'));
   // Con el material de la encimera elegido, la encimera va con sus líneas (abajo); si no, su detalle a «Revisar».
@@ -189,7 +209,7 @@ export function paquetePresupuesto(ficha, trabajo, ajustes) {
   // Zócalo de PVC de la altura de la cocina tipo (10 o 15), en tiras de 4 m.
   const zmm = ficha.tipo === 'cocina' ? materialCocina(d).lineales.zocalo : 0, zAlto = (ajustes && ajustes.cocina_tipo && ajustes.cocina_tipo.zocalo) || ALTURAS.zocalo;
   const zocalo = zmm > 0 ? { cat: 'ZÓCALO', item: zAlto >= 125 ? 'ALTO 15' : 'ALTO 10', und: Math.ceil(zmm / TIRA_ZOCALO), texto: 'Zócalo de ' + Math.round(zAlto / 10) + ' cm · ' + String(Math.round(zmm / 100) / 10).replace('.', ',') + ' m' } : null;
-  textoMaterial(ficha, 'cm', ajustes).filter(l => (enc ? /^(Cornisa|Tira LED)/ : /^(Encimera|- Pared|- Isla|- Pen|- Uniones|- Hueco|Cornisa|Tira LED)/).test(l)).forEach(l => revisar.push(l.replace(/^- /, 'Encimera · ')));
+  if (!empotrado) textoMaterial(ficha, 'cm', ajustes).filter(l => (enc ? /^(Cornisa|Tira LED)/ : /^(Encimera|- Pared|- Isla|- Pen|- Uniones|- Hueco|Cornisa|Tira LED)/).test(l)).forEach(l => revisar.push(l.replace(/^- /, 'Encimera · ')));
   if (enc) revisar.push(...enc.revisar);
   const ac = d.acabados || {};
   if (ac.modelo || ac.color) notas.push('Frentes: ' + [ac.modelo, ac.color].filter(Boolean).join(' '));
@@ -201,16 +221,17 @@ export function paquetePresupuesto(ficha, trabajo, ajustes) {
   const grupos = [];
   if (bajos.length) grupos.push({ tipo: 'muebles', nombre: 'Bajos y columnas', cal: CALIDAD, casco, lineas: bajos });
   if (altos.length) grupos.push({ tipo: 'muebles', nombre: 'Altos', cal: CALIDAD, casco, lineas: altos });
-  if (tramos.length) grupos.push({ tipo: 'armario', nombre: 'Vestidor', tramos });
+  const nomArm = ficha.subtipo === 'abatible' ? 'Armario de puertas abatibles' : 'Armario de correderas';
+  if (tramos.length) grupos.push({ tipo: 'armario', nombre: empotrado ? nomArm : 'Vestidor', tramos });
   const lineasEx = (enc ? enc.extras : []).concat(zocalo ? [zocalo] : []);
   if (lineasEx.length) grupos.push({ tipo: 'extras', nombre: enc && enc.extras.length ? (zocalo ? 'Encimera y zócalo' : 'Encimera') : 'Zócalo', lineas: lineasEx });
   if (enc && enc.libres.length) grupos.push({ tipo: 'libre', nombre: 'Encimera (precio a mano)', lineas: enc.libres });
   if (revisar.length) grupos.push({ tipo: 'revisar', lineas: revisar });
-  const nombre = ficha.nombre || (ficha.tipo === 'cocina' ? 'Cocina' : 'Vestidor');
+  const nombre = ficha.nombre || (ficha.tipo === 'cocina' ? 'Cocina' : empotrado ? nomArm : 'Vestidor');
   const n = bajos.length + altos.length + tramos.reduce((s, x) => s + x.cuerpos.length, 0);
-  return { v: 1, creado: new Date().toISOString(), titulo: (ficha.tipo === 'cocina' ? 'la cocina' : 'el vestidor') + ' «' + nombre + '»' + (t.nombre ? ' de ' + t.nombre : ''),
-    resumen: n + (n === 1 ? ' mueble' : ' muebles') + (revisar.length ? ' · ' + revisar.length + ' por revisar' : ''),
+  return { v: 1, creado: new Date().toISOString(), titulo: (ficha.tipo === 'cocina' ? 'la cocina' : empotrado ? 'el armario' : 'el vestidor') + ' «' + nombre + '»' + (t.nombre ? ' de ' + t.nombre : ''),
+    resumen: n + (empotrado ? (n === 1 ? ' cuerpo' : ' cuerpos') : n === 1 ? ' mueble' : ' muebles') + (revisar.length ? ' · ' + revisar.length + ' por revisar' : ''),
     cliente: t.cliente || '', direccion: t.direccion || '', telefono: td.telefono || '', notas: notas.join('\n'), grupos,
     // Para dibujar la cocina en 3D en el presupuesto con los colores elegidos (la perspectiva de la libreta).
-    plano3d: { datos: planoPara3d(d), ajustes: { margen: (ajustes && ajustes.margen) || 10, unidad: (ajustes && ajustes.unidad) || 'mm', cocina_tipo: (ajustes && ajustes.cocina_tipo) || null } } };
+    plano3d: empotrado ? null : { datos: planoPara3d(d), ajustes: { margen: (ajustes && ajustes.margen) || 10, unidad: (ajustes && ajustes.unidad) || 'mm', cocina_tipo: (ajustes && ajustes.cocina_tipo) || null } } };
 }
