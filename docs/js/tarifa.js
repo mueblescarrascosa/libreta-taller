@@ -33,11 +33,13 @@ export function estimarConTarifa(paquete, { url = urlEstimar(), espera = 30000 }
 export const sinPrecio = r => (r && r.grupos ? r.grupos.flatMap(g => g.sinPrecio || []) : []);
 
 // Cocina en tres gamas de Presupuestos (las horquillas que se dan al cliente): la misma cocina con la gama de los muebles cambiada.
-export const GAMAS_TARIFA = [['Económica', 'BÁSICO'], ['Media', 'DM-LACA MEDIO'], ['Alta', 'ALTO GAMA']];
-export const conGama = (paquete, cal) => Object.assign({}, paquete, { grupos: paquete.grupos.map(g => (g.tipo === 'muebles' ? Object.assign({}, g, { cal }) : g)) });
+// Con cada gama, su material de costados y de regletas.
+export const GAMAS_TARIFA = [['Económica', 'BÁSICO', 'MELAMINA 1', 'MELAMINA D'], ['Media', 'DM-LACA MEDIO', 'BLANCO 19', 'LACA D'], ['Alta', 'ALTO GAMA', 'COLOR 19', 'LACA M']];
+export const conGama = (paquete, cal, costado, regleta) => Object.assign({}, paquete, { grupos: paquete.grupos.map(g => (g.tipo === 'muebles' ? Object.assign({}, g, { cal })
+  : g.tipo === 'costados' && costado ? Object.assign({}, g, { cal: costado }) : g.tipo === 'regletas' && regleta ? Object.assign({}, g, { cal: regleta }) : g)) });
 // Una tras otra (el mismo Presupuestos por dentro): [{ nombre, cal, res }].
 export async function estimarGamas(paquete, op) {
   const r = [];
-  for (const [nombre, cal] of GAMAS_TARIFA) r.push({ nombre, cal, res: await estimarConTarifa(conGama(paquete, cal), op) });
+  for (const [nombre, cal, costado, regleta] of GAMAS_TARIFA) r.push({ nombre, cal, res: await estimarConTarifa(conGama(paquete, cal, costado, regleta), op) });
   return r;
 }

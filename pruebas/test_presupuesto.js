@@ -41,10 +41,11 @@ prueba('paquete: cliente, grupos en G2 con el casco, vestidor por paredes y lo q
   f.datos.electro = [{ id: 'e', clave: 'horno', tipo: 'columna', ancho: null, modelo: '', nombre: '' }];
   const p = paquetePresupuesto(f, { nombre: 'Casa', cliente: 'Juan', direccion: 'C/ Mayor 1', datos: { telefono: '600' } }, null);
   igual([p.cliente, p.direccion, p.telefono], ['Juan', 'C/ Mayor 1', '600']);
-  igual(p.grupos.map(g => [g.tipo, g.nombre || '', g.cal || '', g.casco || '']), [['muebles', 'Bajos y columnas', 'BÁSICO', 'antracita 19'], ['muebles', 'Altos', 'BÁSICO', 'antracita 19'], ['extras', 'Zócalo', '', ''], ['revisar', '', '', '']]);
+  igual(p.grupos.map(g => [g.tipo, g.nombre || '', g.cal || '', g.casco || '']), [['muebles', 'Bajos y columnas', 'BÁSICO', 'antracita 19'], ['muebles', 'Altos', 'BÁSICO', 'antracita 19'], ['extras', 'Zócalo', '', ''], ['costados', 'Costados', 'MELAMINA 1', ''], ['regletas', 'Regletas', 'MELAMINA D', ''], ['revisar', '', '', '']]);
   // El bajo de 45,5 va con su medida: presupuestos le pone el del catálogo inmediatamente superior.
   afirma(p.grupos[0].lineas.some(l => l.med === '45.5' && l.mo === '1 PUERTA'), JSON.stringify(p.grupos[0].lineas));
-  afirma(p.grupos[3].lineas.some(t => /horno/.test(t)), p.grupos[3].lineas.join(' | '));
+  const rv = p.grupos.find(g => g.tipo === 'revisar');
+  afirma(rv.lineas.some(t => /horno/.test(t)), rv.lineas.join(' | '));
   afirma(p.notas.includes('Frentes: Alpha') && p.notas.includes('Cascos: Antracita'), p.notas);
   // El plano para el 3D va entero, pero sin fotos pegadas.
   f.datos.boceto = 'data:image/png;base64,AAAA';

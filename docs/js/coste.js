@@ -14,6 +14,12 @@ export const MOTIVOS_CORTOS = [['pilar', 'Pilar'], ['tubo', 'Tubo/contador'], ['
 export const PRECIOS_ML = { bajos: 300, altos: 190, columnas: 600, vestidor: 450, corredera: 580, abatible: 540 };
 export const NOMBRE_PRECIO = { bajos: 'Bajos', altos: 'Altos', columnas: 'Columnas', vestidor: 'Vestidor', corredera: 'Armario de correderas', abatible: 'Armario abatible' };
 export const RECARGO_PCT = 20;
+// Para «Calcular con la tarifa» (orientativos, sin IVA, se cambian en Ajustes): cornisa y tira LED por metro, y
+// electrodomésticos por unidad (solo en el cálculo; al pasar a presupuesto siguen para elegir modelo).
+export const PRECIOS_EXTRA = { cornisa: 25, led: 30, placa: 300, horno: 350, microondas: 200, campana: 250, frigo: 700, lavavajillas: 400, lavadora: 400, otro: 0 };
+export const NOMBRE_EXTRA = { cornisa: 'Cornisa (€/m)', led: 'Tira LED (€/m)', placa: 'Placa', horno: 'Horno', microondas: 'Microondas', campana: 'Campana', frigo: 'Frigorífico',
+  lavavajillas: 'Lavavajillas', lavadora: 'Lavadora', otro: 'Otro electrodoméstico' };
+export const preciosExtraDe = aj => Object.assign({}, PRECIOS_EXTRA, (aj && aj.precios_extra) || {});
 // Lo que no se cobra como mueble: huecos y la campana decorativa (es un electrodoméstico).
 const SIN_MUEBLE = ['hueco', 'campana_deco'];
 

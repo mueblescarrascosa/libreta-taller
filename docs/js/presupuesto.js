@@ -3,9 +3,9 @@
 // si no, la habitual. Lo que no tiene artículo claro va a «Revisar». La app de presupuestos lo comprueba otra vez
 // contra su catálogo y crea un presupuesto NUEVO en borrador (libreta.js de cocinas).
 import { situarMuebles, situarCuerpos, piezasInterior, esLibre, instalacionDe, PUENTE, topePuente } from './modulos.js';
-import { textoMaterial, materialCocina } from './material.js';
+import { textoMaterial, materialCocina, rematesCocina } from './material.js';
 import { ALTURAS, desdeAlto } from './alzado.js';
-import { NOMBRE_MOTIVO, pctRecargo } from './coste.js';
+import { NOMBRE_MOTIVO, pctRecargo, preciosExtraDe } from './coste.js';
 import { nombreModulo } from './modulos.js';
 
 const hay = v => v !== null && v !== undefined;
@@ -153,8 +153,33 @@ export function encimeraPresupuesto(d) {
   return { extras, libres: [], revisar };
 }
 
+// Costados y regletas de la colocación, con las medidas de la tarifa de Presupuestos (ancho×alto, en mm: costados de
+// fondo 350 o 600; regletas de 10 cm, tantas como hagan falta para su ancho). El grupo de material lo pone la gama.
+// El tirador de Acabados va en los grupos de muebles (el sistema de tiradores de Presupuestos): visto o sin elegir,
+// «medio»; gola; uñero; integrado, «gamma».
+export const TIRADOR_PRESUPUESTO = { visto: 'medio', gola: 'gola', unero: 'unero', integrado: 'gamma' };
+const ALTOS_COSTADO = { 350: [450, 700, 900, 1300, 2440], 600: [700, 900, 1300, 2440] }, ALTOS_REGLETA = [600, 700, 900, 1300, 2440];
+function rematesCostados(d, revisar) {
+  const sube = (l, x) => l.find(a => a >= x - 5), cost = {}, reg = {}, gr = [];
+  const sumar = (o, ancho, alto, und, texto) => { const k = ancho + 'x' + alto; o[k] = o[k] || { ancho, alto, und: 0, texto }; o[k].und += und; };
+  let techo = 0;
+  rematesCocina(d).forEach(r => {
+    if (r.tipo === 'costados') {
+      const an = r.ancho <= 355 ? 350 : 600, al = sube(ALTOS_COSTADO[an], r.alto);
+      if (al) sumar(cost, an, al, r.cant || 1, 'Costado ' + an + 'x' + al); else revisar.push('Costado de ' + Math.round(r.alto / 10) + ' cm de alto (pared ' + r.donde + '): no está en la tarifa');
+    } else if (r.tipo === 'regletas') {
+      const al = sube(ALTOS_REGLETA, r.alto);
+      if (al) sumar(reg, 100, al, Math.ceil(r.ancho / 100) * (r.cant || 1), 'Regleta 100x' + al); else revisar.push('Regleta de ' + Math.round(r.alto / 10) + ' cm de alto (pared ' + r.donde + '): no está en la tarifa');
+    } else if (r.tipo === 'techo') techo += r.ancho;
+  });
+  if (techo) revisar.push('Cierre a techo: ' + String(Math.round(techo / 100) / 10).replace('.', ',') + ' m (precio a mano)');
+  if (Object.keys(cost).length) gr.push({ tipo: 'costados', nombre: 'Costados', cal: 'MELAMINA 1', lineas: Object.values(cost) });
+  if (Object.keys(reg).length) gr.push({ tipo: 'regletas', nombre: 'Regletas', cal: 'MELAMINA D', lineas: Object.values(reg) });
+  return gr;
+}
+
 // El paquete que recoge la app de presupuestos.
-export function paquetePresupuesto(ficha, trabajo, ajustes) {
+export function paquetePresupuesto(ficha, trabajo, ajustes, { estimar = false } = {}) {
   const d = ficha.datos, t = trabajo || {}, td = t.datos || {}, revisar = [], notas = [];
   const bajos = [], altos = [], tramos = [];
   // Recargo por complicación del mueble: pasa con su % y su texto; en Presupuestos va como línea aparte.
@@ -203,13 +228,26 @@ export function paquetePresupuesto(ficha, trabajo, ajustes) {
     }
   }
   // Electrodomésticos, encimera y lineales: para elegir modelo o ponerles precio.
-  (d.electro || []).forEach(e => revisar.push('Electrodoméstico: ' + [e.clave === 'otro' ? e.nombre || 'otro' : e.clave, e.tipo, e.modelo].filter(Boolean).join(' ') + ' (elegir modelo)'));
+  // Al calcular con la tarifa, con su precio orientativo de Ajustes (si lo tiene); al pasar a presupuesto, para elegir modelo.
+  const PE = preciosExtraDe(ajustes), electroPrecio = [], cornisaLuz = [];
+  (d.electro || []).forEach(e => {
+    const t = [e.clave === 'otro' ? e.nombre || 'otro' : e.clave, e.tipo, e.modelo].filter(Boolean).join(' ');
+    if (estimar && PE[e.clave] > 0) electroPrecio.push({ texto: 'Electrodoméstico: ' + t + ' (orientativo)', precio: PE[e.clave] });
+    else revisar.push('Electrodoméstico: ' + t + ' (elegir modelo)');
+  });
   // Con el material de la encimera elegido, la encimera va con sus líneas (abajo); si no, su detalle a «Revisar».
   const enc = ficha.tipo === 'cocina' ? encimeraPresupuesto(d) : null;
   // Zócalo de PVC de la altura de la cocina tipo (10 o 15), en tiras de 4 m.
   const zmm = ficha.tipo === 'cocina' ? materialCocina(d).lineales.zocalo : 0, zAlto = (ajustes && ajustes.cocina_tipo && ajustes.cocina_tipo.zocalo) || ALTURAS.zocalo;
   const zocalo = zmm > 0 ? { cat: 'ZÓCALO', item: zAlto >= 125 ? 'ALTO 15' : 'ALTO 10', und: Math.ceil(zmm / TIRA_ZOCALO), texto: 'Zócalo de ' + Math.round(zAlto / 10) + ' cm · ' + String(Math.round(zmm / 100) / 10).replace('.', ',') + ' m' } : null;
-  if (!empotrado) textoMaterial(ficha, 'cm', ajustes).filter(l => (enc ? /^(Cornisa|Tira LED)/ : /^(Encimera|- Pared|- Isla|- Pen|- Uniones|- Hueco|Cornisa|Tira LED)/).test(l)).forEach(l => revisar.push(l.replace(/^- /, 'Encimera · ')));
+  // Cornisa y tira LED (si la cocina las lleva, en Acabados): con su € por metro de Ajustes; a 0, a «Revisar».
+  const mc = ficha.tipo === 'cocina' ? materialCocina(d) : null, linAc = ((d.acabados || {}).lineales || []).map(x => x.tipo), conPrecio = [];
+  if (mc) [['cornisa', 'Cornisa', 'Cornisa'], ['led', 'Tira LED (bajo los altos)', 'Tira LED']].forEach(([k, nom, pref]) => {
+    const mm = mc.lineales[k];
+    if (linAc.includes(k) && mm > 0 && PE[k] > 0) { const m = Math.round(mm / 10) / 100; cornisaLuz.push({ texto: nom + ' · ' + String(m).replace('.', ',') + ' m', precio: Math.round(m * PE[k] * 100) / 100 }); conPrecio.push(pref); }
+  });
+  const sinPrecioRe = new RegExp('^(' + ['Cornisa', 'Tira LED'].filter(x => !conPrecio.includes(x)).concat(enc ? [] : ['Encimera', '- Pared', '- Isla', '- Pen', '- Uniones', '- Hueco']).join('|') + ')');
+  if (!empotrado) textoMaterial(ficha, 'cm', ajustes).filter(l => sinPrecioRe.test(l)).forEach(l => revisar.push(l.replace(/^- /, 'Encimera · ')));
   if (enc) revisar.push(...enc.revisar);
   const ac = d.acabados || {};
   if (ac.modelo || ac.color) notas.push('Frentes: ' + [ac.modelo, ac.color].filter(Boolean).join(' '));
@@ -219,13 +257,17 @@ export function paquetePresupuesto(ficha, trabajo, ajustes) {
   const casco = CASCO[String(ac.casco || '').trim().toLowerCase()] || null;
   if (ac.casco && !casco) revisar.push('Cascos ' + ac.casco + ': elegir el acabado de casco');
   const grupos = [];
-  if (bajos.length) grupos.push({ tipo: 'muebles', nombre: 'Bajos y columnas', cal: CALIDAD, casco, lineas: bajos });
-  if (altos.length) grupos.push({ tipo: 'muebles', nombre: 'Altos', cal: CALIDAD, casco, lineas: altos });
+  const tir = ficha.tipo === 'cocina' ? { tipo: TIRADOR_PRESUPUESTO[ac.tirador] || 'medio' } : null, conTir = tir ? { tir } : {};
+  if (bajos.length) grupos.push(Object.assign({ tipo: 'muebles', nombre: 'Bajos y columnas', cal: CALIDAD, casco, lineas: bajos }, conTir));
+  if (altos.length) grupos.push(Object.assign({ tipo: 'muebles', nombre: 'Altos', cal: CALIDAD, casco, lineas: altos }, conTir));
   const nomArm = ficha.subtipo === 'abatible' ? 'Armario de puertas abatibles' : 'Armario de correderas';
   if (tramos.length) grupos.push({ tipo: 'armario', nombre: empotrado ? nomArm : 'Vestidor', tramos });
   const lineasEx = (enc ? enc.extras : []).concat(zocalo ? [zocalo] : []);
   if (lineasEx.length) grupos.push({ tipo: 'extras', nombre: enc && enc.extras.length ? (zocalo ? 'Encimera y zócalo' : 'Encimera') : 'Zócalo', lineas: lineasEx });
   if (enc && enc.libres.length) grupos.push({ tipo: 'libre', nombre: 'Encimera (precio a mano)', lineas: enc.libres });
+  if (ficha.tipo === 'cocina') grupos.push(...rematesCostados(d, revisar));
+  if (cornisaLuz.length) grupos.push({ tipo: 'libre', nombre: 'Cornisa y luz', lineas: cornisaLuz });
+  if (electroPrecio.length) grupos.push({ tipo: 'libre', nombre: 'Electrodomésticos (orientativo)', lineas: electroPrecio });
   if (revisar.length) grupos.push({ tipo: 'revisar', lineas: revisar });
   const nombre = ficha.nombre || (ficha.tipo === 'cocina' ? 'Cocina' : empotrado ? nomArm : 'Vestidor');
   const n = bajos.length + altos.length + tramos.reduce((s, x) => s + x.cuerpos.length, 0);

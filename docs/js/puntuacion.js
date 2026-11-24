@@ -29,7 +29,7 @@ function altosMal(f) {
 function altosSimetricos(p, datos) {
   const sit = situarMuebles(p, datos);
   // El sitio de la campana se reserva cuando hay algún alto: se mira con uno de prueba.
-  const prueba = Object.assign({}, p, { altos: [Object.assign(moduloNuevo('alto'), { ancho: 300 })] }), zonas = (situarMuebles(prueba, datos).zonas || []).filter(z => !z.mueble);
+  const prueba = Object.assign({}, p, { altos: [Object.assign(moduloNuevo('alto'), { ancho: 300 })] }), sp = situarMuebles(prueba, datos), zonas = (sp.zonas || []).filter(z => !z.mueble);
   const g = geometriaAlzado(datos, p), tapas = g ? g.piezas.filter(q => (q.clase === 'ventana' || q.clase === 'puerta') && q.y + q.h > ALTURAS.altos_desde && q.y < ALTURAS.altos_hasta).map(q => [q.x, q.x + q.w]) : [];
   const libres = [];
   sit.bajos.forEach(b => {
@@ -43,15 +43,46 @@ function altosSimetricos(p, datos) {
   });
   if (!libres.length) return null;
   // La fila de altos: los huecos que hagan falta para que cada alto quede sobre su bajo (la campana se salta sola).
+  // Empieza donde empezaría el primer alto (tras la regleta, o tras una columna), no donde el primer bajo (que puede
+  // empezar más allá, tras el rincón de la pared de al lado).
+  const inicio = sp.altos.length ? Math.min(sp.altos[0].desde, ...libres.map(l => l.desde)) : 0;
+  const fila = elegidos => {
+    const lista = [];
+    let s = inicio;
+    elegidos.forEach(l => {
+      const gap = l.desde - s, enCampana = zonas.some(z => pisa(s, l.desde, z.desde - 20, z.hasta + 20));
+      if (gap >= 100 && !enCampana) lista.push(Object.assign(moduloNuevo('hueco'), { ancho: Math.round(gap / 10) * 10 }));
+      lista.push(Object.assign(moduloNuevo('alto'), { ancho: l.ancho }));
+      s = l.desde + l.ancho;
+    });
+    return lista;
+  };
+  return { libres, fila, lista: fila(libres) };
+}
+// Bajos para una pared vacía: de 60 (y uno más estrecho con lo que sobre, de 30 a 50), en los tramos libres de la pared
+// sin puertas, pilares ni ventanas que bajen de la encimera; huecos donde no van.
+function bajosParaVacia(p, datos) {
+  if (!hay(p.largo) || p.largo < 600) return null;
+  const prueba = Object.assign({}, p, { bajos: [Object.assign(moduloNuevo('bajo'), { ancho: 300 })], altos: [] }), sp = situarMuebles(prueba, datos);
+  const inicio = sp.bajos.length ? sp.bajos[0].desde : 0, fin = p.largo - 40;
+  const g = geometriaAlzado(datos, p), estorbos = g ? g.piezas.filter(q => q.clase === 'puerta' || q.clase === 'pilar' || (q.clase === 'ventana' && q.y < ALTURAS.encimera)).map(q => [q.x, q.x + q.w]).sort((a, b) => a[0] - b[0]) : [];
+  const tramos = [];
+  let x = inicio;
+  estorbos.forEach(([a, b]) => { if (a > x) tramos.push([x, Math.min(a, fin)]); x = Math.max(x, b); });
+  if (fin > x) tramos.push([x, fin]);
   const lista = [];
-  let s = sit.bajos.length ? Math.min(...sit.bajos.map(b => b.desde)) : 0;
-  libres.forEach(l => {
-    const gap = l.desde - s, enCampana = zonas.some(z => pisa(s, l.desde, z.desde - 20, z.hasta + 20));
-    if (gap >= 100 && !enCampana) lista.push(Object.assign(moduloNuevo('hueco'), { ancho: Math.round(gap / 10) * 10 }));
-    lista.push(Object.assign(moduloNuevo('alto'), { ancho: l.ancho }));
-    s = l.desde + l.ancho;
+  let s = inicio, n = 0;
+  tramos.forEach(([a, b]) => {
+    const anchos = [];
+    let len = b - a;
+    while (len >= 600) { anchos.push(600); len -= 600; }
+    if (len >= 300) anchos.push(Math.floor(len / 100) * 100);
+    if (!anchos.length) return;
+    if (a - s >= 100) lista.push(Object.assign(moduloNuevo('hueco'), { ancho: Math.round((a - s) / 10) * 10 }));
+    anchos.forEach(w => { lista.push(Object.assign(moduloNuevo('bajo'), { ancho: w })); n++; });
+    s = a + anchos.reduce((t, w) => t + w, 0);
   });
-  return lista;
+  return n ? { lista, n } : null;
 }
 const fueraDeSitio = f => new Set(avisosObra(f, 'mm').map(a => a.texto).filter(t => INSTALACION.test(t)).map(t => t.replace(/\d+([.,]\d+)?/g, '#')));
 
@@ -146,18 +177,19 @@ export function textoPuntuacion(p) {
 // Descarta los cambios que alejan el fregadero de su desagüe o toma, la placa de su salida de humos o un mueble de su enchufe.
 const MOVIBLES = ['bajo', 'cajonero'];
 const copiar = o => JSON.parse(JSON.stringify(o));
-export function mejorCocina(ficha, { pasos = 6 } = {}) {
+export function mejorCocina(ficha, { pasos = 12 } = {}) {
   const p0 = puntuarCocina(ficha);
   if (!p0) return null;
   let actual = copiar(ficha), nota = p0.total;
   const malAntes = fueraDeSitio(ficha), choquesAntes = choques(ficha);   // un cambio no puede dejar una toma, el desagüe o un enchufe lejos de su mueble
-  const cambios = [], hechos = [];
+  const cambios = [], hechos = [], estado = {};
   for (let paso = 0; paso < pasos; paso++) {
     let mejor = null;
     // Los simétricos ganan a otros altos de la misma pared mientras suban la nota.
     const probar = (nueva, texto, simetrico, op) => {
-      if ([...fueraDeSitio(nueva)].some(t => !malAntes.has(t)) || choques(nueva) > choquesAntes) return;
-      const pu = puntuarCocina(nueva); if (!pu || pu.total <= nota) return;
+      const pa = texto.split(':')[0], ea = / alto/.test(texto) ? (estado[pa] = estado[pa] || { tapa: 0, nota: 0 }) : null;
+      if ([...fueraDeSitio(nueva)].some(t => !malAntes.has(t)) || choques(nueva) > choquesAntes) { if (ea) ea.tapa++; return; }
+      const pu = puntuarCocina(nueva); if (!pu || pu.total <= nota) { if (ea) ea.nota++; return; }
       if (mejor && mejor.simetrico && /alto/.test(texto) && texto.split(':')[0] === mejor.texto.split(':')[0] && !simetrico) return;
       if (!mejor || pu.total > mejor.nota || (simetrico && texto.split(':')[0] === mejor.texto.split(':')[0])) mejor = { ficha: nueva, nota: pu.total, texto, simetrico, op };
     };
@@ -183,10 +215,17 @@ export function mejorCocina(ficha, { pasos = 6 } = {}) {
       if (((p.altos || []).length || (p.bajos || []).length) && c.resto >= 300) {
         // Pared sin altos: primero, altos simétricos (uno sobre cada bajo, de su ancho). Si valen, se prefieren.
         const sim = !(p.altos || []).length ? altosSimetricos(p, actual.datos) : null;
-        if (sim) { const n = copiar(actual); n.datos.paredes[ip].altos = sim; const k = sim.filter(m => m.tipo === 'alto').length; probar(n, 'Pared ' + p.letra + ': ' + k + (k > 1 ? ' altos' : ' alto') + ' encima de los bajos, del mismo ancho', true, { op: 'altos', pared: p.id, altos: copiar(sim) }); }
-        // Sin simétricos posibles (p. ej. sin altos ni sitio sobre los bajos), llenar lo libre con altos iguales (de 90 como mucho)
+        const ponerAltos = (lista, texto, simetrico) => { const n = copiar(actual); n.datos.paredes[ip].altos = lista; probar(n, texto, simetrico, { op: 'altos', pared: p.id, altos: copiar(lista) }); };
+        if (sim) {
+          const k = sim.libres.length;
+          ponerAltos(sim.lista, 'Pared ' + p.letra + ': ' + k + (k > 1 ? ' altos' : ' alto') + ' encima de los bajos, del mismo ancho', true);
+          // Si todos juntos no valen (uno tapa algo), cada uno por su cuenta
+          if (k > 1) sim.libres.forEach(l => ponerAltos(sim.fila([l]), 'Pared ' + p.letra + ': un alto de ' + Math.round(l.ancho / 10) + ' encima del bajo de ' + Math.round(l.ancho / 10), true));
+        }
+        // Además (por si los simétricos no valen), los de siempre: altos iguales llenando lo libre, o uno al principio
         const nn = Math.ceil(c.resto / 900), wl = Math.floor(c.resto / nn / 50) * 50;
-        if (!(p.altos || []).length && !sim && nn > 1 && wl >= 300) {
+        if (!(p.altos || []).length) for (let w = Math.min(900, Math.floor(c.resto / 50) * 50); w >= 300; w -= 100) ponerAltos([Object.assign(moduloNuevo('alto'), { ancho: w })], 'Pared ' + p.letra + ': un alto de ' + Math.round(w / 10) + ' en la pared libre', false);
+        if (!(p.altos || []).length && nn > 1 && wl >= 300) {
           const n = copiar(actual);
           for (let k = 0; k < nn; k++) n.datos.paredes[ip].altos.push(Object.assign(moduloNuevo('alto'), { ancho: wl }));
           probar(n, 'Pared ' + p.letra + ': ' + nn + ' altos de ' + Math.round(wl / 10) + ' en la pared libre', false, { op: 'altos', pared: p.id, altos: copiar(n.datos.paredes[ip].altos.slice(-nn)) });
@@ -195,7 +234,7 @@ export function mejorCocina(ficha, { pasos = 6 } = {}) {
         // (simétrico) o, si no cabe o tapa algo, del más ancho que quepa sobre él.
         if ((p.altos || []).length) {
           const sa = situarMuebles(p, actual.datos), fin = Math.max(...sa.altos.map(a => a.hasta)), zs = (sa.zonas || []).filter(z => !z.mueble);
-          const b = sa.bajos.filter(x => !esColumna(x.m) && x.m.tipo !== 'hueco' && x.hasta > fin + 250 && !zs.some(z => pisa(x.desde, x.hasta, z.desde, z.hasta))).sort((x, y) => x.desde - y.desde)[0];
+          const b = sa.bajos.filter(x => !esColumna(x.m) && x.m.tipo !== 'hueco' && x.m.tipo !== 'rinconero' && x.hasta > fin + 250 && !zs.some(z => pisa(x.desde, x.hasta, z.desde, z.hasta))).sort((x, y) => x.desde - y.desde)[0];
           if (b) {
             const nuevo = w => { const n = copiar(actual); n.datos.paredes[ip].altos.push(Object.assign(moduloNuevo('alto'), { ancho: w })); return n; };
             if (b.m.ancho >= 300 && b.m.ancho <= c.resto) {
@@ -214,7 +253,30 @@ export function mejorCocina(ficha, { pasos = 6 } = {}) {
     if (!mejor) break;
     actual = mejor.ficha; nota = mejor.nota; cambios.push(mejor.texto); hechos.push({ texto: mejor.texto, op: mejor.op });
   }
-  return { antes: p0, despues: puntuarCocina(actual), cambios, pasos: hechos, ficha: actual };
+  // Paredes vacías: bajos (y sus altos simétricos encima), como cambio a elegir, sin marcar (no suben la nota: más
+  // metros de cocina con muebles normales). Al final, sobre la mejor encontrada.
+  (actual.datos.paredes || []).forEach((p, ip) => {
+    if ((p.bajos || []).length || (p.altos || []).length) return;
+    const b = bajosParaVacia(p, actual.datos); if (!b) return;
+    const n = copiar(actual); n.datos.paredes[ip].bajos = b.lista;
+    if (choques(n) > choquesAntes) return;
+    const sim = altosSimetricos(n.datos.paredes[ip], n.datos), n2 = copiar(n);
+    if (sim) n2.datos.paredes[ip].altos = sim.lista;
+    const conAltos = sim && choques(n2) <= choquesAntes, op = { op: 'bajos', pared: p.id, bajos: copiar(b.lista), altos: conAltos ? copiar(sim.lista) : [] };
+    hechos.push({ texto: 'Pared ' + p.letra + ' (vacía): ' + b.n + (b.n > 1 ? ' bajos' : ' bajo') + (conAltos ? ' y sus altos encima' : '') + ' (opcional)', op, marcado: false });
+  });
+  // Por qué no hay altos en una pared que no los tiene ni se le han propuesto
+  const motivos = [];
+  (actual.datos.paredes || []).forEach(p => {
+    if ((p.altos || []).length || !hay(p.largo) || hechos.some(x => x.op && x.op.pared === p.id && (x.op.op === 'altos' || x.op.op === 'bajos'))) return;
+    const pa = 'Pared ' + p.letra, e = estado[pa];
+    if (!(p.bajos || []).length) { motivos.push(pa + ': no tiene muebles (no se le ha encontrado sitio libre para bajos)'); return; }
+    if (cuadreAltos(p, actual.datos).resto < 300) motivos.push(pa + ': no queda sitio libre arriba para altos');
+    else if (e && e.tapa && !e.nota) motivos.push(pa + ': los altos taparían una ventana, una puerta o la campana');
+    else if (e && e.nota) motivos.push(pa + ': unos altos no suben la nota');
+    else motivos.push(pa + ': no se le encuentran altos que quepan sobre los bajos');
+  });
+  return { antes: p0, despues: puntuarCocina(actual), cambios, pasos: hechos, motivos, ficha: actual };
 }
 
 // Aplica a una copia de la ficha solo los cambios elegidos (los de «pasos» de mejorCocina), en su orden. Uno que ya no
@@ -226,6 +288,7 @@ export function aplicarCambios(ficha, ops) {
     if (o.op === 'cajonero') { const m = (p.bajos || []).find(x => x.id === o.id); if (m) { m.tipo = 'cajonero'; m.variante = null; } }
     if (o.op === 'mover') { const i = (p.bajos || []).findIndex(x => x.id === o.id); if (i >= 0) { const [x] = p.bajos.splice(i, 1); p.bajos.splice(Math.min(o.a, p.bajos.length), 0, x); } }
     if (o.op === 'altos') p.altos = (p.altos || []).concat(copiar(o.altos));
+    if (o.op === 'bajos') { p.bajos = (p.bajos || []).concat(copiar(o.bajos)); p.altos = (p.altos || []).concat(copiar(o.altos || [])); }
   });
   return n;
 }

@@ -53,6 +53,22 @@ prueba('elegir los cambios: todos dan la misma cocina; quitando uno, ese no se h
   igual(aplicarCambios(f, sinB.map(x => x.op)).datos.paredes[1].altos, [], 'sin los altos de B');
   igual(aplicarCambios(f, []).datos.paredes, f.datos.paredes, 'nada marcado: igual');
 });
+prueba('dice por qué una pared no lleva altos: tapan la ventana', () => {
+  const v = { id: 'v', tipo: 'ventana', para: null, nombre: '', distancia: 0, ref: 'izq', altura: 1000, ancho: 1800, alto: 1200 };
+  const f = cocina([pared('A', 3000, { bajos: [mod('placa', 900), mod('fregadero', 800)], altos: [mod('alto', 900)] }),
+    pared('C', 1800, { elementos: [v], bajos: [mod('bajo', 600), mod('bajo', 600), mod('bajo', 600)] })]);
+  const r = mejorCocina(f);
+  igual(r.ficha.datos.paredes[1].altos, []);
+  afirma(r.motivos.some(m => /^Pared C: los altos taparían/.test(m)), JSON.stringify(r.motivos));
+});
+prueba('pared vacía: bajos y sus altos encima como cambio opcional (sin marcar)', () => {
+  const f = cocina([pared('A', 3000, { bajos: [mod('placa', 900), mod('fregadero', 800), mod('bajo', 600)], altos: [mod('alto', 900)] }), pared('D', 2000)]);
+  const r = mejorCocina(f), x = r.pasos.find(q => q.op.op === 'bajos');
+  afirma(x && x.marcado === false && /^Pared D \(vacía\): 3 bajos y sus altos encima/.test(x.texto), JSON.stringify(r.pasos.map(q => q.texto)));
+  const n = aplicarCambios(f, [x.op]).datos.paredes[1];
+  igual(n.bajos.map(m => m.ancho), [600, 600, 600]); igual(n.altos.filter(m => m.tipo === 'alto').map(m => m.ancho), [600, 600, 600]);
+  igual(r.ficha.datos.paredes[1].bajos, [], 'la mejor no la toca si no se marca');
+});
 const con = fn => async () => { const a = await abrir({}); try { await entrar(a); await fn(a); igual(a.errores, [], 'errores de página'); } finally { await a.cerrar(); } };
 prueba('app: se desmarca un cambio y solo se aplican los marcados', con(async a => {
   await crearTrabajo(a, 'Casa'); await a.page.click('[data-acc="tipo"][data-v="cocina"]'); await a.page.waitForSelector('[data-pantalla="ficha"]');

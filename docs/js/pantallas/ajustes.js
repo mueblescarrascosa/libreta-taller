@@ -5,7 +5,7 @@ import { bienvenida, crearEjemplo, letraGrande, GUIA } from '../ayuda.js';
 import { AJUSTES_FABRICA, claveDe } from '../modelo.js';
 import { leerMedida, verMedida } from '../unidades.js';
 import { copiaSeguridad } from '../trabajos.js';
-import { PRECIOS_ML, NOMBRE_PRECIO, RECARGO_PCT } from '../coste.js';
+import { PRECIOS_ML, NOMBRE_PRECIO, RECARGO_PCT, PRECIOS_EXTRA, NOMBRE_EXTRA, preciosExtraDe } from '../coste.js';
 
 // Lista editable: quitar, subir, añadir y volver a los valores de fábrica.
 // numeros: medidas en mm que se ven y se escriben en cm; si no, pares [clave, texto].
@@ -83,7 +83,12 @@ function preciosCoste(App) {
         i.addEventListener('input', () => { const x = num(i.value); if (x !== null && x <= 300) App.cambiarAjustes({ recargo_pct: x }); });
         return h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Recargo por complicación (%)'), i,
           h('small', {}, 'Cajeado por pilar, tubo o contador, pared descuadrada. Se puede cambiar en cada mueble.')); })(),
-      h('button', { type: 'button', 'data-acc': 'precios-fabrica', onclick: async () => { await App.cambiarAjustes({ precios_ml: Object.assign({}, PRECIOS_ML), recargo_pct: RECARGO_PCT }); pintar(); } }, 'Volver a los de fábrica'));
+      h('h5', {}, 'Para «Calcular con la tarifa»'),
+      h('small', { class: 'ayuda' }, 'Orientativos, sin IVA: cornisa y tira LED por metro; electrodomésticos por unidad (solo suman en el cálculo, no al pasar a presupuesto). A 0, salen sin precio.'),
+      ...Object.keys(NOMBRE_EXTRA).map(k => { const i = h('input', { 'data-acc': 'precio-extra', 'data-v': k, inputmode: 'decimal', value: preciosExtraDe(A)[k] });
+        i.addEventListener('input', () => { const x = num(i.value); if (x !== null) App.cambiarAjustes({ precios_extra: Object.assign(preciosExtraDe(App.ajustes()), { [k]: x }) }); });
+        return h('div', { class: 'campo' }, h('label', { class: 'et' }, NOMBRE_EXTRA[k] + (k === 'cornisa' || k === 'led' ? '' : ' (€)')), i); }),
+      h('button', { type: 'button', 'data-acc': 'precios-fabrica', onclick: async () => { await App.cambiarAjustes({ precios_ml: Object.assign({}, PRECIOS_ML), recargo_pct: RECARGO_PCT, precios_extra: Object.assign({}, PRECIOS_EXTRA) }); pintar(); } }, 'Volver a los de fábrica'));
   };
   pintar();
   return caja;

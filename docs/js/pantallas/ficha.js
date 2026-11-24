@@ -410,9 +410,10 @@ export async function pintarFicha(App, id) {
         // La mejor combinación posible sin tocar los electrodomésticos: se enseña al lado y se aplica si se quiere
         h('button', { type: 'button', class: 'mini', 'data-acc': 'buscar-mejor', onclick: ev => {
           const r = mejorCocina(ficha), caja = ev.currentTarget.parentElement.querySelector('.mejor-cocina');
-          if (!r || !r.cambios.length) { reemplazar(caja, h('small', { class: 'ayuda' }, 'No encuentro nada mejor sin tocar los electrodomésticos ni alejarlos de sus tomas: está bien así.')); return; }
+          const porQue = r && r.motivos && r.motivos.length ? h('div', { class: 'motivos-mejor', 'data-acc': 'motivos-mejor' }, h('small', { class: 'ayuda' }, 'Sin altos propuestos:'), h('ul', { class: 'consejos' }, r.motivos.map(t => h('li', {}, t)))) : null;
+          if (!r || !r.pasos.length) { reemplazar(caja, h('small', { class: 'ayuda' }, 'No encuentro nada mejor sin tocar los electrodomésticos ni alejarlos de sus tomas: está bien así.'), porQue); return; }
           // Cada cambio con su casilla: se aplican solo los marcados (la nota se recalcula con ellos).
-          const marcados = r.pasos.map(() => true), notaSel = h('p', { 'data-acc': 'nota-marcados' }), elegida = () => aplicarCambios(ficha, r.pasos.filter((x, i) => marcados[i]).map(x => x.op));
+          const marcados = r.pasos.map(x => x.marcado !== false), notaSel = h('p', { 'data-acc': 'nota-marcados' }), elegida = () => aplicarCambios(ficha, r.pasos.filter((x, i) => marcados[i]).map(x => x.op));
           const aplicar = h('button', { type: 'button', 'data-acc': 'aplicar-mejor', onclick: async () => {
             const n = marcados.filter(Boolean).length; if (!n) return;
             if (!confirm('¿Hacer ' + (n === 1 ? 'este cambio' : 'estos ' + n + ' cambios') + ' en la cocina? Los electrodomésticos no cambian ni se alejan de su desagüe, salida de humos o enchufe.')) return;
@@ -424,9 +425,9 @@ export async function pintarFicha(App, id) {
             aplicar.disabled = !n;
           };
           reemplazar(caja, h('p', {}, h('b', {}, 'La mejor que encuentro: ' + r.despues.total + '/100'), ' (la tuya, ' + r.antes.total + '). Quita los cambios que no quieras:'),
-            h('ul', { class: 'consejos cambios-mejor' }, r.pasos.map((x, i) => h('li', {}, h('label', {}, h('input', { type: 'checkbox', checked: true, 'data-acc': 'cambio-mejor', 'data-v': String(i),
+            h('ul', { class: 'consejos cambios-mejor' }, r.pasos.map((x, i) => h('li', {}, h('label', {}, h('input', { type: 'checkbox', checked: marcados[i], 'data-acc': 'cambio-mejor', 'data-v': String(i),
               onchange: ev => { marcados[i] = ev.currentTarget.checked; recalcular(); } }), ' ' + x.texto)))),
-            notaSel,
+            notaSel, porQue,
             h('div', { class: 'dos' },
               aplicar,
               h('button', { type: 'button', 'data-acc': 'dejar-mia', onclick: () => caja.replaceChildren() }, 'Dejar la mía')));
@@ -856,14 +857,14 @@ export async function pintarFicha(App, id) {
   // Con la tarifa de Presupuestos (cocina, vestidor y armarios): a petición, porque abre Presupuestos por dentro.
   let tarifa = null;   // { estado: 'calculando' | 'ok' | 'error', res, firma }
   const conTarifa = ficha.tipo === 'cocina' || ficha.tipo === 'armario';
-  const firmaPaquete = () => JSON.stringify(paquetePresupuesto(ficha, trabajo, AJ).grupos);
+  const firmaPaquete = () => JSON.stringify(paquetePresupuesto(ficha, trabajo, AJ, { estimar: true }).grupos);
   function costeEstimado() {
     const caja = h('div', { class: 'tarjeta coste', 'data-acc': 'coste' });
     const calcular = async () => {
       const firma = firmaPaquete();
       tarifa = { estado: 'calculando', firma }; pintar();
       try {
-        const paq = paquetePresupuesto(ficha, trabajo, AJ);
+        const paq = paquetePresupuesto(ficha, trabajo, AJ, { estimar: true });
         // Cocina: tres gamas (económica, media, alta); el desglose, el de la media. Vestidor y armario: uno.
         if (ficha.tipo === 'cocina') { const gs = await estimarGamas(paq); tarifa = { estado: 'ok', gamas: gs, res: gs[1].res, firma }; }
         else tarifa = { estado: 'ok', res: await estimarConTarifa(paq), firma };
@@ -886,7 +887,7 @@ export async function pintarFicha(App, id) {
       const r = tarifa && tarifa.res, cambiado = tarifa && tarifa.estado === 'ok' && tarifa.firma !== firmaPaquete(), sp = sinPrecio(r);
       const boton = t => h('button', { type: 'button', 'data-acc': 'calcular-tarifa', onclick: calcular }, t);
       return h('div', { class: 'tarifa' + (cambiado ? ' viejo' : ''), 'data-acc': 'tarifa' }, h('b', { class: 'titulo-tarifa' }, 'Con la tarifa de Presupuestos'),
-        ...(!tarifa ? [h('small', { class: 'ayuda' }, ficha.tipo === 'cocina' ? 'Mueble a mueble, con los precios de Presupuestos de este móvil, en tres gamas: económica (Básico), media (DM-Laca medio) y alta (Alto gama). Encimera, zócalo e instalación incluidos.' : 'Con la calculadora de armarios de Presupuestos de este móvil (casco, puertas e interior).'), boton('Calcular con la tarifa')]
+        ...(!tarifa ? [h('small', { class: 'ayuda' }, ficha.tipo === 'cocina' ? 'Mueble a mueble, con los precios de Presupuestos de este móvil, en tres gamas: económica (Básico), media (DM-Laca medio) y alta (Alto gama). Con costados, regletas, tiradores (los de Acabados), encimera, zócalo, cornisa, LED, electrodomésticos (orientativos, de Ajustes) e instalación.' : 'Con la calculadora de armarios de Presupuestos de este móvil (casco, puertas e interior).'), boton('Calcular con la tarifa')]
           : tarifa.estado === 'calculando' ? [h('p', { 'data-acc': 'tarifa-calculando' }, 'Calculando con la tarifa…')]
           : tarifa.estado === 'error' ? [h('p', { class: 'aviso-tarifa', 'data-acc': 'tarifa-error' }, 'No se ha podido calcular. Abre Presupuestos una vez en este móvil (con tu sesión) para tener la tarifa, y vuelve a probar.'), boton('Probar otra vez')]
           : [...(tarifa.gamas ? gamasTarifa(tarifa.gamas, r) : desglose(r)),
