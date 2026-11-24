@@ -22,7 +22,8 @@ import { vistaInteractiva, abrirPerspectivaGrande } from './perspectiva-ui.js';
 import { consejosDiseno, GRUPOS as GRUPOS_CONSEJO } from '../consejos.js';
 import { instalacionesQueFaltan, colocarPropuestas, quitarPropuestas, hayPropuestas } from '../avisos-obra.js';
 import { comoRellenar } from '../ayuda.js';
-import { MOTIVOS_CORTOS, NOMBRE_MOTIVO, estimacionRapida, aceptarPropuesta, descartarPropuesta, pctRecargo, pctDe, euros, metros } from '../coste.js';
+import { estimarConTarifa, sinPrecio } from '../tarifa.js';
+import { IVA, MOTIVOS_CORTOS, NOMBRE_MOTIVO, estimacionRapida, aceptarPropuesta, descartarPropuesta, pctRecargo, pctDe, euros, metros } from '../coste.js';
 
 const RETARDO = 300;
 const nuevoId = () => crypto.randomUUID();
@@ -840,8 +841,35 @@ export async function pintarFicha(App, id) {
     if (e.vacio) return '';
     return euros(e.total) + ' sin IVA' + (e.propuestas.length ? ' · ' + e.propuestas.length + ' cajeado' + (e.propuestas.length > 1 ? 's' : '') + ' por confirmar' : '');
   };
+  // Con la tarifa de Presupuestos (cocina y vestidor): a petición, porque abre Presupuestos por dentro.
+  let tarifa = null;   // { estado: 'calculando' | 'ok' | 'error', res, firma }
+  const conTarifa = ficha.tipo === 'cocina' || ficha.subtipo === 'vestidor';
+  const firmaPaquete = () => JSON.stringify(paquetePresupuesto(ficha, trabajo, AJ).grupos);
   function costeEstimado() {
     const caja = h('div', { class: 'tarjeta coste', 'data-acc': 'coste' });
+    const calcular = async () => {
+      const firma = firmaPaquete();
+      tarifa = { estado: 'calculando', firma }; pintar();
+      try { tarifa = { estado: 'ok', res: await estimarConTarifa(paquetePresupuesto(ficha, trabajo, AJ)), firma }; }
+      catch (e) { tarifa = { estado: 'error', error: e && e.message, firma }; }
+      if (caja.isConnected) pintar();
+    };
+    const bloqueTarifa = () => {
+      if (!conTarifa) return null;
+      const r = tarifa && tarifa.res, cambiado = tarifa && tarifa.estado === 'ok' && tarifa.firma !== firmaPaquete(), sp = sinPrecio(r);
+      const boton = t => h('button', { type: 'button', 'data-acc': 'calcular-tarifa', onclick: calcular }, t);
+      return h('div', { class: 'tarifa' + (cambiado ? ' viejo' : ''), 'data-acc': 'tarifa' }, h('b', { class: 'titulo-tarifa' }, 'Con la tarifa de Presupuestos'),
+        ...(!tarifa ? [h('small', { class: 'ayuda' }, 'Mueble a mueble, con los precios de Presupuestos de este móvil (encimera, zócalo e instalación incluidos).'), boton('Calcular con la tarifa')]
+          : tarifa.estado === 'calculando' ? [h('p', { 'data-acc': 'tarifa-calculando' }, 'Calculando con la tarifa…')]
+          : tarifa.estado === 'error' ? [h('p', { class: 'aviso-tarifa', 'data-acc': 'tarifa-error' }, 'No se ha podido calcular. Abre Presupuestos una vez en este móvil (con tu sesión) para tener la tarifa, y vuelve a probar.'), boton('Probar otra vez')]
+          : [...r.grupos.filter(g => g.total > 0).map(g => fila(g.nombre, g.total, { 'data-grupo-tarifa': g.nombre })),
+            r.instalacion > 0 ? fila('Instalación', r.instalacion, { 'data-grupo-tarifa': 'Instalación' }) : null,
+            h('div', { class: 'fila-coste total', 'data-acc': 'tarifa-total' }, h('span', {}, 'Total sin IVA'), h('b', {}, euros(r.total))),
+            h('div', { class: 'fila-coste iva' }, h('span', {}, 'Con IVA (' + IVA + ' %)'), h('span', {}, euros(r.total * (1 + IVA / 100)))),
+            sp.length ? h('details', { class: 'sin-precio', 'data-acc': 'tarifa-sin-precio' }, h('summary', {}, '⚠ ' + sp.length + (sp.length > 1 ? ' cosas' : ' cosa') + ' sin precio (no suman)'), h('ul', {}, sp.map(t => h('li', {}, t)))) : null,
+            cambiado ? h('small', { class: 'aviso-tarifa', 'data-acc': 'tarifa-vieja' }, 'Has cambiado algo desde el cálculo.') : null,
+            boton('Volver a calcular')]));
+    };
     const fila = (t, imp, extra = {}) => h('div', Object.assign({ class: 'fila-coste' }, extra), h('span', {}, t), h('b', {}, euros(imp)));
     const pintar = () => {
       const e = estimacionRapida(ficha, AJ), armarioEntero = ficha.tipo === 'armario' && ficha.subtipo !== 'vestidor' && !(d.cuerpos || []).some(c => c.ancho > 0);
@@ -856,6 +884,7 @@ export async function pintarFicha(App, id) {
           h('div', { class: 'fila-coste total', 'data-acc': 'coste-total' }, h('span', {}, 'Total sin IVA'), h('b', {}, euros(e.total))),
           h('div', { class: 'fila-coste iva', 'data-acc': 'coste-iva' }, h('span', {}, 'Con IVA (21 %)'), h('span', {}, euros(e.conIva)))]),
         armarioEntero ? editorRecargo(d, pintar) : null,
+        bloqueTarifa(),
         h('small', { class: 'ayuda' }, 'Orientativo, por metro lineal (precios en Ajustes → Cocina y armarios). Solo lo ves tú: no sale en el PDF ni en lo que compartes.'));
     };
     pintar(); refrescos.push(() => { if (caja.isConnected) pintar(); });

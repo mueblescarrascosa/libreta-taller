@@ -575,3 +575,9 @@ button.enlace[data-acc="crear-ejemplo"] { min-height: 40px !important; }
 .coste .fila-coste.iva { color: var(--tenue); font-size: .9em; }
 .coste .propuesta-recargo { border: 1px solid #f59e0b; background: #fff7e6; border-radius: 8px; padding: 8px; margin-bottom: 8px; }
 .coste .propuesta-recargo .dos { margin-top: 6px; }
+.coste .tarifa { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--borde); }
+.coste .tarifa .titulo-tarifa { display: block; margin-bottom: 4px; }
+.coste .tarifa.viejo .fila-coste { opacity: .55; }
+.coste .aviso-tarifa { color: var(--acento); }
+.coste .sin-precio { margin: 6px 0; font-size: .9em; }
+.coste .sin-precio ul { margin: 4px 0; padding-left: 18px; }

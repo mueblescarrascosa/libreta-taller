@@ -5,6 +5,8 @@
 import { situarMuebles, situarCuerpos, piezasInterior, esLibre, instalacionDe, PUENTE, topePuente } from './modulos.js';
 import { textoMaterial, materialCocina } from './material.js';
 import { ALTURAS, desdeAlto } from './alzado.js';
+import { NOMBRE_MOTIVO, pctRecargo } from './coste.js';
+import { nombreModulo } from './modulos.js';
 
 const hay = v => v !== null && v !== undefined;
 export const CLAVE_PASO = 'libreta_a_presupuesto';
@@ -155,12 +157,16 @@ export function encimeraPresupuesto(d) {
 export function paquetePresupuesto(ficha, trabajo, ajustes) {
   const d = ficha.datos, t = trabajo || {}, td = t.datos || {}, revisar = [], notas = [];
   const bajos = [], altos = [], tramos = [];
+  // Recargo por complicación del mueble: pasa con su % y su texto; en Presupuestos va como línea aparte.
+  const textoRec = (o, que, p) => (NOMBRE_MOTIVO[o.recargo.motivo] || 'Complicación') + ' – ' + que + ' (pared ' + p.letra + ')';
+  const conRec = (m, p) => (m.recargo ? { recargo: { motivo: m.recargo.motivo, pct: pctRecargo(m, ajustes), texto: textoRec(m, nombreModulo(m) + ' ' + Math.round(m.ancho / 10), p) } } : {});
+  const recARevisar = (m, p) => { if (m.recargo) revisar.push('Pared ' + p.letra + ': ' + textoRec(m, nombreModulo(m), p) + ' +' + pctRecargo(m, ajustes) + ' % (ponerlo a mano)'); };
   (d.paredes || []).forEach(p => {
     const sit = situarMuebles(p, d);
-    sit.bajos.forEach(b => { const a = articulo(b.m, d); if (!a) return; if (a.revisar) revisar.push('Pared ' + p.letra + ': ' + a.revisar); else bajos.push(Object.assign({ und: 1 }, a, { texto: 'Pared ' + p.letra + ': ' + a.texto })); });
-    sit.altos.forEach(x => { const a = articulo(x.m, d); if (!a) return; if (a.revisar) revisar.push('Pared ' + p.letra + ': ' + a.revisar); else altos.push(Object.assign({ und: 1 }, a, { texto: 'Pared ' + p.letra + ': ' + a.texto })); });
+    sit.bajos.forEach(b => { const a = articulo(b.m, d); if (!a) return; if (a.revisar) { revisar.push('Pared ' + p.letra + ': ' + a.revisar); recARevisar(b.m, p); } else bajos.push(Object.assign({ und: 1 }, a, { texto: 'Pared ' + p.letra + ': ' + a.texto }, conRec(b.m, p))); });
+    sit.altos.forEach(x => { const a = articulo(x.m, d); if (!a) return; if (a.revisar) { revisar.push('Pared ' + p.letra + ': ' + a.revisar); recARevisar(x.m, p); } else altos.push(Object.assign({ und: 1 }, a, { texto: 'Pared ' + p.letra + ': ' + a.texto }, conRec(x.m, p))); });
     // Altos de arriba de la cocina puente (fondo 60): el catálogo no los tiene a esa altura, a mano
-    (sit.altillos || []).forEach(x => { const a = articuloPuente(x.m, d); if (!a) return; if (a.revisar) revisar.push('Pared ' + p.letra + ': ' + a.revisar); else altos.push(Object.assign({ und: 1 }, a, { texto: 'Pared ' + p.letra + ': ' + a.texto })); });
+    (sit.altillos || []).forEach(x => { const a = articuloPuente(x.m, d); if (!a) return; if (a.revisar) { revisar.push('Pared ' + p.letra + ': ' + a.revisar); recARevisar(x.m, p); } else altos.push(Object.assign({ und: 1 }, a, { texto: 'Pared ' + p.letra + ': ' + a.texto }, conRec(x.m, p))); });
     // Vestidor: un tramo por pared, con sus cuerpos.
     const sc = situarCuerpos(p, d);
     if (sc.cuerpos.length) {
@@ -169,8 +175,10 @@ export function paquetePresupuesto(ficha, trabajo, ajustes) {
         return { ancho: Math.round((hasta - desde) / 10), barra: n('barra'), cajones: n('cajon'), estantes: n('estante') + n('zapato') };
       });
       const conPuertas = sc.cuerpos.map(x => x.c.puertas).find(Boolean);
-      tramos.push({ nombre: 'Pared ' + p.letra, ancho: cuerpos.reduce((s, c) => s + c.ancho, 0), alto: Math.round((d.alto_techo || 2500) / 10), cuerpos,
-        puertas: conPuertas === 'corredera' ? 'corredera_tablero' : conPuertas === 'abatible' ? 'abatible_tablero' : 'ninguna' });
+      const recargos = sc.cuerpos.filter(x => x.c.recargo).map(({ c, desde, hasta }) => ({ ancho: Math.round((hasta - desde) / 10), motivo: c.recargo.motivo, pct: pctRecargo(c, ajustes),
+        texto: textoRec(c, 'Cuerpo ' + (p.cuerpos.indexOf(c) + 1) + ' ' + Math.round((hasta - desde) / 10), p) }));
+      tramos.push(Object.assign({ nombre: 'Pared ' + p.letra, ancho: cuerpos.reduce((s, c) => s + c.ancho, 0), alto: Math.round((d.alto_techo || 2500) / 10), cuerpos,
+        puertas: conPuertas === 'corredera' ? 'corredera_tablero' : conPuertas === 'abatible' ? 'abatible_tablero' : 'ninguna' }, recargos.length ? { recargos } : {}));
       sc.cuerpos.forEach(({ c }, i) => { if (c.rincon) revisar.push('Pared ' + p.letra + ', cuerpo ' + (i + 1) + ': de rincón (' + c.rincon + '), revisar'); });
     }
   });
