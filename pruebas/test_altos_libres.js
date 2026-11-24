@@ -77,8 +77,14 @@ prueba('cocina en U con rincón: escurreplatos sobre el fregadero, alto sobre el
   const f = fichaNueva('cocina', null, 't'); f.datos = JSON.parse(fs.readFileSync(new URL('./datos_cocina_esquina.json', import.meta.url), 'utf8'));
   const r = mejorCocina(f), t = aplicarCambios(f, r.pasos.filter(x => x.marcado !== false).map(x => x.op));
   const altos = situarMuebles(t.datos.paredes[2], t.datos).altos.filter(a => a.m.tipo !== 'hueco').map(a => [a.m.tipo, a.desde, a.hasta]);
-  igual(altos.slice(-2), [['alto', 1200, 2000], ['alto', 2000, 2600]], JSON.stringify(r.pasos.map(x => x.texto)));
-  afirma(altos[0][0] === 'alto_abierto' && altos[0][1] >= 350, 'estantería en el rincón, sin meterse en los altos de la pared B: ' + JSON.stringify(altos));
+  // Como se haría a mano: encima del rinconero, la estantería; encima del panero, un alto de 40; escurreplatos y el del lavavajillas
+  igual(altos, [['alto_abierto', 40, 800], ['alto', 800, 1200], ['alto', 1200, 2000], ['alto', 2000, 2600]], JSON.stringify(r.pasos.map(x => x.texto)));
+  // La pared B no se mete en la esquina donde entra el rinconero de la C
+  const altosB = situarMuebles(t.datos.paredes[1], t.datos).altos.filter(a => a.m.tipo !== 'hueco');
+  afirma(altosB.every(a => a.hasta <= t.datos.paredes[1].largo - 600 + 1), JSON.stringify(altosB.map(a => [a.desde, a.hasta])));
+  // Pared vacía A: sus bajos no llegan a la esquina con B (allí hay un bajo de la B)
+  const va = r.pasos.find(x => x.op.op === 'bajos' && x.op.pared === 'A');
+  if (va) { const nA = aplicarCambios(f, [va.op]); afirma(situarMuebles(nA.datos.paredes[0], nA.datos).bajos.every(b => b.hasta <= 2600 - 600 + 1)); }
   afirma(r.pasos.some(x => /escurreplatos/.test(x.texto)) || r.pasos.some(x => /2 altos encima de los bajos/.test(x.texto)), JSON.stringify(r.pasos.map(x => x.texto)));
   afirma(r.despues.total > r.antes.total);
 });

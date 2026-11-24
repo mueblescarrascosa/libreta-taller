@@ -16,6 +16,7 @@ import { geometriaPlanta, svgPlanta, aplicarPlano, pilarEnParedes, pilaresEnPare
 import { abrirPlano } from '../plano-editor.js';
 import { geometriaAlzado, svgAlzado, campanasPared, salidaCampana, textoHolgurasCampana, centrosCampana, textoCentroCampana, anchoPlaca, anchoCampana, textoTubo, fijarCocinaTipo, alturasCocina, CAMPOS_ALTURA, placaDeGas, SOBRE_GAS, MINIMO_GAS, ALTURAS } from '../alzado.js';
 import { puntuarCocina, mejorCocina, aplicarCambios } from '../puntuacion.js';
+import { disenarCocina, aplicarDiseno, ELECTRO_DISENO, electroDeFicha } from '../disenar.js';
 import { TAPETAS } from '../pedido.js';
 import { airePlaca, textoAirePlaca } from '../consejos.js';
 import { vistaInteractiva, abrirPerspectivaGrande } from './perspectiva-ui.js';
@@ -373,7 +374,7 @@ export async function pintarFicha(App, id) {
       (() => { const t = h('b', {}, 'Planta'); return plegarCaja(h('div', { class: 'tarjeta tarjeta-planta' }, h('div', { class: 'cab' }, t, botonForma), zonaPlanta), t, 'lat:planta'); })(),
       (() => { const t = h('b', {}, 'Paredes de frente'); return plegarCaja(h('div', { class: 'tarjeta tarjeta-alzado' }, t, botonesAlzado, zonaAlzado), t, 'lat:alzado'); })(),
       (() => { const t = h('b', {}, 'Perspectiva'); return plegarCaja(h('div', { class: 'tarjeta tarjeta-perspectiva' }, t, zonaPersp), t, 'lat:perspectiva'); })(),
-      tarjetaConsejos(), tarjetaInstalaciones(repintar)),
+      tarjetaConsejos(), tarjetaDisenar(repintar), tarjetaInstalaciones(repintar)),
     h('h2', {}, 'Paredes'),
     zona,
     h('button', { type: 'button', class: 'ancho', 'data-acc': 'anadir-pared', onclick: () => { d.paredes.push(paredNueva(d.paredes)); cambio(); repintar(); } }, '+ Añadir pared')];
@@ -397,6 +398,58 @@ export async function pintarFicha(App, id) {
     return plegarCaja(h('div', { class: 'tarjeta tarjeta-instalaciones', 'data-acc': 'instalaciones' }, t, zonaI), t, 'lat:instalaciones');
   }
   // Consejos de diseño (cocinas, armarios y vestidores): lo que funcionaría mal al usarlo, con su porqué; se rehacen con cada cambio.
+  // «Diseñar la cocina»: paredes (y tramo) donde va y electrodomésticos; las 3 mejores propuestas, para aplicar una.
+  function tarjetaDisenar(repintarTodo) {
+    if (ficha.tipo !== 'cocina') return null;
+    const t = h('b', {}, 'Diseñar la cocina'), zonaD = h('div', { class: 'zona-disenar' });
+    const conMedida = () => (d.paredes || []).filter(p => p.largo > 0);
+    const sel = {};
+    // Marcadas de partida: las paredes con muebles (o todas las que tienen medida); al poner medidas, se recalculan
+    const porDefecto = () => { if (Object.keys(sel).length) return; const cm2 = conMedida(), cmb = cm2.filter(p => (p.bajos || []).length); (cmb.length ? cmb : cm2).forEach(p => { sel[p.id] = { pared: p.id, desde: null, hasta: null }; }); };
+    let electro = electroDeFicha(d), res = null, mano = 'diestro';
+    const cmA = v => (v === '' || v === null ? null : Math.round(Number(String(v).replace(',', '.')) * 10));
+    const pintar = () => {
+      porDefecto();
+      Object.keys(sel).forEach(k => { if (!conMedida().some(p => p.id === k)) delete sel[k]; });
+      const filas = conMedida().map(p => {
+        const s0 = sel[p.id], marcada = !!s0;
+        const ent = (k, ph) => { const i = h('input', { inputmode: 'decimal', class: 'cm-tramo', 'data-acc': 'disenar-' + k, 'data-v': p.letra, placeholder: ph, value: s0 && s0[k] !== null ? String(s0[k] / 10) : '', disabled: !marcada });
+          i.addEventListener('change', () => { if (sel[p.id]) sel[p.id][k] = cmA(i.value); }); return i; };
+        return h('div', { class: 'fila-disenar' },
+          h('label', {}, h('input', { type: 'checkbox', checked: marcada, 'data-acc': 'disenar-pared', 'data-v': p.letra, onchange: ev => { if (ev.currentTarget.checked) sel[p.id] = { pared: p.id, desde: null, hasta: null }; else delete sel[p.id]; pintar(); } }),
+            ' Pared ' + p.letra + ' (' + String(p.largo / 1000).replace('.', ',') + ' m)'),
+          h('span', { class: 'tramo' }, 'de ', ent('desde', '0'), ' a ', ent('hasta', String(p.largo / 10)), ' cm'));
+      });
+      const electros = h('div', { class: 'chips electro-disenar' }, ELECTRO_DISENO.map(([k, n]) => h('label', { class: 'chip' }, h('input', { type: 'checkbox', checked: electro.includes(k), 'data-acc': 'disenar-electro', 'data-v': k,
+        onchange: ev => { electro = ev.currentTarget.checked ? electro.concat([k]) : electro.filter(x => x !== k); } }), ' ' + n)));
+      const resultado = !res ? null : res.aviso ? h('p', { class: 'aviso-tarifa', 'data-acc': 'disenar-aviso' }, res.aviso)
+        : h('div', { 'data-acc': 'propuestas-diseno' }, h('p', {}, h('b', {}, res.forma), res.desague || res.humos ? ' · respetando ' + [res.desague ? 'el desagüe' : null, res.humos ? 'la salida de humos' : null].filter(Boolean).join(' y ') : ''),
+          res.sinRespetar ? h('p', { class: 'aviso-tarifa', 'data-acc': 'disenar-sin-respetar' }, 'Con el fregadero y la placa donde están las tomas no queda espacio de trabajo entre los dos (60 cm o más): estas propuestas son de reforma.') : null,
+          res.propuestas.map((pr, i) => {
+            const copia = JSON.parse(JSON.stringify(d)); aplicarDiseno(copia, pr, []);
+            const dibujos = pr.paredes.map(x => { const pa = copia.paredes.find(q => q.id === x.id), g = pa && geometriaAlzado(copia, pa); return g ? h('div', { class: 'alzado-propuesta' }, h('small', {}, 'Pared ' + pa.letra), svgAlzado(g, { unidad })) : null; });
+            return h('div', { class: 'tarjeta propuesta-diseno', 'data-acc': 'propuesta-diseno', 'data-v': String(i) },
+              h('p', {}, h('b', {}, 'Propuesta ' + (i + 1) + ': ' + pr.nota + '/100'), ' · almacenaje ' + pr.almacenaje + ' · usabilidad ' + pr.usabilidad),
+              pr.reforma ? h('small', { class: 'ayuda' }, 'De reforma: mueve el fregadero o la placa de donde están las tomas. Después, «Colocar lo que falta» pone las instalaciones donde van.') : null,
+              h('ul', { class: 'consejos' }, pr.texto.map(x => h('li', {}, x))), ...dibujos,
+              h('button', { type: 'button', 'data-acc': 'aplicar-diseno', 'data-v': String(i), onclick: async () => {
+                if (!confirm('¿Poner esta cocina? Se cambian los muebles (bajos y altos) de ' + pr.paredes.map(x => 'la pared ' + (copia.paredes.find(q => q.id === x.id) || {}).letra).join(', ') + '.')) return;
+                aplicarDiseno(d, pr, electro); res = null; pintar(); cambio(); await guardarYa(); if (repintarTodo) repintarTodo(); else window.dispatchEvent(new HashChangeEvent('hashchange'));
+              } }, 'Aplicar esta'));
+          }));
+      reemplazar(zonaD,
+        h('small', { class: 'ayuda' }, 'Marca las paredes donde va la cocina (y, si quieres, desde dónde hasta dónde) y los electrodomésticos. Propone cocinas enteras —lineal, en L o en U— con rinconero en las esquinas, altos encima y siempre espacio de trabajo. No cambia nada hasta que apliques una.'),
+        ...filas, h('small', { class: 'ayuda' }, 'Electrodomésticos:'), electros,
+        h('div', { class: 'campo' }, h('label', { class: 'et' }, 'Quien más cocina es'), segmentado({ acc: 'disenar-mano', opciones: [['diestro', 'Diestro'], ['zurdo', 'Zurdo']], valor: mano, alCambiar: v => { mano = v || 'diestro'; } })),
+        h('button', { type: 'button', class: 'prin', 'data-acc': 'disenar', onclick: () => {
+          const lista = Object.values(sel);
+          res = lista.length ? disenarCocina(ficha, lista, electro, { mano }) : { aviso: 'Marca al menos una pared.' };
+          pintar();
+        } }, 'Diseñar'), resultado);
+    };
+    pintar(); refrescos.push(() => { if (zonaD.isConnected && !res && !zonaD.contains(document.activeElement)) pintar(); });
+    return plegarCaja(h('div', { class: 'tarjeta tarjeta-disenar', 'data-acc': 'tarjeta-disenar' }, t, zonaD), t, 'lat:disenar');
+  }
   function tarjetaConsejos() {
     if (ficha.tipo !== 'cocina' && ficha.tipo !== 'armario') return null;
     const t = h('b', {}), zonaC = h('div', { class: 'zona-consejos' });

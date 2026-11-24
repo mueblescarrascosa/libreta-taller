@@ -590,3 +590,13 @@ button.enlace[data-acc="crear-ejemplo"] { min-height: 40px !important; }
 /* Lista de cambios de la mejor combinación: casilla a la izquierda del texto */
 .cambios-mejor label { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
 .cambios-mejor input[type="checkbox"] { width: 20px; height: 20px; min-height: 0; flex: none; margin: 2px 0 0; padding: 0; }
+
+/* Diseñar la cocina */
+.tarjeta-disenar .fila-disenar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; padding: 4px 0; }
+.tarjeta-disenar .fila-disenar label, .tarjeta-disenar .electro-disenar label { display: inline-flex; align-items: center; gap: 6px; }
+.tarjeta-disenar input[type="checkbox"] { width: 20px; height: 20px; min-height: 0; flex: none; margin: 0; padding: 0; }
+.tarjeta-disenar .tramo { display: inline-flex; align-items: center; gap: 4px; color: var(--tenue); }
+.tarjeta-disenar .cm-tramo { width: 64px; min-width: 0; }
+.tarjeta-disenar .electro-disenar { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.tarjeta-disenar .propuesta-diseno { margin-top: 10px; }
+.tarjeta-disenar .alzado-propuesta svg { width: 100%; height: auto; max-height: 220px; }

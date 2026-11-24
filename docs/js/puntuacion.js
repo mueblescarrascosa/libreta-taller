@@ -2,7 +2,7 @@
 // Almacenaje: «metros útiles» de cada mueble (un metro de cajones guarda más que uno de puertas; una despensa, mucho más),
 // repartidos entre los metros de cocina. Usabilidad: parte de 100 y resta por cada consejo de diseño de placa, agua,
 // frío, encimera y pasos (lo que funcionaría mal al usarla). Es orientativa: sirve para comparar propuestas.
-import { situarMuebles, esColumna, cuadreAltos, moduloNuevo, nombreModulo, placaConHorno } from './modulos.js';
+import { situarMuebles, esColumna, cuadreAltos, moduloNuevo, nombreModulo, placaConHorno, paredesVecinas, FONDO_BAJO } from './modulos.js';
 import { consejosDiseno } from './consejos.js';
 import { varianteDe } from './frentes.js';
 import { avisosObra } from './avisos-obra.js';
@@ -64,7 +64,9 @@ export function altosSimetricos(p, datos) {
 function bajosParaVacia(p, datos) {
   if (!hay(p.largo) || p.largo < 600) return null;
   const prueba = Object.assign({}, p, { bajos: [Object.assign(moduloNuevo('bajo'), { ancho: 300 })], altos: [] }), sp = situarMuebles(prueba, datos);
-  const inicio = sp.bajos.length ? sp.bajos[0].desde : 0, fin = p.largo - 40;
+  // En una esquina donde la pared de al lado ya tiene bajos, su fondo (60) es suyo: aquí se empieza o se acaba antes
+  const vec = paredesVecinas(datos, p), bajosEn = (q, fin) => { if (!q || !hay(q.largo)) return false; const s2 = situarMuebles(q, datos); return s2.bajos.some(b => b.m.tipo !== 'hueco' && (fin ? b.hasta >= q.largo - 100 : b.desde <= 100)); };
+  const inicio = Math.max(sp.bajos.length ? sp.bajos[0].desde : 0, bajosEn(vec.izq, true) ? FONDO_BAJO : 0), fin = p.largo - (bajosEn(vec.der, false) ? FONDO_BAJO : 40);
   const g = geometriaAlzado(datos, p), estorbos = g ? g.piezas.filter(q => q.clase === 'puerta' || q.clase === 'pilar' || (q.clase === 'ventana' && q.y < ALTURAS.encimera)).map(q => [q.x, q.x + q.w]).sort((a, b) => a[0] - b[0]) : [];
   const tramos = [];
   let x = inicio;
@@ -90,7 +92,8 @@ function bajosParaVacia(p, datos) {
 // esquinas tapadas por los altos de la pared de al lado (su fondo).
 const FONDO_ALTO = 350, FONDO_COLUMNA = 600;
 function contextoAltos(datos, ip) {
-  const p = datos.paredes[ip], uno = Object.assign(moduloNuevo('alto'), { ancho: 300 });
+  // Un alto de prueba muy estrecho, para saber dónde empieza la fila (uno ancho saltaría la campana del principio)
+  const p = datos.paredes[ip], uno = Object.assign(moduloNuevo('alto'), { ancho: 50 });
   const sp = situarMuebles(Object.assign({}, p, { altos: [uno] }), datos), sit = situarMuebles(p, datos);
   const zonas = (sp.zonas || []).filter(z => !z.mueble).map(z => [z.desde - 20, z.hasta + 20]);
   const g = geometriaAlzado(datos, p), tapas = g ? g.piezas.filter(q => (q.clase === 'ventana' || q.clase === 'puerta') && q.y + q.h > ALTURAS.altos_desde && q.y < ALTURAS.altos_hasta).map(q => [q.x, q.x + q.w]) : [];
@@ -107,7 +110,8 @@ function contextoAltos(datos, ip) {
   // Si los bajos llegan a la pared, los altos también (sin regleta al final)
   const finBajos = Math.max(0, ...sit.bajos.map(b => b.hasta));
   const arranque = sp.altos.length ? sp.altos[0].desde : 0, fin = hay(p.largo) ? (finBajos >= p.largo - 1 ? p.largo : p.largo - 40) : arranque;
-  const eIni = enEsquina(ant, true), eFin = enEsquina(sig, false);
+  // Donde entra el rinconero de la pared de al lado, la esquina es suya (allí van sus altos o su estantería)
+  const eIni = Math.max(enEsquina(ant, true), sit.entran ? sit.entran.izq || 0 : 0), eFin = Math.max(enEsquina(sig, false), sit.entran ? sit.entran.der || 0 : 0);
   return { p, sit, zonas, tapas, columnas, ya, arranque, inicio: Math.max(arranque, eIni), fin: eFin ? Math.min(fin, p.largo - eFin) : fin,
     especial: (p.altos || []).some(m => ['alto_frigo', 'alto_campana', 'campana_deco'].includes(m.tipo)) };
 }
@@ -145,7 +149,7 @@ function enSuSitio(datos, ip, nuevos) {
   return nuevos.every(x => al.some(a => a.m.ancho === x.ancho && Math.abs(a.desde - x.desde) <= 60));
 }
 // Un alto encima de cada bajo que aún no tenga (de su ancho, a 5 cm), sin la campana ni ventanas o puertas.
-function nuevosSimetricos(datos, ip) {
+export function nuevosSimetricos(datos, ip) {
   const c = contextoAltos(datos, ip), r = [];
   c.sit.bajos.forEach(b => {
     if (esColumna(b.m) || b.m.tipo === 'hueco' || b.m.tipo === 'rinconero') return;
@@ -176,13 +180,27 @@ export function altosEsquina(datos, ip) {
   tramos.forEach(([a, b, lado, sigue]) => {
     if (!sigue) return;
     const len = b - a; if (len < 200) return;
+    // Lo que hay debajo pegado a la fila (bajos que no son rinconero): ahí, altos; lo demás (sobre el rinconero o sin
+    // nada debajo), la estantería abierta. Como se haría a mano: «estantería 76, alto 40, alto 80…».
+    const bajosDebajo = c.sit.bajos.filter(q => q.m.tipo !== 'rinconero' && q.m.tipo !== 'hueco' && !esColumna(q.m) && q.hasta > a + 1 && q.desde < b - 1);
+    let cubrir = 0;
+    if (bajosDebajo.length) cubrir = lado === 'izq' ? b - Math.max(a, Math.min(...bajosDebajo.map(q => q.desde))) : Math.min(b, Math.max(...bajosDebajo.map(q => q.hasta))) - a;
     const altos = [];
-    let resto = len, tope = len >= 600 ? len - 300 : len;
-    ANCHOS_ALTO.forEach(w => { while (altos.reduce((t, x) => t + x, 0) + w <= tope) altos.push(w); });
-    resto = len - altos.reduce((t, x) => t + x, 0);
-    // La estantería (a medida) se queda con lo que sobre, para que los altos vayan pegados a los que ya hay
+    if (cubrir > 0) {
+      // De catálogo, el más justo que lo cubra (de 40 como poco: uno de 30 encima de un panero queda pobre)
+      let quedan = cubrir;
+      while (quedan > 0) { const w = quedan >= 900 ? 900 : [400, 450, 500, 600, 800, 900].find(x => x >= quedan); altos.push(w); quedan -= w; }
+    }
+    let usado = altos.reduce((t, x) => t + x, 0);
+    if (usado > len) { altos.length = 0; usado = 0; }
+    let resto = len - usado;
+    // La estantería, con lo que sobre (a medida), de 90 como mucho: si sobra más, altos de catálogo pegados a ella
+    const masAltos = [];
+    while (resto > 900 + 200) { const w = ANCHOS_ALTO.find(x => x <= resto - 200 && x <= 900) || 300; masAltos.push(w); resto -= w; }
     const est = resto >= 200 ? Math.floor(resto / 10) * 10 : 0;
-    const piezas = lado === 'izq' ? (est ? [['alto_abierto', est]] : []).concat(altos.map(w => ['alto', w])) : altos.map(w => ['alto', w]).concat(est ? [['alto_abierto', est]] : []);
+    const todosAltos = lado === 'izq' ? masAltos.concat(altos) : altos.concat(masAltos);
+    const piezas = lado === 'izq' ? (est ? [['alto_abierto', est]] : []).concat(todosAltos.map(w => ['alto', w])) : todosAltos.map(w => ['alto', w]).concat(est ? [['alto_abierto', est]] : []);
+    if (!piezas.length) return;
     let x = lado === 'izq' ? b - piezas.reduce((t, q) => t + q[1], 0) : a;
     piezas.forEach(([tipo, w], k) => { r.push({ id: 'esq-' + c.p.id + '-' + lado + k, desde: x, ancho: w, tipo }); x += w; });
   });

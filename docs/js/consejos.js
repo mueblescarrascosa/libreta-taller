@@ -20,11 +20,16 @@ export const MEDIDAS = {
   // Electrodomésticos: lo habitual si en la ficha no está su ancho.
   placa: 600, campana_sobre_electrica: 650, campana_sobre_gas: 750,
   // Distancias (en planta y a lo largo de la encimera).
-  lado_placa: 300, lado_placa_bien: 400,       // encimera libre a cada lado de la placa (aparato)
+  // Fuentes: AMC (Asociación de Mobiliario de Cocina, «Guía técnica de consejos»), NKBA (Kitchen Planning Guidelines),
+  // Brico Dépôt, Santos, Leroy Merlin.
+  lado_placa: 300, lado_placa_bien: 500,       // encimera libre a cada lado de la placa (NKBA 30–38 mínimo; AMC y Brico 50)
   preparar: 600, preparar_bien: 900,           // encimera entre fregadero y placa
   lavavajillas: 600,                           // lavavajillas como mucho a esto del fregadero
   frigo_placa: 300,                            // separación frigo–placa
-  pasillo: 900, pasillo_bien: 1200,            // paso entre encimeras enfrentadas o hasta la isla
+  pasillo: 1000, pasillo_bien: 1200,           // paso entre encimeras enfrentadas (AMC: 120 entre dos filas; NKBA 107)
+  isla_paso: 900, isla_paso_bien: 1100,        // alrededor de la isla o península (AMC y Leroy 90; 100–120 recomendado)
+  triangulo_lado: 2700, triangulo_suma: 7900,  // triángulo fregadero–placa–frigo: cada lado hasta 2,70 y en total 7,90 (NKBA; AMC ≥ 1,20)
+  electro_pared: 100,                          // frigorífico libre contra una pared: 10 para abrir la puerta (AMC)
   encimera_libre: 900,                         // encimera de trabajo mínima en total
   gola: 56,                                    // perfil de gola bajo la encimera (lo que quita de hueco a los electrodomésticos)
   gola_mano: 30,                               // hueco para la mano con gola (2,5–3,5 cm): lo que se descuenta a la puerta
@@ -164,6 +169,7 @@ export function consejosDiseno(ficha) {
   const todas = geos.flatMap(([p, g]) => g.piezas.filter(q => BASE.includes(q.clase)).map(q => Object.assign({ pared: p }, q)));
   const de = tipo => todas.filter(q => q.tipo === tipo);
   const poner = (grupo, campo, texto, porque) => l.push({ grupo, campo, texto, porque });
+  const libreFrigo = (d.electro || []).some(e => e.clave === 'frigo' && ['libre', 'americano'].includes(e.tipo));
 
   geos.forEach(([p, g]) => {
     const campo = 'pared.' + p.id, en = ' (pared ' + p.letra + ')';
@@ -281,6 +287,38 @@ export function consejosDiseno(ficha) {
     const libre = todas.filter(q => q.clase === 'bajo' && ENCIMERA.includes(q.tipo)).reduce((s, q) => s + q.w, 0) - sueltasTodas.reduce((s, q) => s + q.ancho, 0);
     if (libre < M.encimera_libre) poner('encimera', 'paredes', 'Poca encimera para trabajar: ' + cm(libre) + ' en total (sin placa ni fregadero)', 'Lo mínimo cómodo son ' + cm(M.encimera_libre) + ' seguidos para preparar.');
   }
+  // ── Triángulo de trabajo (fregadero, placa y frigorífico): que no haya que andar de más. Con la planta dibujada a
+  // escala, en línea recta entre los centros; sin ella, solo si los tres están en la misma pared (a lo largo).
+  const centro = q => (q ? q.x + q.w / 2 : null);
+  const tres = [de('fregadero')[0], de('placa')[0] || null, de('columna_frigo')[0]];
+  if (tres.every(Boolean)) {
+    let lados = null;
+    if (tres.every(q => q.pared === tres[0].pared)) lados = [[0, 1], [1, 2], [0, 2]].map(([a, b]) => Math.abs(centro(tres[a]) - centro(tres[b])));
+    else {
+      let pl = null; try { pl = geometriaPlanta(d); } catch (e) { pl = null; }
+      if (pl && pl.aEscala && pl.modulos) {
+        const w0 = pl.paredes.find(w => w.largo > 0), k = w0 ? Math.hypot(w0.b.x - w0.a.x, w0.b.y - w0.a.y) / w0.largo : null;
+        const c = tipo => { const m = pl.modulos.find(x => x.tipo === tipo && !x.alto && !x.sinTexto); return m ? { x: m.rect.reduce((s, p) => s + p.x, 0) / 4, y: m.rect.reduce((s, p) => s + p.y, 0) / 4 } : null; };
+        const P = ['fregadero', 'placa', 'columna_frigo'].map(c);
+        if (k && P.every(Boolean)) lados = [[0, 1], [1, 2], [0, 2]].map(([a, b]) => Math.hypot(P[a].x - P[b].x, P[a].y - P[b].y) / k);
+      }
+    }
+    if (lados) {
+      const nom = ['fregadero y placa', 'placa y frigorífico', 'fregadero y frigorífico'], porque = 'Fregadero, placa y frigorífico forman el triángulo de trabajo: cada lado de 1,20 a ' + cm(M.triangulo_lado) + ' y en total menos de ' + verMedida(M.triangulo_suma, 'm') + ' m, para no andar de más (NKBA y AMC).';
+      lados.forEach((x, i) => { if (x > M.triangulo_lado) poner('paso', 'paredes', 'Triángulo de trabajo largo: ' + verMedida(Math.round(x / 10) * 10, 'm') + ' m entre ' + nom[i], porque); });
+      const suma = lados.reduce((s, x) => s + x, 0);
+      if (suma > M.triangulo_suma) poner('paso', 'paredes', 'Triángulo de trabajo de ' + verMedida(Math.round(suma / 10) * 10, 'm') + ' m en total', porque);
+    }
+  }
+  // ── Frigorífico de libre instalación pegado a una pared: no abre bien la puerta ──
+  geos.forEach(([p, g]) => {
+    g.piezas.filter(q => q.tipo === 'columna_frigo' && BASE.includes(q.clase)).forEach(q => {
+      if (!libreFrigo) return;
+      const izq = q.x, der = p.largo - (q.x + q.w);
+      if (Math.min(izq, der) < M.electro_pared) poner('frio', 'pared.' + p.id, 'Frigorífico pegado a la pared (pared ' + p.letra + '): ' + cm(Math.max(0, Math.round(Math.min(izq, der)))) + ' de hueco',
+        'Un frigorífico de libre instalación junto a una pared necesita unos ' + cm(M.electro_pared) + ' para que la puerta abra del todo y salgan los cajones (AMC). Deja una regleta de ese ancho.');
+    });
+  });
   // ── Pasos: encimeras enfrentadas (la pared de enfrente es la vecina de la vecina) y hasta la isla ──
   const vistas = new Set(), porquePaso = 'Lo mínimo es ' + cm(M.pasillo) + ' para abrir el lavavajillas y los cajones y pasar; si cocinan dos, ' + cm(M.pasillo_bien) + '.';
   // Solo si de verdad están enfrentadas (en U): con la planta dibujada, las dos paredes van en sentidos contrarios.
@@ -299,7 +337,7 @@ export function consejosDiseno(ficha) {
   });
   (d.islas || []).filter(x => x.tipo !== 'peninsula' && hay(x.separacion)).forEach(x => {
     const p = (d.paredes || []).find(w => w.letra === x.pared), conMuebles = p && tieneBajos(p), paso = x.separacion - (conMuebles ? M.fondo_encimera : 0);
-    if (paso < M.pasillo) poner('paso', 'islas', 'Entre la isla y ' + (conMuebles ? 'la encimera de la pared ' + p.letra : 'la pared ' + (x.pared || '')) + ' quedan ' + cm(Math.max(0, paso)) + ' de paso', porquePaso);
+    if (paso < M.isla_paso) poner('paso', 'islas', 'Entre la isla y ' + (conMuebles ? 'la encimera de la pared ' + p.letra : 'la pared ' + (x.pared || '')) + ' quedan ' + cm(Math.max(0, paso)) + ' de paso', 'Alrededor de la isla, al menos ' + cm(M.isla_paso) + ' para pasar; ' + cm(M.isla_paso_bien) + ' o más si se trabaja en ella o cocinan dos.');
   });
   // Campana decorativa: separación con los altos o columnas de al lado (mínimo 5 cm, mejor 10) para montarla, limpiarla y
   // que el vapor y el calor no estropeen los muebles. Contra la pared no cuenta.

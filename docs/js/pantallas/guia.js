@@ -197,7 +197,7 @@ export function pintarGuia(App, fichaId) {
       tabla(['Qué', 'Medida', 'Nota'], [
         ['Columna de frigo', '60 · 70 · americano 92', 'Libre instalación: 2–3 cm a cada lado para que respire'],
         ['Frigo – placa', cm(M.frigo_placa) + ' mínimo', 'O panel aislante entre los dos'],
-        ['Frigo contra pared o en rincón', 'regleta de 3–5 cm', 'Para que la puerta abra más de 90° y salgan los cajones'],
+        ['Frigo contra pared o en rincón', 'regleta de 3–5 cm (libre instalación: ' + cm(M.electro_pared) + ')', 'Para que la puerta abra más de 90° y salgan los cajones (AMC)'],
       ])),
     apartado(7, 'Encimera y columnas',
       tabla(['Qué', 'Medida', 'Nota'], [
@@ -207,10 +207,21 @@ export function pintarGuia(App, fichaId) {
         ['Enchufes de encimera', '20–30 cm sobre la encimera', 'Uno doble cada 1–1,5 m; los de electrodomésticos, en el mueble de al lado'],
         ['Barra', '25–30 cm de vuelo · 60 cm por persona', 'Mesa 75 · mostrador 90 (taburete 65) · barra alta 105 (taburete 75–80)'],
       ])),
+    apartado(9, 'Distribución y triángulo de trabajo',
+      tabla(['Qué', 'Medida', 'Nota'], [
+        ['Triángulo fregadero–placa–frigo', 'cada lado 1,20 a ' + cm(M.triangulo_lado), 'En total menos de ' + String(M.triangulo_suma / 1000).replace('.', ',') + ' m (NKBA; AMC: al menos 1,20 entre zonas)'],
+        ['Orden de trabajo', 'almacenaje → lavado → preparar → cocción', 'Frigo y despensa a un lado, luego fregadero, encimera y placa'],
+        ['Diestros / zurdos', 'fregadero a la izquierda y placa a la derecha', 'Para zurdos, al revés (AMC). El lavavajillas, junto al fregadero'],
+        ['Cocina lineal', '3,60 m o más', 'Por debajo, mejor en L si hay otra pared (AMC)'],
+        ['Cocina en U', '2,40 m de ancho o más', 'Con 1,20 de paso entre las dos filas (AMC)'],
+        ['Isla', 'fondo 60 o más · largo unos 180', 'Con ' + cm(M.isla_paso) + ' de paso alrededor; mejor ' + cm(M.isla_paso_bien) + ' o más'],
+        ['Altos sobre la encimera', '55 mínimo · 60–70 lo ideal', 'Fondo 35–37 (AMC)'],
+      ]),
+      nota('Fuentes: AMC (Asociación de Mobiliario de Cocina, «Guía técnica de consejos»), NKBA (Kitchen Planning Guidelines), Brico Dépôt, Santos, Leroy Merlin y El Corte Inglés.')),
     apartado(8, 'Pasos y pasillos',
       tabla(['Qué', 'Mínimo', 'Cómodo'], [
         ['Entre encimeras enfrentadas', cm(M.pasillo), cm(M.pasillo_bien) + ' si cocinan dos'],
-        ['Hasta la isla o península', cm(M.pasillo), '100–' + cm(M.pasillo_bien)],
+        ['Hasta la isla o península', cm(M.isla_paso), cm(M.isla_paso_bien) + '–' + cm(M.pasillo_bien)],
         ['Paredes enfrentadas con muebles en las dos', cm(M.pasillo + 2 * M.fondo_encimera), 'Por debajo, muebles solo en una pared o de poco fondo'],
       ]),
       nota('El paso se mide desde el canto de la encimera (' + cm(M.fondo_encimera) + ' desde la pared).')),
