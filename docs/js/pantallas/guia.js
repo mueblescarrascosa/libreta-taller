@@ -2,6 +2,8 @@
 // encimera 4) y de las mismas medidas de referencia que usan los consejos de diseño (consejos.js: MEDIDAS).
 import { h, reemplazar } from '../util.js';
 import { MEDIDAS as M } from '../consejos.js';
+import { TENDENCIAS_BASE, cargarTendencias } from '../tendencias.js';
+import { NORMAS_INTERIOR as NI } from '../interior.js';
 
 const cm = mm => String(Math.round(mm) / 10).replace('.', ',') + ' cm';
 // Piezas con las que se juega para llegar a una altura de encimera (mm).
@@ -84,6 +86,23 @@ function numerarGuia(main) {
 }
 const lista = items => h('ul', { class: 'guia-lista' }, items.map(([b, t]) => h('li', {}, h('b', {}, b), ' ', t)));
 const nota = t => h('small', { class: 'ayuda' }, t);
+// Colores y tendencias: del archivo de tendencias (se actualiza sin sacar versión); primero la copia de reserva.
+function seccionTendencias() {
+  const zona = h('div', { class: 'zona-tendencias', 'data-acc': 'tendencias' });
+  const pintar = T => reemplazar(zona,
+    nota('Al día de ' + T.actualizado.split('-').reverse().join('/') + '. En Presupuestos, la Guía de colores propone estas combinaciones como «Tendencia».'),
+    lista(T.tendencias.map(x => [x.t + ':', x.r])),
+    h('h3', {}, 'Combinaciones'),
+    h('div', { class: 'combinaciones-tendencia' }, T.combinaciones.map(c => h('div', { class: 'combinacion-tendencia', 'data-acc': 'combinacion-tendencia' },
+      h('span', { class: 'muestras' }, (c.muestras || []).map((hex, i) => h('i', { style: 'background:' + hex, title: ['Bajos', 'Altos', 'Encimera'][i] || '' }))),
+      h('b', {}, c.t), ' ', h('small', {}, c.r)))),
+    h('h3', {}, 'Para combinar bien'), h('ul', { class: 'guia-lista' }, T.consejos.map(t => h('li', {}, t))),
+    h('h3', {}, 'Armarios y vestidores'), lista(T.armarios.map(x => [x.t + ':', x.r])),
+    nota('Fuentes: ' + T.fuentes.map(f => f.nombre).join(' · ') + '.'));
+  pintar(TENDENCIAS_BASE);
+  cargarTendencias().then(T => { if (T !== TENDENCIAS_BASE && zona.isConnected !== false) pintar(T); }).catch(() => null);
+  return apartado(14, 'Colores y tendencias', zona);
+}
 const suma = o => cm(o.zocalo) + ' + ' + cm(o.mueble) + ' + ' + cm(o.grueso);
 
 export function pintarGuia(App, fichaId) {
@@ -254,6 +273,28 @@ export function pintarGuia(App, fichaId) {
       ['Isla:', 'con placa o fregadero, 90–100 cm de fondo; con barra, 25–30 cm más de vuelo.'],
       ['Altos hasta el techo:', 'lo que sobre por encima de los altos, altillos o una tapeta para que no se acumule polvo.'],
     ])),
+    apartado(13, 'Normas de diseño (las que sigue la app)',
+      h('h3', {}, 'Cocina'),
+      lista([
+        ['Medidas:', 'anchos de 5 en 5 cm (acaban en 0 o en 5). Lo que sobre o falte, para cajoneras o bajos de puertas, que se hacen a medida; especieros (15 o 20), paneros y electrodomésticos, siempre con su medida fija.'],
+        ['Cajoneras:', 'de 40 o más. Con 30 o 35, bajo de puertas; una de 30 junto a una de 40 es una de 70.'],
+        ['Sin huecos sueltos:', 'el sitio que no llega para un mueble lo absorbe el de al lado; solo queda hueco junto a una puerta o un pilar.'],
+        ['Ventanas y campana:', 'ningún mueble ni la campana delante de una ventana; nada encima de la campana ni de sus 10 cm de margen. La placa nunca bajo la ventana; el fregadero, sí.'],
+        ['Placa:', 'centrada en su mueble o, si hace falta para quedar bajo la salida de humos, en la junta de dos cajoneras. 50 cm libres a cada lado (30 como poco).'],
+        ['Trabajo:', 'al menos 60 cm de encimera libre entre el fregadero (con el lavavajillas) y la placa; 90 lo ideal. Diestros: fregadero a la izquierda y placa a la derecha.'],
+        ['Altos:', 'simétricos, del ancho del bajo de debajo; escurreplatos sobre el fregadero; alto sobre el frigorífico de libre instalación; hasta la esquina, altos y una estantería en el rincón.'],
+        ['Isla y península:', 'solo con ' + cm(M.isla_paso) + ' de paso alrededor (mejor ' + cm(M.isla_paso_bien) + '–' + cm(M.pasillo_bien) + '), nunca delante de una puerta: 60 de muebles y 30 de vuelo para sentarse.'],
+      ]),
+      h('h3', {}, 'Armarios y vestidores'),
+      lista([
+        ['Cuerpos:', 'de ' + cm(NI.ancho_min) + ' a ' + cm(NI.ancho_max) + ', de 5 en 5: una barra o una balda más ancha se comba.'],
+        ['Colgar:', 'largo ' + cm(NI.colgar_largo) + '–170 libres; doble barra solo con ' + cm(NI.doble_barra_alto) + ' de alto o más; percha de frente con ' + cm(NI.fondo_colgar) + ' de fondo útil (las correderas comen 8–9).'],
+        ['Doblar:', 'siempre algún cuerpo con cajonera (por debajo de 100) o baldas (cada 30–35): no todo para colgar.'],
+        ['Altura:', 'lo que pase de 2,20 m, altillo para lo de temporada; los cajones y lo de diario, entre 50 y 150.'],
+        ['Paso:', 'vestidor con muebles a un lado 70 (90 cómodo) y a los dos 80 (100 cómodo); delante del armario, 80–90 libres.'],
+      ]),
+      nota('«Proponer el interior» (en los cuerpos del armario o de cada pared del vestidor) reparte los cuerpos con estas normas.')),
+    seccionTendencias(),
   );
   numerarGuia(main);
 }

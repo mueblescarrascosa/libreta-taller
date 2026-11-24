@@ -159,9 +159,29 @@ function consejosArmario(d, sub) {
   return l;
 }
 
+// Lo de dentro de cada cuerpo (armario y vestidor): doble barra sin altura, percha que no cabe, baldas que se comban,
+// todo para colgar sin sitio para doblar.
+export const INTERIOR = { doble_barra_alto: 2000, barra_ancho_min: 450, balda_max: 900 };
+function consejosCuerpos(cuerpos, alto, campo, donde) {
+  const l = [], I = INTERIOR, de = c => [c.interior, c.interior2].filter(Boolean);
+  cuerpos.forEach((c, i) => {
+    const t = de(c), quien = 'Cuerpo ' + (i + 1) + donde;
+    if (t.includes('doble_barra') && hay(alto) && alto < I.doble_barra_alto) l.push({ grupo: 'armario', campo: campo(c), texto: quien + ': doble barra con ' + cm(alto) + ' de alto',
+      porque: 'Dos barras necesitan unos ' + cm(I.doble_barra_alto) + ' (cada hueco de 90–100 para camisas y chaquetas). Con menos, una barra y cajonera debajo.' });
+    if (t.some(k => /barra/.test(k)) && hay(c.ancho) && c.ancho > 0 && c.ancho < I.barra_ancho_min) l.push({ grupo: 'armario', campo: campo(c), texto: quien + ': barra en un cuerpo de ' + cm(c.ancho),
+      porque: 'Una percha mide unos 45 cm: en un cuerpo más estrecho la ropa va de lado o roza. Mejor baldas o una barra extraíble de fondo.' });
+    if (t.includes('estantes') && hay(c.ancho) && c.ancho > I.balda_max) l.push({ grupo: 'armario', campo: campo(c), texto: quien + ': baldas de ' + cm(c.ancho),
+      porque: 'Una balda de más de ' + cm(I.balda_max) + ' (de 19 mm) se comba con la ropa doblada: divide el cuerpo o pon un apoyo.' });
+  });
+  const conInterior = cuerpos.filter(c => de(c).length);
+  if (conInterior.length >= 2 && conInterior.every(c => de(c).every(k => /barra/.test(k)))) l.push({ grupo: 'armario', campo: campo(conInterior[0]), texto: 'Todo es para colgar' + donde,
+    porque: 'Siempre hace falta sitio para doblar (camisetas, jerséis, ropa interior): una cajonera o baldas en algún cuerpo. «Proponer el interior» lo reparte.' });
+  return l;
+}
+
 export function consejosDiseno(ficha) {
-  if (ficha && ficha.subtipo === 'vestidor') return consejosVestidor(ficha.datos || {});
-  if (ficha && ficha.tipo === 'armario') return consejosArmario(ficha.datos || {}, ficha.subtipo);
+  if (ficha && ficha.subtipo === 'vestidor') { const d = ficha.datos || {}; return consejosVestidor(d).concat(...(d.paredes || []).map(p => consejosCuerpos(p.cuerpos || [], hay(d.alto_techo) && d.alto_techo > 0 ? d.alto_techo : null, () => 'pared.' + p.id, ' de la pared ' + p.letra))); }
+  if (ficha && ficha.tipo === 'armario') { const d = ficha.datos || {}, altos = [d.alto_izq, d.alto_der].filter(v => hay(v) && v > 0); return consejosArmario(d, ficha.subtipo).concat(consejosCuerpos(d.cuerpos || [], altos.length ? Math.min(...altos) : null, c => 'cuerpo.' + c.id, '')); }
   if (!ficha || ficha.tipo !== 'cocina') return [];
   const d = ficha.datos, l = [], M = MEDIDAS, ap = aparatos(d);
   const anchoPlaca = ap.placa || M.placa;

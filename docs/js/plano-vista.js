@@ -147,7 +147,8 @@ export function geometriaPlanta(d, { margen = 10, unidad = 'cm' } = {}) {
     if (x.vuelo > 0) {
       const v = x.vuelo * k;
       if (x.tipo === 'peninsula') { const u = { x: p1.x - p0.x, y: p1.y - p0.y }, l = Math.hypot(u.x, u.y) || 1, w = { x: -u.x / l, y: -u.y / l };
-        vuelo = [mas(rect[0], w, v), rect[0], rect[3], mas(rect[3], w, v)]; }
+        // vuelo_lado 'der': por el lado del final de la pared (la península al final de la cocina, con la barra por fuera)
+        vuelo = x.vuelo_lado === 'der' ? [rect[1], mas(rect[1], w, -v), mas(rect[2], w, -v), rect[2]] : [mas(rect[0], w, v), rect[0], rect[3], mas(rect[3], w, v)]; }
       else vuelo = [rect[3], rect[2], mas(rect[2], D, v), mas(rect[3], D, v)];
     }
     geo.islas.push({ tipo: x.tipo, nombre: nombre + (medidas ? ' ' + medidas : ''), rect, cotas, pared: x.pared, vuelo, dato: x });

@@ -70,7 +70,8 @@ prueba('pared vacía: bajos y sus altos encima como cambio opcional (sin marcar)
   const r = mejorCocina(f), x = r.pasos.find(q => q.op.op === 'bajos');
   afirma(x && x.marcado === false && /^Pared D \(vacía\): 3 bajos y sus altos encima/.test(x.texto), JSON.stringify(r.pasos.map(q => q.texto)));
   const n = aplicarCambios(f, [x.op]).datos.paredes[1];
-  igual(n.bajos.map(m => m.ancho), [600, 600, 600]); igual(n.altos.filter(m => m.tipo === 'alto').map(m => m.ancho), [600, 600, 600]);
+  // Lo que sobra (15) no se queda en hueco: el último bajo se ensancha (de 5 en 5)
+  igual(n.bajos.map(m => m.ancho), [600, 600, 750]); igual(n.altos.filter(m => m.tipo === "alto").map(m => m.ancho), [600, 600, 750]);
   igual(r.ficha.datos.paredes[1].bajos, [], 'la mejor no la toca si no se marca');
 });
 prueba('cocina en U con rincón: escurreplatos sobre el fregadero, alto sobre el lavavajillas y hasta la esquina estantería y alto, cada uno sobre su sitio', () => {

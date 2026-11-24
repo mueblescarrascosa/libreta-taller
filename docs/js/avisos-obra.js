@@ -37,6 +37,13 @@ export function avisosObra(ficha, unidad) {
         else l.push({ campo, texto: nombre(q) + ' de la ' + pared + ' tapa la ventana' });
       });
     });
+    // La campana (con su chimenea, hasta el techo) delante de una ventana: no puede ser, ni la decorativa ni la de un alto.
+    if (cocina) {
+      const techo = d.alto_techo > 0 ? d.alto_techo : ALTURAS.techo;
+      campanasPared(p, d).forEach(c => g.piezas.filter(q => q.clase === 'ventana').forEach(w => {
+        if (pisan({ x: c.desde, w: c.hasta - c.desde, y: ALTURAS.altos_desde, h: techo - ALTURAS.altos_desde }, w)) l.push({ campo, texto: 'La campana de la ' + pared + ' tapa la ventana: la placa no puede ir bajo la ventana' });
+      }));
+    }
     g.piezas.filter(q => q.clase === 'puerta').forEach(w => {
       muebles.filter(q => pisan(q, w, 5)).forEach(q => l.push({ campo, texto: nombre(q) + ' de la ' + pared + ' choca con la puerta' }));
     });

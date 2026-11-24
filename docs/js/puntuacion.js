@@ -2,11 +2,12 @@
 // Almacenaje: «metros útiles» de cada mueble (un metro de cajones guarda más que uno de puertas; una despensa, mucho más),
 // repartidos entre los metros de cocina. Usabilidad: parte de 100 y resta por cada consejo de diseño de placa, agua,
 // frío, encimera y pasos (lo que funcionaría mal al usarla). Es orientativa: sirve para comparar propuestas.
-import { situarMuebles, esColumna, cuadreAltos, moduloNuevo, nombreModulo, placaConHorno, paredesVecinas, FONDO_BAJO } from './modulos.js';
+import { situarMuebles, esColumna, cuadreAltos, moduloNuevo, nombreModulo, placaConHorno, paredesVecinas, FONDO_BAJO, medidasRemates } from './modulos.js';
 import { consejosDiseno } from './consejos.js';
 import { varianteDe } from './frentes.js';
 import { avisosObra } from './avisos-obra.js';
 import { geometriaAlzado, ALTURAS } from './alzado.js';
+import { parejasEstrechas, PASO_ANCHO } from './relleno.js';
 // Instalaciones que se quedan sin su mueble (desagüe y agua del fregadero, humos de la placa, enchufes): sin números,
 // para comparar antes y después de un cambio.
 const INSTALACION = /Desagüe|Toma de agua|salida de humos|Salida de humos|Enchufe/;
@@ -78,7 +79,9 @@ function bajosParaVacia(p, datos) {
     const anchos = [];
     let len = b - a;
     while (len >= 600) { anchos.push(600); len -= 600; }
-    if (len >= 300) anchos.push(Math.floor(len / 100) * 100);
+    // Lo que sobra, de 5 en 5 cm: un bajo más si llega a 30; si no, el último se ensancha
+    if (len >= 300) anchos.push(Math.floor(len / PASO_ANCHO) * PASO_ANCHO);
+    else if (len >= PASO_ANCHO && anchos.length) anchos[anchos.length - 1] += Math.floor(len / PASO_ANCHO) * PASO_ANCHO;
     if (!anchos.length) return;
     if (a - s >= 100) lista.push(Object.assign(moduloNuevo('hueco'), { ancho: Math.round((a - s) / 10) * 10 }));
     anchos.forEach(w => { lista.push(Object.assign(moduloNuevo('bajo'), { ancho: w })); n++; });
@@ -109,11 +112,14 @@ function contextoAltos(datos, ip) {
   };
   // Si los bajos llegan a la pared, los altos también (sin regleta al final)
   const finBajos = Math.max(0, ...sit.bajos.map(b => b.hasta));
-  const arranque = sp.altos.length ? sp.altos[0].desde : 0, fin = hay(p.largo) ? (finBajos >= p.largo - 1 ? p.largo : p.largo - 40) : arranque;
+  // Dónde empieza la fila: tras la regleta a la pared, salvo si empieza una columna (no se mira con el alto de prueba: si
+  // cae detrás de la campana, la colocación lo empuja hasta lo que venga después y parecería que la fila empieza ahí)
+  const R = medidasRemates(datos), ini0 = sit.bajos.length ? sit.bajos[0].desde : 0;
+  const arranque = R.regleta && !sit.bajos.some(b => esColumna(b.m) && b.desde <= ini0 + 1) ? R.regleta : 0, fin = hay(p.largo) ? (finBajos >= p.largo - 1 ? p.largo : p.largo - 40) : arranque;
   // Donde entra el rinconero de la pared de al lado, la esquina es suya (allí van sus altos o su estantería)
   const eIni = Math.max(enEsquina(ant, true), sit.entran ? sit.entran.izq || 0 : 0), eFin = Math.max(enEsquina(sig, false), sit.entran ? sit.entran.der || 0 : 0);
   return { p, sit, zonas, tapas, columnas, ya, arranque, inicio: Math.max(arranque, eIni), fin: eFin ? Math.min(fin, p.largo - eFin) : fin,
-    especial: (p.altos || []).some(m => ['alto_frigo', 'alto_campana', 'campana_deco'].includes(m.tipo)) };
+    especial: (p.altos || []).some(m => ['alto_frigo', 'alto_campana'].includes(m.tipo)) };
 }
 // La fila de altos de la pared con los que ya tiene y los nuevos ({desde, ancho, tipo}), cada uno en su sitio: huecos
 // donde no va nada; la campana y las columnas se saltan solas.
@@ -129,6 +135,20 @@ export function filaCon(datos, ip, nuevos) {
     hueco(it.desde - s);
     lista.push(it.m); s = Math.max(s, it.desde) + it.m.ancho;
   });
+  // Detrás de la campana, la colocación junta los altos con lo que venga después (una columna o la pared): para que se
+  // queden donde se quieren (y no se vayan, por ejemplo, delante de una ventana), un hueco hasta ahí.
+  const ultimoIt = items[items.length - 1];
+  if (ultimoIt && c.zonas.some(([, b]) => b <= ultimoIt.desde + 1) && hay(c.p.largo)) {
+    const tope = Math.min(c.p.largo, ...c.columnas.filter(([a]) => a >= s - 1).map(([a]) => a));
+    if (tope - s >= 100) {
+      const tras = Object.assign(moduloNuevo('hueco'), { ancho: Math.round((tope - s) / 10) * 10 }); lista.push(tras);
+      for (let k = 0; k < 4; k++) {
+        const al = situarMuebles(Object.assign({}, c.p, { altos: lista }), datos).altos, a = al.find(q => q.m === ultimoIt.m);
+        const corre = a ? Math.round(a.desde - ultimoIt.desde) : 0;
+        if (corre > 0) tras.ancho += corre; else if (corre < 0 && tras.ancho + corre >= 10) tras.ancho += corre; else break;
+      }
+    }
+  }
   // Ajuste fino: los costados y regletas que mete la colocación corren los altos unos cm; se corrige con el hueco o la
   // estantería de delante hasta que cada uno quede donde se quería (a menos de 5 mm).
   for (let vuelta = 0; vuelta < items.length * 2; vuelta++) {
@@ -307,6 +327,12 @@ export function mejorCocina(ficha, { pasos = 12 } = {}) {
   let actual = copiar(ficha), nota = p0.total;
   const malAntes = fueraDeSitio(ficha), choquesAntes = choques(ficha);   // un cambio no puede dejar una toma, el desagüe o un enchufe lejos de su mueble
   const cambios = [], hechos = [], estado = {};
+  // Primero, juntar las cajoneras (o bajos) estrechos con el de al lado: una de 30 junto a una de 40 es una de 70
+  (actual.datos.paredes || []).forEach(p => parejasEstrechas(p.bajos || []).forEach(j => {
+    const a = p.bajos[j.i], b = p.bajos[j.i + 1], op = { op: 'juntar', pared: p.id, a: a.id, b: b.id, ancho: j.ancho, tipo: j.tipo };
+    hechos.push({ texto: 'Pared ' + p.letra + ': juntar el ' + nombreModulo(a).toLowerCase() + ' de ' + Math.round(a.ancho / 10) + ' y el ' + nombreModulo(b).toLowerCase() + ' de ' + Math.round(b.ancho / 10) + ' en un ' + nombreModulo({ tipo: j.tipo }).toLowerCase() + ' de ' + Math.round(j.ancho / 10), op });
+  }));
+  if (hechos.length) { actual = aplicarCambios(actual, hechos.map(x => x.op)); nota = Math.max(nota, (puntuarCocina(actual) || { total: nota }).total); }
   for (let paso = 0; paso < pasos; paso++) {
     let mejor = null;
     // Los simétricos ganan a otros altos de la misma pared mientras suban la nota.
@@ -408,6 +434,7 @@ export function aplicarCambios(ficha, ops) {
   const n = copiar(ficha), paredDe = id => (n.datos.paredes || []).find(p => p.id === id);
   ops.forEach(o => {
     const p = o && paredDe(o.pared); if (!p) return;
+    if (o.op === 'juntar') { const i = (p.bajos || []).findIndex(x => x.id === o.a), j = (p.bajos || []).findIndex(x => x.id === o.b); if (i >= 0 && j === i + 1) { Object.assign(p.bajos[i], { ancho: o.ancho, tipo: o.tipo, variante: null }); p.bajos.splice(j, 1); } }
     if (o.op === 'cajonero') { const m = (p.bajos || []).find(x => x.id === o.id); if (m) { m.tipo = 'cajonero'; m.variante = null; } }
     if (o.op === 'mover') { const i = (p.bajos || []).findIndex(x => x.id === o.id); if (i >= 0) { const [x] = p.bajos.splice(i, 1); p.bajos.splice(Math.min(o.a, p.bajos.length), 0, x); } }
     if (o.op === 'altos') p.altos = (p.altos || []).concat(copiar(o.altos));

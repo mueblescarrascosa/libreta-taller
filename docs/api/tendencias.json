@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "actualizado": "2026-11-24",
+  "nota": "Colores y tendencias de cocinas y armarios. Se puede actualizar este archivo sin sacar versión de las apps: la Libreta y Presupuestos lo leen al abrir.",
+  "fuentes": [
+    { "nombre": "Pantone: color del año 2026, Cloud Dancer (11-4201)", "url": "https://www.pantone.com/articles/press-releases/pantone-announces-color-of-the-year-2026-cloud-dancer" },
+    { "nombre": "NKBA y Houzz 2026 (resumen): neutros cálidos y madera por delante del blanco", "url": "https://www.captivatingcabinets.com/blog/kitchen-cabinet-styles-popular-designs-and-color-trends-for-2026" },
+    { "nombre": "Revista Interiores: cashmere, arena y ante; verde té; azul intenso", "url": "https://www.revistainteriores.es/tendencias/ruben-rodriguez-experto-diseno-cocinas-el-podio-colores-tendencia-cocina-2026-estara-formado-por-cashmere-arena-ante_11998" },
+    { "nombre": "¡Hola! Decoración: colores de cocina 2026 y cómo combinarlos", "url": "https://www.hola.com/decoracion/20251113867252/colores-muebles-cocina-tendencias-2026/" },
+    { "nombre": "Homes & Gardens: tendencias de color en muebles de cocina 2026", "url": "https://www.homesandgardens.com/kitchens/kitchen-cabinet-color-trends-2026" },
+    { "nombre": "Showplace: altos claros y bajos o isla más oscuros", "url": "https://showplacecabinetry.com/the-hottest-trends-in-kitchen-cabinet-colors-for-2026/" },
+    { "nombre": "Legacy Cabinets: terracota, caramelo, oliva y acabados mate", "url": "https://legacycabinets.com/10-2026-kitchen-cabinet-design-trends-and-colors/" }
+  ],
+  "tendencias": [
+    { "t": "Neutros cálidos", "r": "Cashmere, arena, ante y greige sustituyen al blanco frío: casi todos los profesionales (NKBA 2026) los ponen como lo más pedido." },
+    { "t": "Madera natural", "r": "El roble claro natural es la madera más pedida; en Houzz 2026 la madera ya supera al blanco. Mejor con veta suave y mate." },
+    { "t": "Bicolor", "r": "Altos claros que no pesan y bajos o isla más oscuros o con color: la combinación más vendida." },
+    { "t": "Verdes y azules profundos", "r": "Oliva, musgo, verde té; azul marino o petróleo en mate. Mejor en los bajos o la isla: si cansan, se cambia menos." },
+    { "t": "Tierra", "r": "Terracota, arcilla, caramelo y chocolate: cálidos, con madera y encimeras claras." },
+    { "t": "Blanco nube", "r": "El color Pantone de 2026 es un blanco cálido (Cloud Dancer): blanco sí, pero roto, nunca azulado." },
+    { "t": "Mate y sin tirador", "r": "Acabados mate o supermate antihuella, gola o uñero; si hay tirador, negro, latón o bronce." }
+  ],
+  "consejos": [
+    "Lo atrevido (verde, azul, terracota) en los bajos o la isla; lo que no cansa (madera, neutros) en altos y columnas.",
+    "Con poca luz, altos claros y encimera clara; los oscuros, en cocinas con ventana.",
+    "Tres materiales como mucho: frentes, encimera y un acento (madera, metal o el tirador).",
+    "Con suelo de madera, frentes de otro tono de madera o lisos: dos maderas parecidas pelean.",
+    "Los colores muy de moda envejecen en 5–7 años: la base neutra o madera y el color en lo que se cambia fácil."
+  ],
+  "combinaciones": [
+    { "id": "t26-cashmere", "t": "Cashmere y roble", "estilos": ["moderno", "minimalista", "nordico", "japandi"], "b": { "f": ["crema"], "t": 2 }, "a": "=", "e": ["madera_clara", "piedra", "blanco"], "col": "a", "ti": ["ti-oro", "ti-negro"], "muestras": ["#cbb8a0", "#cbb8a0", "#c9a77c"], "r": "Neutro cálido (cashmere o arena) en toda la cocina con encimera de roble: lo más pedido en 2026." },
+    { "id": "t26-roble", "t": "Roble natural y blanco nube", "estilos": ["moderno", "nordico", "japandi", "rustico"], "b": { "f": ["madera_clara"], "t": 1 }, "a": { "f": ["blanco", "crema"], "t": 1 }, "e": ["blanco", "piedra"], "col": "b", "ti": ["ti-negro", "ti-unero"], "muestras": ["#c9a77c", "#f1eee6", "#efece6"], "r": "Roble claro abajo y columnas, blanco cálido arriba: luminosa, cálida y no pasa de moda." },
+    { "id": "t26-azul", "t": "Bicolor azul profundo", "estilos": ["moderno", "clasico", "nordico", "boho"], "b": { "f": ["azul"], "t": 3 }, "a": { "f": ["blanco", "crema"], "t": 1 }, "e": ["marmol", "blanco"], "col": "a", "ti": ["ti-oro", "ti-bronce"], "muestras": ["#24344d", "#f1eee6", "#ecebe7"], "r": "Azul marino o petróleo mate abajo, blanco roto arriba y latón: el bicolor de 2026." },
+    { "id": "t26-oliva", "t": "Oliva y madera", "estilos": ["rustico", "boho", "nordico", "japandi", "vintage"], "b": { "f": ["verde"], "t": 3 }, "a": { "f": ["madera_clara", "madera_media"], "t": null }, "e": ["blanco", "piedra"], "col": "b", "ti": ["ti-bronce", "ti-negro"], "muestras": ["#59603f", "#b8915f", "#e9e6df"], "r": "Verde oliva o musgo abajo con altos de madera: natural y con carácter." },
+    { "id": "t26-terracota", "t": "Arcilla y crema", "estilos": ["boho", "rustico", "vintage", "moderno"], "b": { "f": ["terracota"], "t": 2 }, "a": { "f": ["crema", "blanco"], "t": 1 }, "e": ["blanco", "marmol", "madera_clara"], "col": "a", "ti": ["ti-bronce", "ti-oro"], "muestras": ["#b06a4c", "#efe7da", "#ecebe7"], "r": "Terracota o caramelo abajo y crema arriba: cálida, mediterránea y de 2026." },
+    { "id": "t26-negro", "t": "Negro mate, mármol y madera", "estilos": ["moderno", "minimalista", "industrial", "japandi"], "b": { "f": ["negro", "oscuro"], "t": 3 }, "a": { "f": ["madera_clara"], "t": null }, "e": ["marmol", "blanco"], "col": "b", "ti": ["ti-gola", "ti-int-negro"], "muestras": ["#232323", "#c9a77c", "#ecebe7"], "r": "Bajos y columnas negro mate, encimera de mármol blanco y altos de madera clara: contraste cálido." },
+    { "id": "t26-chocolate", "t": "Nogal chocolate y arena", "estilos": ["clasico", "japandi", "industrial", "rustico"], "b": { "f": ["madera_oscura"], "t": 3 }, "a": { "f": ["crema"], "t": 1 }, "e": ["piedra", "marmol"], "col": "b", "ti": ["ti-negro", "ti-bronce"], "muestras": ["#5b3d2b", "#e6dccb", "#d9d4cc"], "r": "Nogal o chocolate abajo y arena arriba: los tonos profundos que vuelven en 2026." },
+    { "id": "t26-blanco", "t": "Blanco nube sin tirador", "estilos": ["minimalista", "moderno", "nordico"], "b": { "f": ["blanco"], "t": 1 }, "a": "=", "e": ["madera_media", "piedra"], "col": "a", "ti": ["ti-gola", "ti-unero"], "muestras": ["#f1eee6", "#f1eee6", "#a77b52"], "r": "Blanco cálido (el Pantone de 2026), mate y con gola, y la madera en la encimera." }
+  ],
+  "armarios": [
+    { "t": "Interior en madera o color", "r": "El casco por dentro en roble o en el color de fuera (no solo blanco): se ve más cuidado al abrir." },
+    { "t": "Abierto y con luz", "r": "Vestidores abiertos o con puertas de cristal ahumado y tira LED en barras y baldas." },
+    { "t": "Frentes lisos y cálidos", "r": "Neutros cálidos, roble natural o verdes suaves; puertas hasta el techo y sin tirador (uñero o gola)." },
+    { "t": "Cajones y organización", "r": "Más cajones con separadores, zapatero inclinado, pantalonero y bandeja para joyas: menos barras sueltas." }
+  ]
+}

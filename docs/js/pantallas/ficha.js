@@ -6,7 +6,7 @@ import { nombrarPuerta, CORTO_ELEMENTO, HUMOS_DIAMETROS, HUMOS_RECTANGULARES, is
 import { duplicarFicha } from '../trabajos.js';
 import { campoMedida, campoEntero } from '../campos.js';
 import { verMedida } from '../unidades.js';
-import { ANCHOS_ELECTRO, ALTOS_ELECTRO, TIPOS_MODULO, GRUPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, medidasModulo, anchosDe, FORMAS_RINCONERO, LADOS_RINCONERO, paredesVecinas, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, FORMAS_RINCON_CUERPO, LADOS_RINCON_CUERPO, INTERIOR_RINCON, textoRincon, textoCuadre, lineaNueva, nombreLineal, nombreInterior, interioresDe, elegirInterior, textoInteriores, acabadosNuevos, MATERIALES_ENCIMERA, ELECTRO, datosElectro, electroNuevo, tieneInstalacion, instalacionDe, sincronizarElectros, COLORES_ELECTRO, colorElectroComun, altoHorno, ABAJO_COLUMNA, ARRIBA_COLUMNA, microLibre, MICRO_LIBRE, MICRO_INTEGRABLE, cuadreAltillos, HUECOS_DESAYUNO, huecoDesayuno, PUENTE, topePuente } from '../modulos.js';
+import { ANCHOS_ELECTRO, ALTOS_ELECTRO, TIPOS_MODULO, GRUPOS_MODULO, NOMBRE_MODULO, CORTO_MODULO, moduloNuevo, nombreModulo, medidasModulo, anchosDe, FORMAS_RINCONERO, LADOS_RINCONERO, paredesVecinas, cuadreBajos, cuadreAltos, cuadreCuerpos, cuadreCuerposPared, FORMAS_RINCON_CUERPO, LADOS_RINCON_CUERPO, INTERIOR_RINCON, textoRincon, textoCuadre, lineaNueva, nombreLineal, nombreInterior, interioresDe, elegirInterior, textoInteriores, acabadosNuevos, MATERIALES_ENCIMERA, ELECTRO, datosElectro, electroNuevo, tieneInstalacion, instalacionDe, sincronizarElectros, COLORES_ELECTRO, colorElectroComun, altoHorno, ABAJO_COLUMNA, ARRIBA_COLUMNA, microLibre, MICRO_LIBRE, MICRO_INTEGRABLE, cuadreAltillos, HUECOS_DESAYUNO, huecoDesayuno, PUENTE, topePuente, cuerposQueEntran } from '../modulos.js';
 import { seccionAdjuntos } from './adjuntos.js';
 import { textoMaterial, textoRemates, TIPOS_REMATE, MATERIALES_REMATE, opcionRemate } from '../material.js';
 import { variantesDe, varianteHabitual, alturasDe, alturaHabitual, NOMBRE_VARIANTE, articulo, paquetePresupuesto, CLAVE_PASO } from '../presupuesto.js';
@@ -16,6 +16,9 @@ import { geometriaPlanta, svgPlanta, aplicarPlano, pilarEnParedes, pilaresEnPare
 import { abrirPlano } from '../plano-editor.js';
 import { geometriaAlzado, svgAlzado, campanasPared, salidaCampana, textoHolgurasCampana, centrosCampana, textoCentroCampana, anchoPlaca, anchoCampana, textoTubo, fijarCocinaTipo, alturasCocina, CAMPOS_ALTURA, placaDeGas, SOBRE_GAS, MINIMO_GAS, ALTURAS } from '../alzado.js';
 import { puntuarCocina, mejorCocina, aplicarCambios } from '../puntuacion.js';
+import { aplicarIsla } from '../isla.js';
+import { proponerInterior } from '../interior.js';
+const hayN = v => v !== null && v !== undefined && v !== '';
 import { disenarCocina, aplicarDiseno, ELECTRO_DISENO, electroDeFicha } from '../disenar.js';
 import { TAPETAS } from '../pedido.js';
 import { airePlaca, textoAirePlaca } from '../consejos.js';
@@ -432,9 +435,15 @@ export async function pintarFicha(App, id) {
               h('p', {}, h('b', {}, 'Propuesta ' + (i + 1) + ': ' + pr.nota + '/100'), ' · almacenaje ' + pr.almacenaje + ' · usabilidad ' + pr.usabilidad),
               pr.reforma ? h('small', { class: 'ayuda' }, 'De reforma: mueve el fregadero o la placa de donde están las tomas. Después, «Colocar lo que falta» pone las instalaciones donde van.') : null,
               h('ul', { class: 'consejos' }, pr.texto.map(x => h('li', {}, x))), ...dibujos,
+              // Isla o península (opcional): solo con la planta a escala y paso alrededor
+              (pr.islas && pr.islas.opciones.length) ? h('div', { class: 'islas-diseno' }, h('small', { class: 'ayuda' }, 'Si quieres, añade (queda paso alrededor):'),
+                pr.islas.opciones.map((o, j) => h('label', { class: 'cambio-mejor' }, h('input', { type: 'checkbox', 'data-acc': 'isla-diseno', 'data-v': i + '-' + j, onchange: ev => { pr.islasElegidas = pr.islasElegidas || {}; pr.islasElegidas[j] = ev.currentTarget.checked; } }), ' ' + o.texto)))
+                : (pr.islas && pr.islas.aviso ? h('small', { class: 'ayuda', 'data-acc': 'isla-aviso' }, 'Isla o península: ' + pr.islas.aviso) : null),
               h('button', { type: 'button', 'data-acc': 'aplicar-diseno', 'data-v': String(i), onclick: async () => {
                 if (!confirm('¿Poner esta cocina? Se cambian los muebles (bajos y altos) de ' + pr.paredes.map(x => 'la pared ' + (copia.paredes.find(q => q.id === x.id) || {}).letra).join(', ') + '.')) return;
-                aplicarDiseno(d, pr, electro); res = null; pintar(); cambio(); await guardarYa(); if (repintarTodo) repintarTodo(); else window.dispatchEvent(new HashChangeEvent('hashchange'));
+                aplicarDiseno(d, pr, electro);
+                (pr.islas ? pr.islas.opciones : []).forEach((o, j) => { if (pr.islasElegidas && pr.islasElegidas[j]) aplicarIsla(d, o); });
+                res = null; pintar(); cambio(); await guardarYa(); if (repintarTodo) repintarTodo(); else window.dispatchEvent(new HashChangeEvent('hashchange'));
               } }, 'Aplicar esta'));
           }));
       reemplazar(zonaD,
@@ -860,7 +869,21 @@ export async function pintarFicha(App, id) {
     };
     refrescos.push(pintarCuadre);
     repintar();
-    return [conTitulo ? h('h2', {}, 'Cuerpos, de izquierda a derecha') : h('label', { class: 'et' }, 'Cuerpos, de izquierda a derecha'), zona, cuadre,
+    // Proponer el interior: cuántos cuerpos y qué va dentro, con las normas de armarios y vestidores
+    const zonaInterior = h('div', { class: 'zona-interior', 'data-acc': 'zona-interior' });
+    const proponer = h('button', { type: 'button', class: 'mini', 'data-acc': 'proponer-interior', onclick: () => {
+      const anchos = enPared ? [hayN(dueno.largo) ? dueno.largo - (cuerposQueEntran(d, dueno).izq || 0) - (cuerposQueEntran(d, dueno).der || 0) : null] : [d.ancho_arriba, d.ancho_medio, d.ancho_abajo];
+      const altos = enPared ? [d.alto_techo] : [d.alto_izq, d.alto_der];
+      const ok = l => l.filter(v => hayN(v) && v > 0), ancho = ok(anchos).length ? Math.min(...ok(anchos)) : null, alto = ok(altos).length ? Math.min(...ok(altos)) : null;
+      const r = proponerInterior({ ancho, alto, fondo: enPared ? 600 : d.fondo, corredera: enPared ? false : ficha.subtipo === 'corredera' });
+      if (r.aviso) { reemplazar(zonaInterior, h('small', { class: 'ayuda' }, r.aviso + (enPared ? ' Pon el largo de la pared.' : ' Pon el ancho del hueco.'))); return; }
+      reemplazar(zonaInterior, h('ul', { class: 'consejos', 'data-acc': 'interior-propuesto' }, r.texto.map(t => h('li', {}, t))),
+        h('button', { type: 'button', 'data-acc': 'poner-interior', onclick: () => {
+          if (lista.length && !confirm('¿Cambiar los cuerpos que hay por estos ' + r.cuerpos.length + '?')) return;
+          lista.splice(0, lista.length, ...r.cuerpos); abierto = null; reemplazar(zonaInterior); cambio(); repintar();
+        } }, 'Poner este interior'));
+    } }, 'Proponer el interior');
+    return [conTitulo ? h('h2', {}, 'Cuerpos, de izquierda a derecha') : h('label', { class: 'et' }, 'Cuerpos, de izquierda a derecha'), zona, cuadre, proponer, zonaInterior,
       h('button', { type: 'button', class: 'ancho', 'data-acc': 'anadir-cuerpo', onclick: () => { const c = { id: nuevoId(), ancho: null, interior: null, interior2: null, nombre: '' }; lista.push(c); abierto = c.id; cambio(); repintar(); } }, '+ Añadir cuerpo')];
   }
 
