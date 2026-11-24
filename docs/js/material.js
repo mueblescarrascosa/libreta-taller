@@ -352,6 +352,35 @@ export function tablerosFichas(fichas) {
 }
 
 // Líneas de texto del material (para la ficha, el resumen, el PDF y WhatsApp). lineales: los que tiene la cocina (acabados).
+// Tableros y tablas de encimera según el material: laminados, en tableros de su largo (Topform 3,60 m; los demás,
+// 4,10 m), con los trozos repartidos para aprovechar; piedra, en tablas de 3,02×1,40 o de 3,20×1,59 (se recomienda la
+// que gasta menos), con las piezas en filas a lo largo de la tabla según su fondo.
+export const LAMINADOS = ['Hidrófuga Egger', 'Egger Perfsense', 'Egger Porsinc', 'Hidrófuga 19 mm', 'Topform'];
+export const LARGO_LAMINADO = { Topform: 3600 }, LARGO_TABLERO_ENCIMERA = 4100;
+export const PIEDRAS = ['Silestone', 'Porcelánico', 'Granito'], TABLAS_PIEDRA = [[3020, 1400], [3200, 1590]];
+export const largoLaminado = mat => LARGO_LAMINADO[mat] || LARGO_TABLERO_ENCIMERA;
+export function tablerosEncimera(piezas, largo = LARGO_TABLERO_ENCIMERA) {
+  const trozos = [];
+  piezas.forEach(p => { let r = p.largo; while (r > largo) { trozos.push(largo); r -= largo; } if (r > 0) trozos.push(r); });
+  const tableros = [];
+  trozos.sort((a, b) => b - a).forEach(t => { const i = tableros.findIndex(x => x + t <= largo); if (i >= 0) tableros[i] += t; else tableros.push(t); });
+  return tableros.length;
+}
+// [{ largo, ancho, tablas, juntas }] de la que gasta menos a la que más (juntas: piezas más largas que la tabla).
+export function tablasPiedra(piezas) {
+  if (!piezas.length) return [];
+  const fondo = Math.max(...piezas.map(q => q.fondo || 620));
+  return TABLAS_PIEDRA.map(([L, W]) => {
+    const filas = Math.floor((W + 5) / (fondo + 5));
+    if (!filas) return null;
+    const n = Math.ceil(tablerosEncimera(piezas, L) / filas);
+    return { largo: L, ancho: W, tablas: n, area: n * L * W, juntas: piezas.filter(q => q.largo > L).length };
+  }).filter(Boolean).sort((a, b) => a.area - b.area || a.juntas - b.juntas);
+}
+const metros2 = x => (x / 1000).toFixed(2).replace('.', ',');
+export const textoTablas = ts => (ts.length ? ts[0].tablas + (ts[0].tablas > 1 ? ' tablas' : ' tabla') + ' de ' + metros2(ts[0].largo) + '×' + metros2(ts[0].ancho)
+  + (ts[1] ? ' (o ' + ts[1].tablas + ' de ' + metros2(ts[1].largo) + '×' + metros2(ts[1].ancho) + ')' : '') : '');
+
 export function textoMaterial(ficha, unidad = 'cm', ajustes = null) {
   const d = ficha.datos, l = [], m = mm => verMedida(Math.round(mm / 10) * 10, 'm') + ' m', v = mm => verMedida(mm, unidad) + ' ' + unidad;
   if (ficha.tipo === 'cocina') {
@@ -361,6 +390,9 @@ export function textoMaterial(ficha, unidad = 'cm', ajustes = null) {
       l.push('Encimera: ' + r.piezas.length + (r.piezas.length > 1 ? ' piezas, ' : ' pieza, ') + m(total) + ' en total');
       r.piezas.forEach(q => l.push('- ' + (/^(isla|pen)/.test(q.pared) ? q.pared[0].toUpperCase() + q.pared.slice(1) : 'Pared ' + q.pared) + ': ' + v(q.largo) + ' × ' + v(q.fondo) + (q.nota ? ' (' + q.nota + ')' : '') + (q.larga ? ' · pasa de ' + m(ENCIMERA.largo_max) + ': puede llevar junta' : '')));
       if (r.uniones.length) l.push('- Uniones en esquina: ' + r.uniones.join(', '));
+      const matEnc = ((d.acabados || {}).encimera || {}).material;
+      if (LAMINADOS.includes(matEnc)) { const n = tablerosEncimera(r.piezas, largoLaminado(matEnc)); l.push('- Tableros: ' + n + ' de ' + metros2(largoLaminado(matEnc)) + ' m'); }
+      if (PIEDRAS.includes(matEnc)) l.push('- Tablas: ' + textoTablas(tablasPiedra(r.piezas)));
       r.huecos.forEach(q => l.push('- Hueco de ' + (q.que === 'placa' ? 'placa' : 'fregadero') + ' (mueble de ' + v(q.ancho) + ', pared ' + q.pared + ')'));
     }
     if (r.cascos.length) { const t = r.tablerosCascos;

@@ -5,6 +5,7 @@ import { fichaNueva, paredNueva } from '../docs/js/modelo.js';
 import { moduloNuevo, REMATES, situarMuebles } from '../docs/js/modulos.js';
 import { mejorCocina, aplicarCambios, puntuarCocina } from '../docs/js/puntuacion.js';
 import { abrir, entrar, crearTrabajo } from './arnes.js';
+import fs from 'fs';
 
 REMATES.porDefecto = false;
 const mod = (tipo, ancho) => Object.assign(moduloNuevo(tipo), { ancho });
@@ -48,8 +49,11 @@ prueba('elegir los cambios: todos dan la misma cocina; quitando uno, ese no se h
     pared('B', 2400, { bajos: [mod('bajo', 600), mod('bajo', 600), mod('bajo', 600)] })]);
   const r = mejorCocina(f);
   afirma(r.pasos.length >= 2, JSON.stringify(r.cambios));
-  igual(aplicarCambios(f, r.pasos.map(x => x.op)).datos.paredes, r.ficha.datos.paredes);
-  const sinB = r.pasos.filter(x => !(x.op.op === 'altos' && x.op.pared === f.datos.paredes[1].id));
+  const sinIds = ps => JSON.parse(JSON.stringify(ps, (k, v) => (k === 'id' && typeof v === 'string' && !/^(alto-|esq-)/.test(v) && v.length > 30 ? undefined : v)));
+  const marcados = r.pasos.filter(x => x.marcado !== false).map(x => x.op);
+  igual(sinIds(aplicarCambios(f, marcados).datos.paredes).map(p => p.altos), sinIds(r.ficha.datos.paredes).map(p => p.altos));
+  igual(aplicarCambios(f, marcados).datos.paredes.map(p => p.bajos), r.ficha.datos.paredes.map(p => p.bajos));
+  const sinB = r.pasos.filter(x => !(/^altos/.test(x.op.op) && x.op.pared === f.datos.paredes[1].id));
   igual(aplicarCambios(f, sinB.map(x => x.op)).datos.paredes[1].altos, [], 'sin los altos de B');
   igual(aplicarCambios(f, []).datos.paredes, f.datos.paredes, 'nada marcado: igual');
 });
@@ -68,6 +72,15 @@ prueba('pared vacía: bajos y sus altos encima como cambio opcional (sin marcar)
   const n = aplicarCambios(f, [x.op]).datos.paredes[1];
   igual(n.bajos.map(m => m.ancho), [600, 600, 600]); igual(n.altos.filter(m => m.tipo === 'alto').map(m => m.ancho), [600, 600, 600]);
   igual(r.ficha.datos.paredes[1].bajos, [], 'la mejor no la toca si no se marca');
+});
+prueba('cocina en U con rincón: escurreplatos sobre el fregadero, alto sobre el lavavajillas y hasta la esquina estantería y alto, cada uno sobre su sitio', () => {
+  const f = fichaNueva('cocina', null, 't'); f.datos = JSON.parse(fs.readFileSync(new URL('./datos_cocina_esquina.json', import.meta.url), 'utf8'));
+  const r = mejorCocina(f), t = aplicarCambios(f, r.pasos.filter(x => x.marcado !== false).map(x => x.op));
+  const altos = situarMuebles(t.datos.paredes[2], t.datos).altos.filter(a => a.m.tipo !== 'hueco').map(a => [a.m.tipo, a.desde, a.hasta]);
+  igual(altos.slice(-2), [['alto', 1200, 2000], ['alto', 2000, 2600]], JSON.stringify(r.pasos.map(x => x.texto)));
+  afirma(altos[0][0] === 'alto_abierto' && altos[0][1] >= 350, 'estantería en el rincón, sin meterse en los altos de la pared B: ' + JSON.stringify(altos));
+  afirma(r.pasos.some(x => /escurreplatos/.test(x.texto)) || r.pasos.some(x => /2 altos encima de los bajos/.test(x.texto)), JSON.stringify(r.pasos.map(x => x.texto)));
+  afirma(r.despues.total > r.antes.total);
 });
 const con = fn => async () => { const a = await abrir({}); try { await entrar(a); await fn(a); igual(a.errores, [], 'errores de página'); } finally { await a.cerrar(); } };
 prueba('app: se desmarca un cambio y solo se aplican los marcados', con(async a => {

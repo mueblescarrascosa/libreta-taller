@@ -3,7 +3,8 @@
 // si no, la habitual. Lo que no tiene artículo claro va a «Revisar». La app de presupuestos lo comprueba otra vez
 // contra su catálogo y crea un presupuesto NUEVO en borrador (libreta.js de cocinas).
 import { situarMuebles, situarCuerpos, piezasInterior, esLibre, instalacionDe, PUENTE, topePuente } from './modulos.js';
-import { textoMaterial, materialCocina, rematesCocina } from './material.js';
+import { textoMaterial, materialCocina, rematesCocina, tablerosEncimera, largoLaminado, PIEDRAS, tablasPiedra, textoTablas } from './material.js';
+export { tablerosEncimera } from './material.js';
 import { ALTURAS, desdeAlto } from './alzado.js';
 import { NOMBRE_MOTIVO, pctRecargo, preciosExtraDe } from './coste.js';
 import { nombreModulo } from './modulos.js';
@@ -121,19 +122,13 @@ export function planoPara3d(d) {
   return limpio(d);
 }
 
-// Encimera para el presupuesto. Laminados: tableros de 4,10 m (los trozos repartidos para aprovechar), colocación,
-// agujeros de placa y fregadero, juntas de unión en las esquinas y copete a juego por metros contra la pared.
-// Piedra y madera: una línea a 0 € para poner el precio del marmolista.
+// Encimera para el presupuesto. Laminados: tableros de su largo (Topform 3,60 m; los demás 4,10 m; los trozos repartidos
+// para aprovechar), colocación, agujeros de placa y fregadero, juntas de unión en las esquinas y copete a juego por metros
+// contra la pared. Piedra: una línea a 0 € para el precio del marmolista, con las tablas que hacen falta (3,02×1,40 o
+// 3,20×1,59); madera, igual sin tablas.
 export const ENCIMERA_PRESUPUESTO = { 'Hidrófuga Egger': 'HIDROFUGA EGGER', 'Egger Perfsense': 'HIDROFUGA EGGER PERFSENSE', 'Egger Porsinc': 'HIDROFUGA EGGER PORSINC',
   'Hidrófuga 19 mm': 'HIDROFUGA 19mm', Topform: 'TOPFORM ENCIMERA' };
 export const TABLERO_ENCIMERA = 4100, TIRA_ZOCALO = 4000;
-export function tablerosEncimera(piezas, largo = TABLERO_ENCIMERA) {
-  const trozos = [];
-  piezas.forEach(p => { let r = p.largo; while (r > largo) { trozos.push(largo); r -= largo; } if (r > 0) trozos.push(r); });
-  const tableros = [];
-  trozos.sort((a, b) => b - a).forEach(t => { const i = tableros.findIndex(x => x + t <= largo); if (i >= 0) tableros[i] += t; else tableros.push(t); });
-  return tableros.length;
-}
 export function encimeraPresupuesto(d) {
   const enc = (d.acabados || {}).encimera || {}, mat = enc.material;
   if (!mat) return null;
@@ -143,8 +138,12 @@ export function encimeraPresupuesto(d) {
   const desc = [mat, enc.modelo, enc.color].filter(Boolean).join(' '), texto = r.piezas.length + (r.piezas.length > 1 ? ' piezas, ' : ' pieza, ') + String(mts).replace('.', ',') + ' m';
   const item = ENCIMERA_PRESUPUESTO[mat], revisar = [];
   r.piezas.filter(q => q.fondo > 650).forEach(q => revisar.push('Encimera de ' + q.pared + ': ' + Math.round(q.fondo / 10) + ' cm de fondo, necesita tablero ancho'));
-  if (!item) return { extras: [], libres: [{ texto: 'Encimera ' + desc + ' · ' + texto + ' (precio del marmolista)', und: 1, precio: 0 }], revisar };
-  const extras = [{ cat: 'ENCIMERA', item, und: tablerosEncimera(r.piezas), texto: desc + ' · ' + texto }];
+  if (!item) {
+    const ts = PIEDRAS.includes(mat) ? tablasPiedra(r.piezas) : [];
+    if (ts.length && ts[0].juntas) revisar.push('Encimera de ' + mat + ': ' + ts[0].juntas + (ts[0].juntas > 1 ? ' piezas más largas' : ' pieza más larga') + ' que la tabla (' + String(ts[0].largo / 1000).replace('.', ',') + ' m): lleva junta');
+    return { extras: [], libres: [{ texto: 'Encimera ' + desc + ' · ' + texto + (ts.length ? ' · ' + textoTablas(ts) : '') + ' (precio del marmolista)', und: 1, precio: 0 }], revisar };
+  }
+  const extras = [{ cat: 'ENCIMERA', item, und: tablerosEncimera(r.piezas, largoLaminado(mat)), texto: desc + ' · ' + texto }];
   extras.push({ cat: 'TRABAJOS ENCIMERA', item: 'COLOCACIÓN ENCIMERA', und: 1, otro: ['ENCIMERA', '+ COLOCACIÓN ENCIMERA'] });
   if (r.huecos.length) extras.push({ cat: 'TRABAJOS ENCIMERA', item: 'AGUJERO PLACA/FREGADERO', und: r.huecos.length, otro: ['ENCIMERA', '+ AGUJERO PLACA/FREGADERO'] });
   if (r.uniones.length) extras.push({ cat: 'TRABAJOS ENCIMERA', item: 'JUNTA DE UNIÓN', und: r.uniones.length, otro: ['ENCIMERA', 'JUNTA DE UNION'] });
