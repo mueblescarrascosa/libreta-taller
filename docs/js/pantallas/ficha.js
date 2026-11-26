@@ -23,6 +23,7 @@ import { disenarCocina, aplicarDiseno, ELECTRO_DISENO, electroDeFicha } from '..
 import { TAPETAS } from '../pedido.js';
 import { airePlaca, textoAirePlaca } from '../consejos.js';
 import { vistaInteractiva, abrirPerspectivaGrande } from './perspectiva-ui.js';
+import { tarjetaTeowin } from './teowin-ui.js';
 import { consejosDiseno, GRUPOS as GRUPOS_CONSEJO } from '../consejos.js';
 import { instalacionesQueFaltan, colocarPropuestas, quitarPropuestas, hayPropuestas } from '../avisos-obra.js';
 import { comoRellenar } from '../ayuda.js';
@@ -377,7 +378,8 @@ export async function pintarFicha(App, id) {
       (() => { const t = h('b', {}, 'Planta'); return plegarCaja(h('div', { class: 'tarjeta tarjeta-planta' }, h('div', { class: 'cab' }, t, botonForma), zonaPlanta), t, 'lat:planta'); })(),
       (() => { const t = h('b', {}, 'Paredes de frente'); return plegarCaja(h('div', { class: 'tarjeta tarjeta-alzado' }, t, botonesAlzado, zonaAlzado), t, 'lat:alzado'); })(),
       (() => { const t = h('b', {}, 'Perspectiva'); return plegarCaja(h('div', { class: 'tarjeta tarjeta-perspectiva' }, t, zonaPersp), t, 'lat:perspectiva'); })(),
-      tarjetaConsejos(), tarjetaDisenar(repintar), tarjetaInstalaciones(repintar)),
+      tarjetaConsejos(), tarjetaDisenar(repintar), tarjetaInstalaciones(repintar),
+      ficha.tipo === 'cocina' ? tarjetaTeowin({ App, ficha, trabajo, d, guardarYa, plegarCaja }) : null),
     h('h2', {}, 'Paredes'),
     zona,
     h('button', { type: 'button', class: 'ancho', 'data-acc': 'anadir-pared', onclick: () => { d.paredes.push(paredNueva(d.paredes)); cambio(); repintar(); } }, '+ Añadir pared')];
